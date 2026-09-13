@@ -1,0 +1,34 @@
+package dev.uncandango.kubegroovy.recipe.match;
+
+import dev.uncandango.kubegroovy.recipe.component.RecipeComponent;
+import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
+import dev.uncandango.kubegroovy.script.bridge.RecordTypeInfo;
+import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+
+import java.util.Map;
+import java.util.Optional;
+
+public record ReplacementMatchInfo(ReplacementMatch match, boolean exact, Optional<RecipeComponent<?>> componentType) {
+	public static final RecordTypeInfo TYPE_INFO = (RecordTypeInfo) TypeInfo.of(ReplacementMatchInfo.class);
+
+	public static final ReplacementMatchInfo NONE = new ReplacementMatchInfo(ReplacementMatch.NONE, false, Optional.empty());
+
+	public static ReplacementMatchInfo wrap(Context cx, Object o, TypeInfo target) {
+		if (o == null) {
+			return NONE;
+		} else if (o instanceof ReplacementMatchInfo h) {
+			return h;
+		} else if (o instanceof Map || o instanceof NativeJavaMap) {
+			return (ReplacementMatchInfo) TYPE_INFO.wrap(cx, o, target);
+		} else {
+			var m = ReplacementMatch.wrap(cx, o);
+			return m == ReplacementMatch.NONE ? NONE : new ReplacementMatchInfo(m, false, Optional.empty());
+		}
+	}
+
+	@Override
+	public String toString() {
+		return (exact || componentType.isPresent()) ? "{exact: " + exact + ", componentType: " + componentType.orElse(null) + ", match: " + match + "}" : String.valueOf(match);
+	}
+}

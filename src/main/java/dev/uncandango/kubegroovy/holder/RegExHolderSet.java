@@ -1,0 +1,116 @@
+package dev.uncandango.kubegroovy.holder;
+
+import com.mojang.datafixers.util.Either;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.uncandango.kubegroovy.CommonProperties;
+import dev.uncandango.kubegroovy.util.RegExpKGY;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.Registry;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.RegistryOps;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
+import net.neoforged.neoforge.registries.holdersets.HolderSetType;
+import org.jspecify.annotations.Nullable;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+
+public class RegExHolderSet<T> extends HolderSet.ListBacked<T> implements KubeGroovyHolderSet<T> {
+	public static <T> MapCodec<RegExHolderSet<T>> codec(ResourceKey<? extends Registry<T>> registryKey) {
+		return RecordCodecBuilder.mapCodec(instance -> instance.group(
+			RegistryOps.retrieveRegistryLookup(registryKey).forGetter(RegExHolderSet::registryLookup),
+			RegExpKGY.CODEC.fieldOf("pattern").forGetter(RegExHolderSet::pattern)
+		).apply(instance, RegExHolderSet::new));
+	}
+
+	public static <T> StreamCodec<RegistryFriendlyByteBuf, RegExHolderSet<T>> streamCodec(ResourceKey<? extends Registry<T>> registryKey) {
+		return ByteBufCodecs.fromCodecWithRegistries(codec(registryKey).codec());
+	}
+
+	private final HolderLookup.RegistryLookup<T> registryLookup;
+	private final Pattern pattern;
+
+	@Nullable
+	private Set<Holder<T>> set = null;
+
+	@Nullable
+	private List<Holder<T>> list = null;
+
+	RegExHolderSet(HolderLookup.RegistryLookup<T> registryLookup, Pattern pattern) {
+		this.registryLookup = registryLookup;
+		this.pattern = pattern;
+	}
+
+	public static <T> HolderSet<T> of(HolderLookup.RegistryLookup<T> registryLookup, Pattern pattern) {
+		var set = new RegExHolderSet<>(registryLookup, pattern);
+		if (CommonProperties.get().serverOnly) {
+			return HolderSet.direct(set.contents());
+		}
+		return set;
+	}
+
+	@Override
+	public HolderSetType type() {
+		return KubeGroovyHolderSets.REGEX.value();
+	}
+
+	public HolderLookup.RegistryLookup<T> registryLookup() {
+		return registryLookup;
+	}
+
+	public Pattern pattern() {
+		return pattern;
+	}
+
+	@Override
+	protected List<Holder<T>> contents() {
+		if (list == null) {
+			list = List.copyOf(registryLookup.listElements().filter(ref -> pattern.matcher(ref.key().identifier().toString()).find()).toList());
+		}
+
+		return list;
+	}
+
+	@Override
+	public boolean isBound() {
+		return this.list != null;
+	}
+
+	@Override
+	public Either<TagKey<T>, List<Holder<T>>> unwrap() {
+		return Either.right(contents());
+	}
+
+	@Override
+	public boolean contains(Holder<T> holder) {
+		if (set == null) {
+			set = Set.copyOf(contents());
+		}
+
+		return set.contains(holder);
+	}
+
+	@Override
+	public Optional<TagKey<T>> unwrapKey() {
+		return Optional.empty();
+	}
+
+	@Override
+	public String toString() {
+		return "KubeGroovyRegExHolderSet[" + RegExpKGY.toRegExpString(pattern) + ']';
+	}
+
+	@Override
+	public String kgy$toIngredientString(Function<Holder<T>, String> elementCodec) {
+		return pattern.toString();
+	}
+}

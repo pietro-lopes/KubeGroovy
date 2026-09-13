@@ -1,0 +1,57 @@
+package dev.uncandango.kubegroovy.misc;
+
+import dev.uncandango.kubegroovy.registry.BuilderBase;
+import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.item.alchemy.Potion;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@ReturnsSelf
+public class PotionBuilder extends BuilderBase<Potion> {
+	public transient List<MobEffectInstance> mobEffects;
+
+	public PotionBuilder(Identifier i) {
+		super(i);
+		mobEffects = new ArrayList<>();
+	}
+
+	@Override
+	public Potion createObject() {
+		return new Potion(id.getPath(), mobEffects.toArray(new MobEffectInstance[0]));
+	}
+
+	public PotionBuilder addEffect(MobEffectInstance effect) {
+		mobEffects.add(effect);
+		return this;
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect) {
+		return effect(effect, 0, 0);
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect, int duration) {
+		return effect(effect, duration, 0);
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect, int duration, int amplifier) {
+		return effect(effect, duration, amplifier, false, true);
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect, int duration, int amplifier, boolean ambient, boolean visible) {
+		return effect(effect, duration, amplifier, ambient, visible, visible);
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect, int duration, int amplifier, boolean ambient, boolean visible, boolean showIcon) {
+		return effect(effect, duration, amplifier, ambient, visible, showIcon, null);
+	}
+
+	public PotionBuilder effect(Holder<MobEffect> effect, int duration, int amplifier, boolean ambient, boolean visible, boolean showIcon, @Nullable MobEffectInstance hiddenEffect) {
+		return addEffect(new MobEffectInstance(effect, duration, amplifier, ambient, visible, showIcon, hiddenEffect));
+	}
+}

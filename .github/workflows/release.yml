@@ -39,11 +39,10 @@ jobs:
     with:
       java-distribution: "microsoft"
       java-version: "25"
-      mod_name: "KubeJS"
+      mod_name: "KubeGroovy"
       curseforge_id: "238086"
       modrinth_id: "umyGl7zF"
       dependencies: |
-        rhino(required){curseforge:416294}{modrinth:sk9knFPE}
         jei(optional){curseforge:238222}{modrinth:u6dRKJwZ}
         rei(optional){curseforge:310111}{modrinth:nfn13YXA}
         emi(optional){curseforge:580555}{modrinth:fRiHVvU7}

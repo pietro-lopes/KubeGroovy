@@ -1,0 +1,23 @@
+package dev.uncandango.kubegroovy.net;
+
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+
+import java.util.Optional;
+
+public record SetActivePostShaderPayload(Optional<Identifier> id) implements CustomPacketPayload {
+	public static final StreamCodec<ByteBuf, SetActivePostShaderPayload> STREAM_CODEC = ByteBufCodecs.optional(Identifier.STREAM_CODEC).map(SetActivePostShaderPayload::new, SetActivePostShaderPayload::id);
+
+	@Override
+	public Type<?> type() {
+		return KubeGroovyNet.SET_ACTIVE_POST_SHADER;
+	}
+
+	public void handle(IPayloadContext ctx) {
+		ctx.enqueueWork(() -> ctx.player().kgy$setActivePostShader(id.orElse(null)));
+	}
+}

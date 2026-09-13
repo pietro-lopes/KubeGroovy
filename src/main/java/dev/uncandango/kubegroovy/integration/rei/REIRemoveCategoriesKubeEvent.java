@@ -1,0 +1,27 @@
+package dev.uncandango.kubegroovy.integration.rei;
+/*
+
+import dev.uncandango.kubegroovy.recipe.viewer.RemoveCategoriesKubeEvent;
+import dev.uncandango.kubegroovy.script.bridge.Context;
+import me.shedaniel.rei.api.client.registry.category.CategoryRegistry;
+import me.shedaniel.rei.api.common.category.CategoryIdentifier;
+import net.minecraft.resources.Identifier;
+
+import java.util.Set;
+
+public class REIRemoveCategoriesKubeEvent implements RemoveCategoriesKubeEvent  {
+	private final Set<CategoryIdentifier<?>> categoriesRemoved;
+	private final CategoryRegistry registry;
+
+	public REIRemoveCategoriesKubeEvent(Set<CategoryIdentifier<?>> categoriesRemoved) {
+		this.categoriesRemoved = categoriesRemoved;
+		this.registry = CategoryRegistry.getInstance();
+	}
+
+	@Override
+	public void remove(Context cx, Identifier[] categories) {
+		for (var id : categories) {
+			categoriesRemoved.add(CategoryIdentifier.of(id));
+		}
+	}
+}*/

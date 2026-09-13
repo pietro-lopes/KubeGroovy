@@ -1,0 +1,51 @@
+package dev.uncandango.kubegroovy.block.callback;
+
+import dev.uncandango.kubegroovy.level.LevelBlock;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import org.jspecify.annotations.Nullable;
+
+public class BlockExplodedCallback {
+	protected final LevelBlock block;
+	protected final Explosion explosion;
+
+	public BlockExplodedCallback(Level level, BlockPos pos, Explosion explosion) {
+		this.block = level.kgy$getBlock(pos);
+		this.explosion = explosion;
+	}
+
+	public Level getLevel() {
+		return block.getLevel();
+	}
+
+	public LevelBlock getBlock() {
+		return block;
+	}
+
+	public BlockState getBlockState() {
+		return block.getBlockState();
+	}
+
+	public Explosion getExplosion() {
+		return explosion;
+	}
+
+	@Nullable
+	public Entity getCause() {
+		return explosion.getDirectSourceEntity();
+	}
+
+	@Nullable
+	public LivingEntity getIgniter() {
+		return explosion.getIndirectSourceEntity();
+	}
+
+	public float getRadius() {
+		return explosion.radius();
+	}
+
+}

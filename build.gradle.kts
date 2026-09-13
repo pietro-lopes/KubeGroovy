@@ -3,6 +3,7 @@ import com.almostreliable.almostgradle.dependency.LoadingMode
 plugins {
 	id("net.neoforged.moddev") version "2.0.138"
 	id("com.almostreliable.almostgradle") version "2.1.1"
+	id("groovy")
 	id("idea")
 	// id("me.shedaniel.unified-publishing") version "0.1.+"
 }
@@ -49,7 +50,7 @@ almostgradle.setup {
 	}
 }
 
-val rhinoVersion: String by project
+val groovyVersion: String by project
 val tinyServerVersion: String by project
 val gifLibVersion: String by project
 val batVersion: String by project
@@ -96,7 +97,7 @@ repositories {
 }
 
 dependencies {
-	api("dev.latvian.mods:rhino:$rhinoVersion") { isTransitive = false }
+	api("org.apache.groovy:groovy:$groovyVersion")
 	implementation("dev.latvian.mods:better-advanced-tooltips") {
 		version {
 			strictly("[$batVersion,)")

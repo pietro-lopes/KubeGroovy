@@ -1,0 +1,22 @@
+package dev.uncandango.kubegroovy.recipe.schema;
+
+import dev.uncandango.kubegroovy.recipe.KubeRecipe;
+import net.minecraft.resources.Identifier;
+
+import java.util.function.Supplier;
+
+public class RecipeFactoryRegistry {
+	private final RecipeSchemaStorage storage;
+
+	public RecipeFactoryRegistry(RecipeSchemaStorage storage) {
+		this.storage = storage;
+	}
+
+	public void register(KubeRecipeFactory type) {
+		storage.recipeTypes.put(type.id(), type);
+	}
+
+	public void register(Identifier id, Class<?> typeClass, Supplier<? extends KubeRecipe> factory) {
+		register(new KubeRecipeFactory(id, typeClass, factory));
+	}
+}

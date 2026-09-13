@@ -1,0 +1,22 @@
+{
+	"providers": [
+		{
+			"type": "bitmap",
+			"file": "kubegroovy:font/icons/crafting.png",
+			"ascent": 7,
+			"chars": ["A"]
+		},
+		{
+			"type": "bitmap",
+			"file": "kubegroovy:font/icons/kube.png",
+			"ascent": 7,
+			"chars": ["K"]
+		},
+		{
+			"type": "bitmap",
+			"file": "kubegroovy:font/icons/vscode.png",
+			"ascent": 7,
+			"chars": ["V"]
+		}
+	]
+}

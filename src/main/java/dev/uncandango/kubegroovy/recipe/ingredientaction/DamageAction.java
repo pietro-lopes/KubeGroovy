@@ -1,0 +1,25 @@
+package dev.uncandango.kubegroovy.recipe.ingredientaction;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.uncandango.kubegroovy.KubeGroovy;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingInput;
+
+public record DamageAction(int damage) implements IngredientAction {
+	public static final IngredientActionType<DamageAction> TYPE = new IngredientActionType<>(KubeGroovy.id("damage"), RecordCodecBuilder.mapCodec(instance -> instance.group(
+		Codec.INT.fieldOf("damage").forGetter(DamageAction::damage)
+	).apply(instance, DamageAction::new)), ByteBufCodecs.VAR_INT.map(DamageAction::new, DamageAction::damage));
+
+	@Override
+	public IngredientActionType<?> getType() {
+		return TYPE;
+	}
+
+	@Override
+	public ItemStack transform(ItemStack old, int index, CraftingInput input) {
+		old.setDamageValue(old.getDamageValue() + damage);
+		return old.getDamageValue() >= old.getMaxDamage() ? ItemStack.EMPTY : old;
+	}
+}

@@ -1,0 +1,112 @@
+package dev.uncandango.kubegroovy.block.predicate;
+
+import dev.uncandango.kubegroovy.level.LevelBlock;
+import dev.uncandango.kubegroovy.plugin.builtin.wrapper.BlockWrapper;
+import dev.uncandango.kubegroovy.util.Cast;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
+import org.jspecify.annotations.Nullable;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+public class BlockIDPredicate implements BlockPredicate {
+	public record PropertyObject(Property<?> property, Object value) {
+	}
+
+	private final Identifier id;
+	private final Map<String, String> properties;
+	private @Nullable Block cachedBlock;
+	private @Nullable List<PropertyObject> cachedProperties;
+
+	public BlockIDPredicate(Identifier i) {
+		id = i;
+		properties = new HashMap<>();
+	}
+
+	@Override
+	public String toString() {
+		return BlockWrapper.toBlockStateString(id.toString(), properties);
+	}
+
+	public BlockIDPredicate with(String key, String value) {
+		properties.put(key, value);
+		cachedBlock = null;
+		cachedProperties = null;
+		return this;
+	}
+
+	private Block getBlock() {
+		if (cachedBlock == null) {
+			cachedBlock = BuiltInRegistries.BLOCK.getValue(id);
+		}
+		return cachedBlock;
+	}
+
+	public List<PropertyObject> getBlockProperties() {
+		if (cachedProperties == null) {
+			cachedProperties = new LinkedList<>();
+
+			Map<String, Property<?>> map = new HashMap<>();
+
+			for (var property : getBlock().defaultBlockState().getProperties()) {
+				map.put(property.getName(), property);
+			}
+
+			for (var entry : properties.entrySet()) {
+				var property = map.get(entry.getKey());
+
+				if (property != null) {
+					Optional<?> o = property.getValue(entry.getValue());
+
+					if (o.isPresent()) {
+						var po = new PropertyObject(property, o.get());
+						cachedProperties.add(po);
+					}
+				}
+			}
+		}
+
+		return cachedProperties;
+	}
+
+	public BlockState getBlockState() {
+		var state = getBlock().defaultBlockState();
+
+		for (var object : getBlockProperties()) {
+			state = state.setValue(object.property, Cast.to(object.value));
+		}
+
+		return state;
+	}
+
+	@Override
+	public boolean check(LevelBlock b) {
+		return getBlock() != Blocks.AIR && checkState(b.getBlockState());
+	}
+
+	public boolean checkState(BlockState state) {
+		if (state.getBlock() != getBlock()) {
+			return false;
+		}
+
+		if (properties.isEmpty()) {
+			return true;
+		}
+
+		for (var object : getBlockProperties()) {
+			if (!state.getValue(object.property).equals(object.value)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+}
