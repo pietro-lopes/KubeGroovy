@@ -1,10 +1,14 @@
 import com.almostreliable.almostgradle.dependency.LoadingMode
+import java.util.Locale
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
 	id("net.neoforged.moddev") version "2.0.138"
-	id("com.almostreliable.almostgradle") version "2.1.1"
+	id("com.almostreliable.almostgradle") version "2.2.0"
 	id("groovy")
 	id("idea")
+	jacoco
 	// id("me.shedaniel.unified-publishing") version "0.1.+"
 }
 
@@ -24,7 +28,10 @@ almostgradle.setup {
 	withAccessTransformerValidation = !runningInCI
 
 	tests {
-
+		testMod = true
+		gameTests = true
+		testFramework = true
+		jUnit = true
 	}
 
 	recipeViewers {
@@ -98,6 +105,8 @@ repositories {
 
 dependencies {
 	api("org.apache.groovy:groovy:$groovyVersion")
+	api("org.apache.groovy:groovy-callsite:$groovyVersion")
+	testImplementation("org.assertj:assertj-core:3.27.3")
 	implementation("dev.latvian.mods:better-advanced-tooltips") {
 		version {
 			strictly("[$batVersion,)")
@@ -120,6 +129,106 @@ dependencies {
 			prefer("animated-gif-lib-$gifLibVersion")
 		}
 	})
+}
+
+// Make the Groovy fixtures available in the gametest run's game directory.
+val copyGameTestScripts by tasks.registering(Sync::class) {
+	mustRunAfter("prepareGametestRun")
+	from(layout.projectDirectory.dir("src/test/kubegroovy"))
+	into(layout.buildDirectory.dir("tmp/gametestRuns/gametest/kubegroovy"))
+}
+
+tasks.matching { it.name == "runGametest" }.configureEach {
+	dependsOn(copyGameTestScripts)
+}
+
+// Keep one merged local coverage report for the unit-test and game-test JVMs.
+val coverageIncludes = listOf("dev.uncandango.kubegroovy.*")
+
+jacoco {
+	toolVersion = "0.8.15"
+	applyTo(tasks.withType<JavaExec>().matching { it.name == "runGametest" })
+}
+
+val coverageRequested = gradle.startParameter.taskNames.any {
+	it.substringAfterLast(':').startsWith("coverage")
+}
+
+tasks.named<Test>("test") {
+	failOnNoDiscoveredTests = false
+	if (coverageRequested) {
+		outputs.upToDateWhen { false }
+	}
+	extensions.configure<JacocoTaskExtension> {
+		includes = coverageIncludes
+	}
+}
+
+tasks.withType<JavaExec>().matching { it.name == "runGametest" }.configureEach {
+	mustRunAfter("test")
+	if (coverageRequested) {
+		outputs.upToDateWhen { false }
+	}
+	extensions.configure<JacocoTaskExtension> {
+		isEnabled = true
+		includes = coverageIncludes
+	}
+}
+
+val coverageReport by tasks.registering(JacocoReport::class) {
+	group = "verification"
+	description = "Merges coverage from the JUnit and game-test JVMs."
+	dependsOn("test", "runGametest")
+	sourceSets(sourceSets["main"])
+	executionData(fileTree(layout.buildDirectory) {
+		include("jacoco/test.exec", "jacoco/runGametest.exec")
+	})
+	reports {
+		html.required = true
+		csv.required = true
+		xml.required = false
+		html.outputLocation = layout.buildDirectory.dir("reports/coverage/html")
+		csv.outputLocation = layout.buildDirectory.file("reports/coverage/coverage.csv")
+	}
+}
+
+val coverageSummaryJson by tasks.registering {
+	group = "verification"
+	description = "Writes coverage-summary.json from the JaCoCo CSV report."
+	dependsOn(coverageReport)
+	val csvFile = layout.buildDirectory.file("reports/coverage/coverage.csv")
+	val jsonFile = layout.buildDirectory.file("reports/coverage/coverage-summary.json")
+	inputs.file(csvFile)
+	outputs.file(jsonFile)
+	doLast {
+		val rows = csvFile.get().asFile.readLines().drop(1).filter { it.isNotBlank() }
+		var instrMissed = 0L; var instrCovered = 0L
+		var branchMissed = 0L; var branchCovered = 0L
+		var lineMissed = 0L; var lineCovered = 0L
+		for (row in rows) {
+			val c = row.split(',')
+			if (c.size < 9) continue
+			instrMissed += c[3].toLong(); instrCovered += c[4].toLong()
+			branchMissed += c[5].toLong(); branchCovered += c[6].toLong()
+			lineMissed += c[7].toLong(); lineCovered += c[8].toLong()
+		}
+		fun pct(covered: Long, missed: Long): String {
+			val total = covered + missed
+			val value = if (total == 0L) 0.0 else covered * 100.0 / total
+			return String.format(Locale.ROOT, "%.2f", value)
+		}
+		fun metric(name: String, covered: Long, missed: Long) =
+			"    \"$name\": { \"covered\": $covered, \"missed\": $missed, \"percent\": ${pct(covered, missed)} }"
+		val json = buildString {
+			appendLine("{")
+			appendLine(metric("instruction", instrCovered, instrMissed) + ",")
+			appendLine(metric("branch", branchCovered, branchMissed) + ",")
+			appendLine(metric("line", lineCovered, lineMissed))
+			appendLine("}")
+		}
+		jsonFile.get().asFile.writeText(json)
+		logger.lifecycle("Coverage (instructions): ${pct(instrCovered, instrMissed)}% -> ${jsonFile.get().asFile}")
+	}
 }
 
 publishing {

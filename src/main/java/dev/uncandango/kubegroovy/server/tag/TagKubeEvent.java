@@ -23,7 +23,7 @@ public class TagKubeEvent implements KubeEvent {
 			if (stacktrace.length > 0) {
 				if (stacktrace[0].toString().contains("dev.uncandango.kubegroovy.script.bridge.ScriptRuntime.doTopCall")) {
 					var error = ex.getCause() == null ? ex : ex.getCause();
-					ConsoleGY.SERVER.error("IllegalStateException was thrown during tag event in script %s:%d, this is most likely due to a concurrency bug in Rhino! While we are working on a fix for this issue, you may manually work around it by reloading the server again (e.g. by using /reload command).".formatted(container.source, container.line), error);
+					ConsoleGY.SERVER.error("IllegalStateException was thrown during tag event in script %s:%d, this is most likely due to a concurrency bug in the script bridge! While we are working on a fix for this issue, you may manually work around it by reloading the server again (e.g. by using /reload command).".formatted(container.source, container.line), error);
 					return null;
 				}
 			}

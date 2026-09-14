@@ -20,6 +20,7 @@ import dev.uncandango.kubegroovy.script.PlatformWrapper;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.data.KubeFileResourcePack;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.util.RecordDefaults;
 import net.minecraft.resources.Identifier;
 import net.neoforged.api.distmarker.Dist;
@@ -71,6 +72,7 @@ public class KubeGroovy {
 	}
 
 	public KubeGroovy(IEventBus bus, Dist dist, ModContainer mod) throws Throwable {
+		KubeGroovyMetaClassCreationHandle.install();
 		modEventBus = bus;
 		thisMod = mod;
 		VERSION = mod.getModInfo().getVersion().toString();

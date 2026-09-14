@@ -1,0 +1,25 @@
+modLoader = "javafml"
+loaderVersion = "[2,)"
+license = "GNU LGPLv3"
+
+[[mods]]
+modId = "testmod"
+version = "1.0.0"
+displayName = "KubeGroovy Game Tests"
+description = '''
+Internal game tests for KubeGroovy. Not shipped.
+'''
+
+[[dependencies.testmod]]
+modId = "neoforge"
+type = "required"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.testmod]]
+modId = "kubegroovy"
+type = "required"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"

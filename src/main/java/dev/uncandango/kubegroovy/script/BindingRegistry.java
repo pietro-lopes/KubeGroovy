@@ -33,7 +33,7 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding, Script
 			if (value != null) {
 				add(name, value instanceof Class<?> c ? context.loadJavaClass(c.getName(), false) : value);
 			}
-			// Nulls are skipped for minimal port (no getter traps like Rhino).
+			// Nulls are skipped for the minimal Groovy binding bridge (no getter traps).
 		} catch (Exception ignored) {
 		}
 	}

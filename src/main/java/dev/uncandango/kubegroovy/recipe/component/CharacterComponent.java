@@ -23,7 +23,7 @@ public class CharacterComponent extends SimpleRecipeComponent<Character> {
 
 	@Override
 	public Character wrap(RecipeScriptContext cx, Object from) {
-		// hack: Rhino stores numeric object keys like '0' as integer index properties
+		// hack: Groovy stores numeric object keys like '0' as integer index properties
 		return from instanceof Number ? String.valueOf(from).charAt(0) : super.wrap(cx, from);
 	}
 

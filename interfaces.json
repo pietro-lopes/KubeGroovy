@@ -81,6 +81,6 @@
 		"dev/uncandango/kubegroovy/core/EntityTypeKGY"
 	],
 	"net/minecraft/tags/TagLoader":[
-		"dev/uncandango/kubegroovy/core/TagLoaderKGY<T>"
+		"dev/uncandango/kubegroovy/core/TagLoaderKGY"
 	]
 }

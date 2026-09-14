@@ -125,7 +125,7 @@ public class EntityArrayList<T extends Entity> extends ArrayList<T> implements M
 		""", params = {
 		@Param(name = "filter", value = "The predicate - a function that takes an argument of `Entity` and returns a boolean.")
 	})
-	// FIXME: Inaccessible from GY due to order of operations in Rhino, this method is used by other filter methods
+	// FIXME: Inaccessible from GY due to order of operations in the Groovy call site, this method is used by other filter methods
 	public EntityArrayList<T> filter(Predicate<? super Entity> filter) {
 		if (isEmpty()) {
 			return this;

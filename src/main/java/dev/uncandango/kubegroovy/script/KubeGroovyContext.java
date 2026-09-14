@@ -14,6 +14,8 @@ import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.ScriptableObject;
 import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyClassLoader;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
+import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
@@ -47,10 +49,13 @@ public class KubeGroovyContext extends Context {
 
 	public KubeGroovyContext(KubeGroovyContextFactory factory) {
 		this.kgyFactory = factory;
+		KubeGroovyMetaClassCreationHandle.install();
+		KubeGroovyMetaClassCreationHandle.refreshInjectedTypes();
+		KubeGroovyMetaClassCreationHandle.refresh(RegistryKubeEvent.class);
 		this.binding = new Binding();
 		var parent = KubeGroovy.class.getClassLoader();
-		var loader = new KubeGroovyClassLoader(parent, factory.manager);
-		var config = new CompilerConfiguration();
+		var config = KubeGroovyClassLoader.makeConfig(factory.manager, factory.getTypeWrappers());
+		var loader = new KubeGroovyClassLoader(parent, factory.manager, config);
 		this.shell = new GroovyShell(loader, binding, config);
 		this.topLevelScope = new ScriptableObject();
 

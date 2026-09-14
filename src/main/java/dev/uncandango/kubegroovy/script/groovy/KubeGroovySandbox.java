@@ -1,14 +1,20 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
+import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
+import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
+import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassCodeExpressionTransformer;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.expr.ArgumentListExpression;
 import org.codehaus.groovy.ast.expr.ClassExpression;
 import org.codehaus.groovy.ast.expr.ConstantExpression;
+import org.codehaus.groovy.ast.expr.CastExpression;
+import org.codehaus.groovy.ast.expr.ClosureExpression;
 import org.codehaus.groovy.ast.expr.Expression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.StaticMethodCallExpression;
+import org.codehaus.groovy.ast.expr.TupleExpression;
 import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.control.SourceUnit;
@@ -28,13 +34,16 @@ public final class KubeGroovySandbox {
 	}
 
 	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter) {
+		return customizers(filter, null);
+	}
+
+	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter, @Nullable TypeWrappers wrappers) {
 		var secure = new SecureASTCustomizer();
 		secure.setClosuresAllowed(true);
 		secure.setMethodDefinitionAllowed(false); // scripts are run as script bodies, no new methods needed for minimal
 		secure.setPackageAllowed(true);
-		secure.setImportsWhitelist(null); // imports allowed, class filter enforces at load
-		secure.setStaticImportsWhitelist(null);
-		secure.setStaticStarImportsWhitelist(null);
+		// Leave import whitelists at Groovy's permissive default; the class filter and
+		// class-loader checks enforce the actual script import policy.
 		// Block direct receiver types that are almost always abuse vectors
 		secure.setReceiversBlackList(List.of(
 			"java.lang.System",
@@ -58,9 +67,31 @@ public final class KubeGroovySandbox {
 
 			@Override
 			public Expression transform(Expression exp) {
+				// Groovy's ClassCodeExpressionTransformer intentionally does not descend
+				// into closures. Script callbacks contain most of the public API calls,
+				// so explicitly visit their body before handling the enclosing expression.
+				if (exp instanceof ClosureExpression closure) {
+					closure.visit(this);
+					return exp;
+				}
+				if (exp instanceof CastExpression cast && wrappers != null && wrappers.hasWrapper(cast.getType().getName())) {
+					var value = transform(cast.getExpression());
+					var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
+						new ArgumentListExpression(value, new ClassExpression(cast.getType())));
+					rewritten.setSourcePosition(exp);
+					return rewritten;
+				}
 				if (exp instanceof MethodCallExpression call) {
 					String method = call.getMethodAsString();
 					Expression object = call.getObjectExpression();
+					if ("asType".equals(method) && wrappers != null && call.getArguments() instanceof TupleExpression args
+						&& args.getExpressions().size() == 1 && args.getExpression(0) instanceof ClassExpression target
+						&& wrappers.hasWrapper(target.getType().getName())) {
+						var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
+							new ArgumentListExpression(transform(object), new ClassExpression(target.getType())));
+						rewritten.setSourcePosition(exp);
+						return rewritten;
+					}
 
 					// Block System.exit / halt
 					if (object instanceof VariableExpression var && var.getName().equals("System")
@@ -117,10 +148,16 @@ public final class KubeGroovySandbox {
 			}
 		};
 
-		CompilationCustomizer transformerCustomizer = new CompilationCustomizer(CompilePhase.CANONICALIZATION) {
+		CompilationCustomizer transformerCustomizer = new CompilationCustomizer(CompilePhase.CONVERSION) {
 			@Override
 			public void call(SourceUnit source, org.codehaus.groovy.classgen.GeneratorContext context, ClassNode classNode) {
 				transformer.setSource(source);
+				// Script statements are still held by the module at this phase; visiting
+				// the statement block directly ensures expressions in closures and script
+				// initializers are transformed before Groovy emits the run method.
+				if (source.getAST().getStatementBlock() != null) {
+					source.getAST().getStatementBlock().visit(transformer);
+				}
 				transformer.visitClass(classNode);
 			}
 		};

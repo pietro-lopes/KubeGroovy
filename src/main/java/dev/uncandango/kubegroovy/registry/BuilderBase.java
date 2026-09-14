@@ -155,7 +155,9 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 
 	@HideFromGY
 	public T createTransformedObject() {
-		object = transformObject(createObject());
+		if (object == null) {
+			object = transformObject(createObject());
+		}
 		return object;
 	}
 

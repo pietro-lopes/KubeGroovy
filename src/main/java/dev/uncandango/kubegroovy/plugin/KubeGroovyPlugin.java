@@ -93,7 +93,7 @@ public interface KubeGroovyPlugin {
 	default void registerBindings(BindingRegistry bindings) {
 	}
 
-	/// Register GY-to-Java type wrappers so Rhino can automatically convert script values
+	/// Register GY-to-Java type wrappers so Groovy can explicitly convert script values
 	/// (e.g. a string `"minecraft:stone"`) into the expected Java type (e.g. a [Block]).
 	default void registerTypeWrappers(TypeWrapperRegistry registry) {
 	}

@@ -7,6 +7,7 @@ import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.TickDuration;
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate;
 import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -60,9 +61,14 @@ public class ItemModificationKubeEvent implements KubeEvent {
 		""")
 	// TODO: item with component filter support?
 	public void modify(RegistryPredicate<Item> in, Consumer<ItemModifications> c) {
+		KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
 		for (Item item : BuiltInRegistries.ITEM) {
 			if (in.test(item.kgy$asHolder())) {
-				event.modify(item, (builder, context, key) -> c.accept(new ItemModifications(item, builder, context)));
+				event.modify(item, (builder, context, key) -> {
+					var modifications = new ItemModifications(item, builder, context);
+					KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
+					c.accept(modifications);
+				});
 			}
 		}
 	}

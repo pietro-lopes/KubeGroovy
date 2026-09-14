@@ -61,7 +61,7 @@ public class ScriptFile implements Comparable<ScriptFile> {
 		for (int i = 0; i < lines.length; i++) {
 			var tline = lines[i].trim();
 
-			if (tline.isEmpty() || tline.startsWith("import ")) {
+			if (tline.isEmpty()) {
 				lines[i] = "";
 			} else if (tline.startsWith("//")) {
 				var matcher = PROPERTY_PATTERN.matcher(tline.substring(2).trim());

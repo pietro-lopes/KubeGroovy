@@ -1,7 +1,11 @@
 # changelog
 
 ## Unreleased
-- /
+- Port the headless KubeJS fixture suite to Groovy scripts and enable the 51
+  NeoForge game tests.
+- Add shared Groovy sandbox/compiler configuration, explicit type-wrapper casts,
+  safe callback context restoration, and the annotated addon dispatch bridge.
+- Add merged JaCoCo HTML, CSV, and JSON reports under `build/reports/coverage`.
 
 ## [8.0.6] - 2026-09-09
 

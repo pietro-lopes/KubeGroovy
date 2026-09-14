@@ -1,16 +1,33 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
 import groovy.lang.Closure;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.List;
 import java.util.Map;
 
 /** Minimal Groovy coercion helpers used by bridge Context and new engine. */
 public final class GroovyConversions {
+	private static final ThreadLocal<Context> ACTIVE_CONTEXT = new ThreadLocal<>();
+
 	private GroovyConversions() {
+	}
+
+	/** Context currently associated with a Groovy callback, including callbacks
+	 * running on an event thread where the legacy Context thread-local is absent. */
+	public static Context getActiveContext() {
+		Context current = Context.getCurrent();
+		return current != null ? current : ACTIVE_CONTEXT.get();
+	}
+
+	public static void pushActiveContext(Context context) {
+		if (context == null) {
+			ACTIVE_CONTEXT.remove();
+		} else {
+			ACTIVE_CONTEXT.set(context);
+		}
 	}
 
 	public static Object toScript(Object value) {
@@ -176,6 +193,7 @@ public final class GroovyConversions {
 			return (T) delegate;
 		}
 		final Object target = delegate;
+		final Context originatingContext = Context.getCurrent();
 		if (!type.isInterface() || type.getMethods().length == 0) {
 			return (T) target;
 		}
@@ -183,6 +201,20 @@ public final class GroovyConversions {
 		return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, new InvocationHandler() {
 			@Override
 			public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+				if (args != null) {
+					for (Object argument : args) {
+						KubeGroovyMetaClassCreationHandle.refreshIfNeeded(argument);
+					}
+				}
+				Context previous = Context.getCurrent();
+				Context previousActive = ACTIVE_CONTEXT.get();
+				if (originatingContext != null && originatingContext != previous) {
+					Context.setCurrent(originatingContext);
+				}
+				if (originatingContext != null) {
+					ACTIVE_CONTEXT.set(originatingContext);
+				}
+				try {
 				if (method.getDeclaringClass() == Object.class) {
 					return method.invoke(target, args);
 				}
@@ -193,7 +225,7 @@ public final class GroovyConversions {
 					if (args.length == 1) {
 						return c.call(args[0]);
 					}
-					return c.call((Object) args);
+					return c.call(args);
 				}
 				if (target instanceof BaseFunction bf) {
 					return bf.call(Context.getCurrent(), null, null, args == null ? new Object[0] : args);
@@ -215,6 +247,16 @@ public final class GroovyConversions {
 					return null;
 				}
 				throw new UnsupportedOperationException("Cannot invoke " + method + " on " + target);
+				} finally {
+					if (previousActive == null) {
+						ACTIVE_CONTEXT.remove();
+					} else {
+						ACTIVE_CONTEXT.set(previousActive);
+					}
+					if (originatingContext != null && originatingContext != previous) {
+						if (previous == null) Context.setCurrent(null); else Context.setCurrent(previous);
+					}
+				}
 			}
 		});
 	}

@@ -24,6 +24,24 @@ ServerEvents.recipes { event ->
 }
 ```
 
+Groovy collection syntax, closures, maps, GStrings, and normal imports are
+available to scripts. Values that have a registered KubeGroovy type wrapper use
+an explicit cast, so the conversion is visible at the call site:
+
+```groovy
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
+
+ItemEvents.modification { event ->
+    event.modify('minecraft:ender_pearl' as RegistryPredicate) { item ->
+        item.maxStackSize = 64
+    }
+}
+```
+
+The equivalent `value.asType(Target)` form is supported. Ordinary Java/Groovy
+method resolution remains unchanged, and unregistered targets keep normal
+Groovy cast behavior.
+
 Scripts run on a sandboxed `GroovyClassLoader` (`ClassCodeExpressionTransformer` + `CompilationCustomizer` + class filter): `System.exit`, `Runtime.exec`, reflection abuse (`setAccessible`), and classloader tricks are blocked.
 
 ## Issues and Feedback

@@ -1,0 +1,178 @@
+package dev.uncandango.kubegroovy.groovytest;
+
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
+import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
+import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
+import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
+import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovySandbox;
+import groovy.lang.Closure;
+import groovy.lang.GroovyShell;
+import groovy.lang.MissingMethodException;
+import groovy.lang.MissingPropertyException;
+import org.codehaus.groovy.control.CompilerConfiguration;
+import org.codehaus.groovy.runtime.InvokerHelper;
+import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Focused regression coverage for the Groovy-only interoperability layer. */
+class KubeGroovyInteropTests {
+	@BeforeEach
+	void installBridge() {
+		Context.setCurrent(null);
+		KubeGroovyMetaClassCreationHandle.install();
+	}
+
+	@AfterEach
+	void clearContext() {
+		Context.setCurrent(null);
+	}
+
+	@Test
+	void registeredWrappersKeepValidatorsAndFactories() {
+		var wrappers = new TypeWrappers();
+		var validated = new AtomicBoolean();
+		wrappers.register(WrappedValue.class,
+			(from, target) -> {
+				validated.set(true);
+				return from instanceof String;
+			},
+			(cx, from, target) -> new WrappedValue((String) from));
+
+		var value = (WrappedValue) wrappers.coerce(new Context(), "wrapped", WrappedValue.class);
+		assertEquals("wrapped", value.value());
+		assertTrue(validated.get());
+		assertThrows(GroovyCastException.class, () -> wrappers.coerce(new Context(), 42, WrappedValue.class));
+
+		wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)));
+		assertEquals("direct", ((DirectValue) wrappers.coerce(new Context(), "direct", DirectValue.class)).value());
+	}
+
+	@Test
+	void sandboxRewritesExplicitCastAndAsTypeForms() {
+		var wrappers = new TypeWrappers();
+		wrappers.register(String.class, (cx, value, target) -> String.valueOf(value));
+		var configuration = new CompilerConfiguration();
+		KubeGroovySandbox.customizers(null, wrappers).forEach(configuration::addCompilationCustomizers);
+		var shell = new GroovyShell(configuration);
+
+		assertDoesNotThrow(() -> shell.parse("def castValue = 'value' as String; def typeValue = 'value'.asType(String)"));
+	}
+
+	@Test
+	void callableFunctionsRestoreTheirOriginatingContext() {
+		var context = new Context();
+		Context.setCurrent(context);
+		var function = new BaseFunction((Function<Object[], Object>) args -> {
+			assertSame(context, Context.getCurrent());
+			return args[0];
+		});
+		var previous = new Context();
+		Context.setCurrent(previous);
+
+		assertEquals("value", function.call("value"));
+		assertSame(previous, Context.getCurrent());
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void callbackAdaptersRestoreTheirOriginatingContext() {
+		var context = new Context();
+		Context.setCurrent(context);
+		Closure<Object> closure = new Closure<Object>(this) {
+			public Object doCall(Object value) {
+				assertSame(context, Context.getCurrent());
+				return value;
+			}
+		};
+		var callback = GroovyConversions.toFunctionalInterface(closure, Function.class);
+		var previous = new Context();
+		Context.setCurrent(previous);
+
+		assertEquals("value", ((Function<Object, Object>) callback).apply("value"));
+		assertSame(previous, Context.getCurrent());
+	}
+
+	@Test
+	void remapPrecedenceContextInjectionAndHiddenMembersAreStable() {
+		KubeGroovyMetaClassCreationHandle.refresh(BridgeTarget.class);
+		var target = new BridgeTarget();
+
+		// A regular Java getter wins over an annotated fallback alias.
+		assertEquals("normal", InvokerHelper.getProperty(target, "alias"));
+		assertEquals("renamed", InvokerHelper.getProperty(target, "renamed"));
+
+		var context = new Context();
+		Context.setCurrent(context);
+		assertEquals("context:context", InvokerHelper.invokeMethod(target, "contextValue", new Object[]{"context"}));
+		Context.setCurrent(null);
+
+		assertThrows(MissingPropertyException.class, () -> InvokerHelper.getProperty(target, "hidden"));
+		assertThrows(MissingMethodException.class, () -> InvokerHelper.invokeMethod(target, "doesNotExist", new Object[0]));
+	}
+
+	@Test
+	void activeSandboxBlocksDangerousCalls() {
+		var configuration = new CompilerConfiguration();
+		KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
+		var shell = new GroovyShell(configuration);
+		var error = assertThrows(Throwable.class, () -> shell.evaluate("System.exit(1)"));
+		assertTrue(hasCause(error, SecurityException.class)
+			|| String.valueOf(error).contains("System")
+			|| String.valueOf(error).contains("not allowed"));
+	}
+
+	private static boolean hasCause(Throwable error, Class<? extends Throwable> type) {
+		for (var current = error; current != null; current = current.getCause()) {
+			if (type.isInstance(current)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	record WrappedValue(String value) {
+	}
+
+	record DirectValue(String value) {
+	}
+
+	@RemapPrefixForGY("bridge$")
+	public static class BridgeTarget {
+		public String getAlias() {
+			return "normal";
+		}
+
+		public String bridge$getAlias() {
+			return "bridge";
+		}
+
+		@RemapForGY("renamed")
+		public String getRenamedValue() {
+			return "renamed";
+		}
+
+		public String bridge$contextValue(Context context, String value) {
+			return value + ":" + (context == Context.getCurrent() ? "context" : "wrong");
+		}
+
+		@HideFromGY
+		public String bridge$getHidden() {
+			return "hidden";
+		}
+	}
+}

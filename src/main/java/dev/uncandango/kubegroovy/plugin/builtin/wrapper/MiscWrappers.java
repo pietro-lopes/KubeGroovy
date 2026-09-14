@@ -245,7 +245,7 @@ public interface MiscWrappers {
 	}
 
 	@Nullable
-	static Path wrapPath(Context cx, @Nullable Object o) {
+	public static Path wrapPath(Context cx, @Nullable Object o) {
 		try {
 			if (o instanceof Path p) {
 				return KubeGroovyPaths.verifyFilePath(p);

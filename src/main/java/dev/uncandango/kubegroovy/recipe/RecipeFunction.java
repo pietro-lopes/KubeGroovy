@@ -8,6 +8,7 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaObject;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import org.codehaus.groovy.runtime.InvokerHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,5 +68,24 @@ public class RecipeFunction extends NativeJavaObject {
 		}
 
 		return s;
+	}
+
+	@Override
+	public Object getProperty(String property) {
+		var value = get(Context.getCurrent(), property, this);
+		if (value != Scriptable.NOT_FOUND) {
+			return value;
+		}
+		return InvokerHelper.getProperty(recipe, property);
+	}
+
+	@Override
+	public Object invokeMethod(String name, Object args) {
+		var function = builderFunctions.get(name);
+		if (function != null) {
+			Object[] values = args instanceof Object[] array ? array : new Object[]{args};
+			return function.call(values);
+		}
+		return InvokerHelper.invokeMethod(recipe, name, args instanceof Object[] array ? array : new Object[]{args});
 	}
 }

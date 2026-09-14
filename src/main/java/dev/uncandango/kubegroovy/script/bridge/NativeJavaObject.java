@@ -1,7 +1,9 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import groovy.lang.GroovyObjectSupport;
+
 /** Legacy-compat java object wrapper. */
-public class NativeJavaObject implements Scriptable, Wrapper {
+public class NativeJavaObject extends GroovyObjectSupport implements Scriptable, Wrapper {
 	protected final Object object;
 	protected final Scriptable scope;
 	protected final TypeInfo type;

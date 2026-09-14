@@ -11,6 +11,7 @@ import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperValidator;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
+import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.util.StringRepresentable;
@@ -40,7 +41,29 @@ public class TypeWrapperRegistry {
 	}
 
 	public <T> boolean hasTypeWrapper(Class<T> target) {
-		return typeWrappers.wrappers.containsKey(target);
+		return typeWrappers.hasWrapper(target);
+	}
+
+	/** Entry point used by the sandbox-rewritten {@code value as Target} casts. */
+	public static Object coerce(Object value, Class<?> target) {
+		var cx = Context.getCurrent();
+		if (!(cx instanceof KubeGroovyContext kgy)) {
+			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target);
+		}
+		Object result = kgy.kgyFactory.getTypeWrappers().coerce(cx, value, target);
+		// A wrapper may return a vanilla value whose script-facing methods are
+		// supplied by an injected KGY interface.  Refresh that concrete class so
+		// the same aliases/properties are available immediately after an explicit
+		// Groovy cast.
+		if (result != null) {
+			KubeGroovyMetaClassCreationHandle.refreshIfNeeded(result);
+		}
+		return result;
+	}
+
+	/** Used by the compiler customizer while a script class is being compiled. */
+	public static boolean hasTypeWrapper(Context cx, String targetName) {
+		return cx instanceof KubeGroovyContext kgy && kgy.kgyFactory.getTypeWrappers().hasWrapper(targetName);
 	}
 
 	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory) {
