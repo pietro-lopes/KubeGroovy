@@ -10,6 +10,7 @@ import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovySandbox;
+import groovy.lang.Binding;
 import groovy.lang.Closure;
 import groovy.lang.GroovyShell;
 import groovy.lang.MissingMethodException;
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -127,6 +130,14 @@ class KubeGroovyInteropTests {
 			assertEquals("context:context", InvokerHelper.invokeMethod(target, "contextValue", new Object[]{"context"}));
 		});
 
+		var configuration = new CompilerConfiguration();
+		configuration.getOptimizationOptions().put("indy", true);
+		var shell = new GroovyShell(getClass().getClassLoader(), new Binding(Map.of("target", target)), configuration);
+		var values = ScopedValue.where(KubeGroovyContext.CURRENT, context).call(() ->
+			shell.evaluate("target.mutable = 'changed'; [target.alias, target.value, target.ready, target.renamed, target.time, target.prefixedRenamed, target.contextProperty, target.mutable]"));
+		assertEquals(List.of("normal", "value", true, "renamed", "time", "prefixed", "context", "changed"), values);
+		assertThrows(MissingPropertyException.class, () -> shell.evaluate("target.hidden"));
+
 		assertThrows(MissingPropertyException.class, () -> InvokerHelper.getProperty(target, "hidden"));
 		assertThrows(MissingMethodException.class, () -> InvokerHelper.invokeMethod(target, "doesNotExist", new Object[0]));
 	}
@@ -159,6 +170,8 @@ class KubeGroovyInteropTests {
 
 	@RemapPrefixForGY("bridge$")
 	public static class BridgeTarget {
+		private String mutable = "initial";
+
 		public String getAlias() {
 			return "normal";
 		}
@@ -170,6 +183,36 @@ class KubeGroovyInteropTests {
 		@RemapForGY("renamed")
 		public String getRenamedValue() {
 			return "renamed";
+		}
+
+		@RemapForGY("getTime")
+		public String getTimeValue() {
+			return "time";
+		}
+
+		@RemapForGY("prefixedRenamed")
+		public String bridge$getPrefixedValue() {
+			return "prefixed";
+		}
+
+		public String bridge$getValue() {
+			return "value";
+		}
+
+		public boolean bridge$isReady() {
+			return true;
+		}
+
+		public String bridge$getContextProperty(Context context) {
+			return context == Context.getCurrent() ? "context" : "wrong";
+		}
+
+		public String bridge$getMutable() {
+			return mutable;
+		}
+
+		public void bridge$setMutable(String value) {
+			mutable = value;
 		}
 
 		public String bridge$contextValue(Context context, String value) {

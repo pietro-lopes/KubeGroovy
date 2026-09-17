@@ -27,10 +27,9 @@ public class KubeGroovyClassLoader extends GroovyClassLoader {
 	public static CompilerConfiguration makeConfig(ScriptManager manager, TypeWrappers wrappers) {
 		var config = new CompilerConfiguration();
 		config.setScriptBaseClass(KubeGroovyScript.class.getName());
-		// The bridge relies on Groovy's registry MetaClass dispatch for dynamic
-		// properties and methods.  Indy call sites cache the vanilla Java path and
-		// bypass that registry after injected interfaces are installed.
-		config.getOptimizationOptions().put("indy", false);
+		// Remapped interface accessors are registered as MetaBeanProperties during
+		// metaclass initialization, so invokedynamic can cache the bridge path too.
+		config.getOptimizationOptions().put("indy", true);
 
 		var imports = new ImportCustomizer();
 		// Common static helpers available without qualification in scripts

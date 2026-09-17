@@ -7,16 +7,23 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import groovy.lang.Closure;
+import groovy.lang.MetaBeanProperty;
 import groovy.lang.MetaClassImpl;
 import groovy.lang.MetaClassRegistry;
+import groovy.lang.MetaMethod;
 import groovy.lang.MissingMethodException;
 import groovy.lang.MissingPropertyException;
+import org.apache.groovy.util.BeanUtils;
+import org.codehaus.groovy.reflection.CachedMethod;
+import org.codehaus.groovy.runtime.metaclass.MissingMethodExceptionNoStack;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 
@@ -27,6 +34,203 @@ import java.util.Locale;
 final class KubeGroovyMetaClass extends MetaClassImpl {
 	KubeGroovyMetaClass(MetaClassRegistry registry, Class<?> type) {
 		super(registry, type);
+	}
+
+	@Override
+	public synchronized void initialize() {
+		if (!isInitialized()) {
+			addRemappedBeanProperties();
+		}
+		super.initialize();
+	}
+
+	private void addRemappedBeanProperties() {
+		var properties = new LinkedHashMap<String, BeanPropertyMethods>();
+		for (Method method : methodsOf(theClass)) {
+			if (!isVisibleBridgeMethod(method)) {
+				continue;
+			}
+			for (RemappedAlias alias : remappedAliases(method)) {
+				var accessor = remappedAccessor(method, alias);
+				if (accessor != null) {
+					properties.computeIfAbsent(accessor.property(), ignored -> new BeanPropertyMethods()).add(accessor);
+				}
+			}
+		}
+		for (var entry : properties.entrySet()) {
+			entry.getValue().install(this, entry.getKey());
+		}
+	}
+
+	private static boolean isVisibleBridgeMethod(Method method) {
+		return Modifier.isPublic(method.getModifiers()) && !method.isSynthetic() && !method.isBridge() && !hidden(method);
+	}
+
+	private static BeanAccessor remappedAccessor(Method method, RemappedAlias alias) {
+		if (isAccessorName(alias.name())) {
+			return accessorForName(method, alias.name(), alias.name());
+		}
+		if (alias.explicit()) {
+			// An explicit remap may name a property directly, e.g. a getValue()
+			// method remapped to "value".
+			var accessor = accessorForName(method, method.getName(), alias.name());
+			if (accessor != null) {
+				return accessor;
+			}
+			var prefix = prefixFor(method.getDeclaringClass());
+			if (prefix != null && !prefix.value().isEmpty() && method.getName().startsWith(prefix.value())) {
+				return accessorForName(method, method.getName().substring(prefix.value().length()), alias.name());
+			}
+		}
+		return null;
+	}
+
+	private static boolean isAccessorName(String name) {
+		return name.startsWith("get") && name.length() > 3
+			|| name.startsWith("is") && name.length() > 2
+			|| name.startsWith("set") && name.length() > 3;
+	}
+
+	private static BeanAccessor accessorForName(Method method, String accessorName, String propertyName) {
+		if (accessorName.startsWith("get") && accessorName.length() > 3) {
+			if (logicalParameterCount(method) == 0 && method.getReturnType() != void.class && method.getReturnType() != Void.class) {
+				return new BeanAccessor(propertyName.equals(accessorName) ? BeanUtils.decapitalize(accessorName.substring(3)) : propertyName, method, true, false);
+			}
+		} else if (accessorName.startsWith("is") && accessorName.length() > 2) {
+			if (logicalParameterCount(method) == 0 && method.getReturnType() == boolean.class) {
+				return new BeanAccessor(propertyName.equals(accessorName) ? BeanUtils.decapitalize(accessorName.substring(2)) : propertyName, method, true, true);
+			}
+		} else if (accessorName.startsWith("set") && accessorName.length() > 3) {
+			if (logicalParameterCount(method) == 1) {
+				return new BeanAccessor(propertyName.equals(accessorName) ? BeanUtils.decapitalize(accessorName.substring(3)) : propertyName, method, false, false);
+			}
+		}
+		return null;
+	}
+
+	private static int logicalParameterCount(Method method) {
+		return hasContextPrefix(method) ? method.getParameterCount() - 1 : method.getParameterCount();
+	}
+
+	private static boolean hasContextPrefix(Method method) {
+		return method.getParameterCount() > 0 && Context.class.isAssignableFrom(method.getParameterTypes()[0]);
+	}
+
+	private static Class<?>[] logicalParameterTypes(Method method) {
+		var parameters = method.getParameterTypes();
+		return hasContextPrefix(method) ? Arrays.copyOfRange(parameters, 1, parameters.length) : parameters;
+	}
+
+	private static MetaMethod metaMethod(Method method) {
+		var cached = CachedMethod.find(method);
+		if (cached == null) {
+			cached = new CachedMethod(method);
+		}
+		return hasContextPrefix(method) ? new ContextMetaMethod(cached, logicalParameterTypes(method)) : cached;
+	}
+
+	private static List<RemappedAlias> remappedAliases(Method method) {
+		var aliases = new ArrayList<RemappedAlias>(2);
+		var remap = method.getAnnotation(RemapForGY.class);
+		if (remap != null) {
+			addRemappedAlias(aliases, remap.value(), true);
+		}
+		var prefix = prefixFor(method.getDeclaringClass());
+		if (prefix != null && !prefix.value().isEmpty() && method.getName().startsWith(prefix.value())) {
+			addRemappedAlias(aliases, method.getName().substring(prefix.value().length()), false);
+		}
+		return aliases;
+	}
+
+	private static void addRemappedAlias(List<RemappedAlias> aliases, String name, boolean explicit) {
+		if (name.isEmpty()) {
+			return;
+		}
+		for (var alias : aliases) {
+			if (alias.name().equals(name)) {
+				return;
+			}
+		}
+		aliases.add(new RemappedAlias(name, explicit));
+	}
+
+	private record RemappedAlias(String name, boolean explicit) {
+	}
+
+	private record BeanAccessor(String property, Method method, boolean getter, boolean booleanGetter) {
+	}
+
+	private static final class BeanPropertyMethods {
+		private Method getter;
+		private boolean booleanGetter;
+		private Method setter;
+
+		private void add(BeanAccessor accessor) {
+			if (accessor.getter()) {
+				if (getter == null || accessor.booleanGetter() && !booleanGetter
+					|| accessor.booleanGetter() == booleanGetter && moreSpecific(accessor.method(), getter)) {
+					getter = accessor.method();
+					booleanGetter = accessor.booleanGetter();
+				}
+			} else if (setter == null || moreSpecific(accessor.method(), setter)) {
+				setter = accessor.method();
+			}
+		}
+
+		private void install(KubeGroovyMetaClass metaClass, String property) {
+			var getterMeta = getter == null ? null : metaMethod(getter);
+			var setterMeta = setter == null ? null : metaMethod(setter);
+			Class<?> type = getterMeta != null ? getterMeta.getReturnType() : logicalParameterTypes(setter)[0];
+			metaClass.addMetaBeanProperty(new MetaBeanProperty(property, type, getterMeta, setterMeta));
+		}
+
+		private static boolean moreSpecific(Method candidate, Method current) {
+			var candidateType = candidate.getDeclaringClass();
+			var currentType = current.getDeclaringClass();
+			return !candidateType.equals(currentType) && currentType.isAssignableFrom(candidateType);
+		}
+	}
+
+	private static final class ContextMetaMethod extends MetaMethod {
+		private final MetaMethod delegate;
+
+		private ContextMetaMethod(MetaMethod delegate, Class<?>[] logicalParameterTypes) {
+			super(logicalParameterTypes);
+			this.delegate = delegate;
+		}
+
+		@Override
+		public int getModifiers() {
+			return delegate.getModifiers();
+		}
+
+		@Override
+		public String getName() {
+			return delegate.getName();
+		}
+
+		@Override
+		public Class getReturnType() {
+			return delegate.getReturnType();
+		}
+
+		@Override
+		public org.codehaus.groovy.reflection.CachedClass getDeclaringClass() {
+			return delegate.getDeclaringClass();
+		}
+
+		@Override
+		public Object invoke(Object object, Object[] arguments) {
+			arguments = arguments == null ? new Object[0] : arguments;
+			var context = GroovyConversions.getActiveContext();
+			if (context == null) {
+				throw new MissingMethodExceptionNoStack(getName(), getDeclaringClass().getTheClass(), arguments);
+			}
+			var actual = new Object[arguments.length + 1];
+			actual[0] = context;
+			System.arraycopy(arguments, 0, actual, 1, arguments.length);
+			return delegate.invoke(object, actual);
+		}
 	}
 
 	@Override
@@ -301,11 +505,8 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 	private static boolean matches(Method method, String requested, int argumentCount, boolean propertyAlias) {
 		List<String> aliases = new ArrayList<>();
 		aliases.add(method.getName());
-		RemapForGY remap = method.getAnnotation(RemapForGY.class);
-		if (remap != null && !remap.value().isEmpty()) aliases.add(remap.value());
-		RemapPrefixForGY prefix = prefixFor(method.getDeclaringClass());
-		if (prefix != null && !prefix.value().isEmpty() && method.getName().startsWith(prefix.value())) {
-			aliases.add(method.getName().substring(prefix.value().length()));
+		for (var alias : remappedAliases(method)) {
+			aliases.add(alias.name());
 		}
 		for (String alias : aliases) {
 			if (alias.equals(requested) || alias.equalsIgnoreCase(requested)) {
