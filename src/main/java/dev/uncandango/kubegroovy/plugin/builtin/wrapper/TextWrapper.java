@@ -165,7 +165,14 @@ public interface TextWrapper {
 			return ce;
 		}
 
-		var json = JsonUtils.objectOf(cx, o);
+		// Structured click-event inputs use the codec, while the documented shorthand
+		// strings (for example, "command:/say hello") are parsed below.  Calling
+		// objectOf for every string makes shorthand inputs fail before they reach the
+		// parser because they are not JSON objects.
+		var json = o instanceof JsonObject || o instanceof Map<?, ?>
+			|| o instanceof CharSequence cs && cs.toString().stripLeading().startsWith("{")
+			? JsonUtils.objectOf(cx, o)
+			: null;
 
 		if (json != null) {
 			return KubeGroovyCodecs.fromJsonOrThrow(json, ClickEvent.CODEC);

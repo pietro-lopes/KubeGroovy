@@ -40,7 +40,7 @@ public final class KubeGroovySandbox {
 	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter, @Nullable TypeWrappers wrappers) {
 		var secure = new SecureASTCustomizer();
 		secure.setClosuresAllowed(true);
-		secure.setMethodDefinitionAllowed(false); // scripts are run as script bodies, no new methods needed for minimal
+		secure.setMethodDefinitionAllowed(true); // scripts are run as script bodies, no new methods needed for minimal
 		secure.setPackageAllowed(true);
 		// Leave import whitelists at Groovy's permissive default; the class filter and
 		// class-loader checks enforce the actual script import policy.

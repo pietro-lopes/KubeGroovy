@@ -52,11 +52,12 @@ public class TypeWrappers {
 			throw new GroovyCastException(value, Object.class);
 		}
 		value = Wrapper.unwrapped(value);
-		if (value == null || target.isInstance(value)) {
+
+		Object raw = wrappers.get(target);
+		if (raw == null && value == null || target.isInstance(value)) {
 			return value;
 		}
 
-		Object raw = wrappers.get(target);
 		if (!(raw instanceof Entry entry)) {
 			throw new GroovyCastException(value, target);
 		}
