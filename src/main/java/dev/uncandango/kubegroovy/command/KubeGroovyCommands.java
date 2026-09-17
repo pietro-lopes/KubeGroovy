@@ -219,14 +219,14 @@ public class KubeGroovyCommands {
 					.then(PersistentDataCommands.addPersistentDataCommands(Commands.argument("entity", EntityArgument.entities()), ctx -> EntityArgument.getEntities(ctx, "entity"))))
 			);
 
-		if (!FMLLoader.getCurrent().isProduction()) {
-			cmd.then(Commands.literal("eval")
-				.requires(spOrOP)
-				.then(Commands.argument("code", StringArgumentType.greedyString())
-					.executes(ctx -> eval(ctx.getSource(), StringArgumentType.getString(ctx, "code")))
-				)
-			);
-		}
+//		if (!FMLLoader.getCurrent().isProduction()) {
+//			cmd.then(Commands.literal("eval")
+//				.requires(spOrOP)
+//				.then(Commands.argument("code", StringArgumentType.greedyString())
+//					.executes(ctx -> eval(ctx.getSource(), StringArgumentType.getString(ctx, "code")))
+//				)
+//			);
+//		}
 
 		var cmd1 = dispatcher.register(cmd);
 		var kgyBuilder = Commands.literal("kgy");
@@ -555,11 +555,13 @@ public class KubeGroovyCommands {
 		return 1;
 	}
 
-	private static int eval(CommandSourceStack source, String code) {
-		var cx = (KubeGroovyContext) source.getServer().getServerResources().managers().kgy$getServerScriptManager().contextFactory.enter();
-		cx.evaluateString(cx.topLevelScope, code, "eval", 1, null);
-		return 1;
-	}
+//	private static int eval(CommandSourceStack source, String code) {
+//		var cx = (KubeGroovyContext) source.getServer().getServerResources().managers().kgy$getServerScriptManager().contextFactory.create();
+//		ScopedValue.where(KubeGroovyContext.CURRENT, cx).run(() -> {
+//			cx.engine.getGroovyClassLoader().
+//		});
+//		return 1;
+//	}
 
 	private static int exportRecipeSchemaJson(CommandSourceStack source, ResourceKey<?> id) {
 		var storage = source.getServer().getServerResources().managers().kgy$getServerScriptManager().recipeSchemaStorage;

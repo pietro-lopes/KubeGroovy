@@ -139,6 +139,7 @@ val copyGameTestScripts by tasks.registering(Sync::class) {
 }
 
 tasks.matching { it.name == "runGametest" }.configureEach {
+	outputs.upToDateWhen { false }
 	dependsOn(copyGameTestScripts)
 }
 

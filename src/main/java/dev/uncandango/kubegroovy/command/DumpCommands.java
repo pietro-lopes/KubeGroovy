@@ -94,8 +94,8 @@ public class DumpCommands {
 					builder.append("\n\n");
 				}
 
-				var scriptManager = source.getServer().getServerResources().managers().kgy$getServerScriptManager();
-				var cx = (KubeGroovyContext) scriptManager.contextFactory.enter();
+				//var scriptManager = source.getServer().getServerResources().managers().kgy$getServerScriptManager();
+				//var cx = (KubeGroovyContext) scriptManager.contextFactory.enter();
 
 				// Groovy port: use plain Java reflection instead of Rhino class storage
 				var hasDocumentedMembers = false;

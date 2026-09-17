@@ -30,7 +30,7 @@ public class KubeGroovyClassLoader extends GroovyClassLoader {
 		// The bridge relies on Groovy's registry MetaClass dispatch for dynamic
 		// properties and methods.  Indy call sites cache the vanilla Java path and
 		// bypass that registry after injected interfaces are installed.
-		config.setOptimizationOptions(java.util.Map.of("indy", false));
+		config.getOptimizationOptions().put("indy", false);
 
 		var imports = new ImportCustomizer();
 		// Common static helpers available without qualification in scripts

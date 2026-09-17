@@ -61,12 +61,12 @@ public class ItemModificationKubeEvent implements KubeEvent {
 		""")
 	// TODO: item with component filter support?
 	public void modify(RegistryPredicate<Item> in, Consumer<ItemModifications> c) {
-		KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
+		//KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
 		for (Item item : BuiltInRegistries.ITEM) {
 			if (in.test(item.kgy$asHolder())) {
 				event.modify(item, (builder, context, key) -> {
 					var modifications = new ItemModifications(item, builder, context);
-					KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
+					//KubeGroovyMetaClassCreationHandle.refresh(ItemModifications.class);
 					c.accept(modifications);
 				});
 			}

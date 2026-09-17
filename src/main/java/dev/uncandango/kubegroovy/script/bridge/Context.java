@@ -2,30 +2,28 @@ package dev.uncandango.kubegroovy.script.bridge;
 
 import com.google.gson.JsonObject;
 import net.minecraft.nbt.CompoundTag;
+import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Legacy-compat context base. The real engine is KubeGroovyContext which extends this.
  * Provides minimal Rhino-like conversion helpers backed by plain Java/Groovy coercion.
  */
 public class Context {
+	public static final StackWalker STACK_WALKER = StackWalker.getInstance();
+
 	public static final int CONVERSION_TRIVIAL = 1;
 
-	private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
+	public static final ScopedValue<Context> CURRENT = ScopedValue.newInstance();
 
+	@Nullable
 	public static Context getCurrent() {
-		return CURRENT.get();
-	}
-
-	public static void setCurrent(Context cx) {
-		if (cx == null) {
-			CURRENT.remove();
-		} else {
-			CURRENT.set(cx);
-		}
+		return CURRENT.isBound() ? CURRENT.get() : null;
 	}
 
 	public static RuntimeException reportRuntimeError(String message, Context cx) {
@@ -48,15 +46,25 @@ public class Context {
 			linep[0] = -1;
 		}
 		// Best-effort: find first script frame
-		for (var el : Thread.currentThread().getStackTrace()) {
-			if (el.getFileName() != null && el.getFileName().endsWith(".groovy")) {
+		Optional<String> fileName = STACK_WALKER.walk(stream -> stream
+			.filter(frame -> Objects.nonNull(frame.getFileName()))
+			.filter(frame -> frame.getFileName().endsWith(".groovy") || frame.getFileName().endsWith(".gy"))
+			.findFirst().map(frame -> {
 				if (linep != null && linep.length > 0) {
-					linep[0] = el.getLineNumber();
+					linep[0] = frame.getLineNumber();
 				}
-				return el.getFileName();
-			}
-		}
-		return "groovy";
+				return frame.getFileName();
+			}));
+
+//		for (var el : Thread.currentThread().getStackTrace()) {
+//			if (el.getFileName() != null && el.getFileName().endsWith(".groovy")) {
+//				if (linep != null && linep.length > 0) {
+//					linep[0] = el.getLineNumber();
+//				}
+//				return el.getFileName();
+//			}
+//		}
+		return fileName.orElse("groovy");
 	}
 
 	public Object gyToJava(Object from, TypeInfo target) {

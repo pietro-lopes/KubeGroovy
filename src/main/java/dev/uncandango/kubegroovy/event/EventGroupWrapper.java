@@ -2,11 +2,12 @@ package dev.uncandango.kubegroovy.event;
 
 import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
+import groovy.lang.Closure;
 
 import java.util.HashMap;
 import java.util.Set;
 
-public class EventGroupWrapper extends HashMap<String, BaseFunction> {
+public class EventGroupWrapper extends HashMap<String, EventHandler> {
 	private final ScriptType scriptType;
 	private final EventGroup group;
 
@@ -16,14 +17,16 @@ public class EventGroupWrapper extends HashMap<String, BaseFunction> {
 	}
 
 	@Override
-	public BaseFunction get(Object key) {
+	public EventHandler get(Object key) {
 		var keyString = String.valueOf(key);
 		var handler = group.getHandlers().get(keyString);
 
 		if (handler == null) {
 			scriptType.console.error("Unknown event '%s.%s'!".formatted(group.name, keyString));
-			return new BaseFunction();
+			throw new IllegalArgumentException("Unknown event '%s.%s'!".formatted(group.name, keyString));
 		}
+
+
 
 		return handler;
 	}

@@ -185,61 +185,62 @@ public class ScriptManager {
 			plugin.registerRecordDefaults(recordDefaults);
 		}
 
-		var i = 0;
-		var t = 0;
+		var cx = (KubeGroovyContext) contextFactory.createContext();
 
-		var cx = (KubeGroovyContext) contextFactory.enter();
+		//ScopedValue.where(KubeGroovyContext.CURRENT, cx).run(() -> {
+			var i = 0;
+			var t = 0;
+			var watchingFiles = new ArrayList<ScriptFile>();
 
-		var watchingFiles = new ArrayList<ScriptFile>();
+			for (var pack : packs.values()) {
+				try {
+					pack.scripts.sort(null);
 
-		for (var pack : packs.values()) {
-			try {
-				pack.scripts.sort(null);
+					for (var file : pack.scripts) {
+						t++;
+						var start = System.currentTimeMillis();
 
-				for (var file : pack.scripts) {
-					t++;
-					var start = System.currentTimeMillis();
-
-					try {
-						file.load(cx);
-						i++;
-						scriptType.console.info("Loaded script " + file.info.location + " in " + (System.currentTimeMillis() - start) / 1000D + " s");
-						watchingFiles.add(file);
-					} catch (Throwable ex) {
-						scriptType.console.error("", ex);
+						try {
+							file.load(cx);
+							i++;
+							scriptType.console.info("Loaded script " + file.info.location + " in " + (System.currentTimeMillis() - start) / 1000D + " s");
+							watchingFiles.add(file);
+						} catch (Throwable ex) {
+							scriptType.console.error("", ex);
+						}
 					}
+				} catch (Throwable ex) {
+					scriptType.console.error("Failed to read script pack " + pack.info.namespace, ex);
 				}
-			} catch (Throwable ex) {
-				scriptType.console.error("Failed to read script pack " + pack.info.namespace, ex);
 			}
-		}
 
-		loadAdditional();
-		long end = System.currentTimeMillis();
-		long ms = end - startAll;
+			loadAdditional();
+			long end = System.currentTimeMillis();
+			long ms = end - startAll;
 
-		scriptType.console.info("Loaded " + i + "/" + t + " KubeGroovy " + scriptType.name + " scripts in " + ms / 1000D + " s with " + scriptType.console.errors.size() + " errors and " + scriptType.console.warnings.size() + " warnings");
-		canListenEvents = false;
+			scriptType.console.info("Loaded " + i + "/" + t + " KubeGroovy " + scriptType.name + " scripts in " + ms / 1000D + " s with " + scriptType.console.errors.size() + " errors and " + scriptType.console.warnings.size() + " warnings");
+			canListenEvents = false;
 
-		if (!watchingFiles.isEmpty() && DevProperties.get().reloadOnFileSave) {
-			scriptType.fileWatcherThread = new KubeGroovyFileWatcherThread(scriptType, watchingFiles.toArray(new ScriptFile[0]), this::fullReload);
-			scriptType.fileWatcherThread.start();
-		}
+			if (!watchingFiles.isEmpty() && DevProperties.get().reloadOnFileSave) {
+				scriptType.fileWatcherThread = new KubeGroovyFileWatcherThread(scriptType, watchingFiles.toArray(new ScriptFile[0]), this::fullReload);
+				scriptType.fileWatcherThread.start();
+			}
 
-		int t1 = t;
-		int i1 = i;
+			int t1 = t;
+			int i1 = i;
 
-		KubeGroovyWeb.broadcastUpdate("after_scripts_loaded", "", () -> {
-			var broadcast = new JsonObject();
-			broadcast.addProperty("type", scriptType.name);
-			broadcast.addProperty("total", t1);
-			broadcast.addProperty("successful", i1);
-			broadcast.addProperty("errors", scriptType.console.errors.size());
-			broadcast.addProperty("warnings", scriptType.console.warnings.size());
-			broadcast.addProperty("time", end);
-			broadcast.addProperty("duration", ms);
-			return broadcast;
-		});
+			KubeGroovyWeb.broadcastUpdate("after_scripts_loaded", "", () -> {
+				var broadcast = new JsonObject();
+				broadcast.addProperty("type", scriptType.name);
+				broadcast.addProperty("total", t1);
+				broadcast.addProperty("successful", i1);
+				broadcast.addProperty("errors", scriptType.console.errors.size());
+				broadcast.addProperty("warnings", scriptType.console.warnings.size());
+				broadcast.addProperty("time", end);
+				broadcast.addProperty("duration", ms);
+				return broadcast;
+			});
+		//});
 	}
 
 	public void loadAdditional() {

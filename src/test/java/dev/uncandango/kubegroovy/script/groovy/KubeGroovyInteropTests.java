@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.groovytest;
 
+import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
@@ -31,15 +32,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Focused regression coverage for the Groovy-only interoperability layer. */
 class KubeGroovyInteropTests {
+	//private static final ScopedValue<Context> CONTEXT = ScopedValue.newInstance();
+
 	@BeforeEach
 	void installBridge() {
-		Context.setCurrent(null);
+		//Context.setCurrent(null);
 		KubeGroovyMetaClassCreationHandle.install();
 	}
 
 	@AfterEach
 	void clearContext() {
-		Context.setCurrent(null);
+		//Context.setCurrent(null);
 	}
 
 	@Test
@@ -76,35 +79,38 @@ class KubeGroovyInteropTests {
 	@Test
 	void callableFunctionsRestoreTheirOriginatingContext() {
 		var context = new Context();
-		Context.setCurrent(context);
-		var function = new BaseFunction((Function<Object[], Object>) args -> {
-			assertSame(context, Context.getCurrent());
-			return args[0];
+		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
+			var function = new BaseFunction((Function<Object[], Object>) args -> {
+				assertSame(context, Context.getCurrent());
+				return args[0];
+			});
+			assertEquals("value", function.call("value"));
 		});
 		var previous = new Context();
-		Context.setCurrent(previous);
-
-		assertEquals("value", function.call("value"));
-		assertSame(previous, Context.getCurrent());
+		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
+			assertSame(previous, Context.getCurrent());
+		});
 	}
 
 	@Test
 	@SuppressWarnings("unchecked")
 	void callbackAdaptersRestoreTheirOriginatingContext() {
 		var context = new Context();
-		Context.setCurrent(context);
-		Closure<Object> closure = new Closure<Object>(this) {
-			public Object doCall(Object value) {
-				assertSame(context, Context.getCurrent());
-				return value;
-			}
-		};
-		var callback = GroovyConversions.toFunctionalInterface(closure, Function.class);
-		var previous = new Context();
-		Context.setCurrent(previous);
+		ScopedValue.where(KubeGroovyContext.CURRENT, context).run( () -> {
+			Closure<Object> closure = new Closure<Object>(this) {
+				public Object doCall(Object value) {
+					assertSame(context, Context.getCurrent());
+					return value;
+				}
+			};
+			var callback = GroovyConversions.toFunctionalInterface(closure, Function.class);
+			assertEquals("value", ((Function<Object, Object>) callback).apply("value"));
+		});
 
-		assertEquals("value", ((Function<Object, Object>) callback).apply("value"));
-		assertSame(previous, Context.getCurrent());
+		var previous = new Context();
+		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
+			assertSame(previous, Context.getCurrent());
+		});
 	}
 
 	@Test
@@ -117,9 +123,9 @@ class KubeGroovyInteropTests {
 		assertEquals("renamed", InvokerHelper.getProperty(target, "renamed"));
 
 		var context = new Context();
-		Context.setCurrent(context);
-		assertEquals("context:context", InvokerHelper.invokeMethod(target, "contextValue", new Object[]{"context"}));
-		Context.setCurrent(null);
+		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
+			assertEquals("context:context", InvokerHelper.invokeMethod(target, "contextValue", new Object[]{"context"}));
+		});
 
 		assertThrows(MissingPropertyException.class, () -> InvokerHelper.getProperty(target, "hidden"));
 		assertThrows(MissingMethodException.class, () -> InvokerHelper.invokeMethod(target, "doesNotExist", new Object[0]));

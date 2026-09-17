@@ -147,7 +147,7 @@ public class KubeGroovyClientEventHandler {
 
 	@SubscribeEvent
 	public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-		var mainCategory = new KeyMapping.Category(Identifier.fromNamespaceAndPath("kubegroovy", "KubeGroovy"));
+		var mainCategory = new KeyMapping.Category(Identifier.fromNamespaceAndPath("kubegroovy", "kubegroovy"));
 		event.registerCategory(mainCategory);
 
 		var kubeEvent = new KeybindRegistryKubeEvent();

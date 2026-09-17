@@ -82,7 +82,14 @@ public class ScriptFile implements Comparable<ScriptFile> {
 	}
 
 	public void load(KubeGroovyContext cx) throws Throwable {
-		cx.evaluate(String.join("\n", lines), info.location);
+		ScopedValue.where(KubeGroovyContext.CURRENT, cx).run(() -> {
+			try {
+				cx.engine.run(this.info.locationPath, cx.binding);
+			} catch (Throwable ex) {
+			cx.getConsole().error("", ex);
+		}
+		});
+
 		lines = StringUtilsWrapper.EMPTY_STRING_ARRAY; // free memory
 	}
 

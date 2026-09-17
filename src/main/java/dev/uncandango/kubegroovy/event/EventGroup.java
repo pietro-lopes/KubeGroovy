@@ -2,6 +2,9 @@ package dev.uncandango.kubegroovy.event;
 
 import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.ScriptTypePredicate;
+import groovy.lang.GroovySystem;
+import groovy.lang.MetaClassRegistry;
+import org.codehaus.groovy.runtime.MetaClassHelper;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,48 +1,44 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
+import com.google.common.base.Predicates;
+import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import groovy.lang.GroovySystem;
 import groovy.lang.MetaClass;
 import groovy.lang.MetaClassRegistry;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.util.Lazy;
+import org.objectweb.asm.Type;
+import org.spongepowered.asm.mixin.transformer.throwables.IllegalClassLoadError;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.function.Predicate;
 
 /** Installs the narrow KubeGroovy dispatch bridge used by script call sites. */
 public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.MetaClassCreationHandle {
 	public static final KubeGroovyMetaClassCreationHandle INSTANCE = new KubeGroovyMetaClassCreationHandle();
-	private static final String[] INJECTED_TYPES = {
-		"net.minecraft.server.MinecraftServer",
-		"net.minecraft.client.Minecraft",
-		"net.minecraft.world.level.block.Block",
-		"net.minecraft.world.level.block.state.BlockBehaviour",
-		"net.minecraft.world.level.block.state.BlockState",
-		"net.minecraft.world.item.Item",
-		"net.minecraft.world.item.ItemStack",
-		"net.minecraft.network.chat.MutableComponent",
-		"net.minecraft.world.level.Level",
-		"net.minecraft.client.multiplayer.ClientLevel",
-		"net.minecraft.server.level.ServerLevel",
-		"net.minecraft.world.entity.player.Player",
-		"net.minecraft.client.player.AbstractClientPlayer",
-		"net.minecraft.server.level.ServerPlayer",
-		"net.minecraft.world.entity.Entity",
-		"net.minecraft.world.entity.LivingEntity",
-		"net.minecraft.world.item.crafting.Ingredient",
-		"net.minecraft.world.entity.item.ItemEntity",
-		"net.minecraft.world.entity.decoration.ItemFrame",
-		"net.minecraft.world.Container",
-		"net.minecraft.world.item.crafting.RecipeHolder",
-		"net.minecraft.server.ReloadableServerResources",
-		"net.minecraft.world.item.crafting.RecipeManager",
-		"net.minecraft.tags.TagManager",
-		"net.minecraft.world.level.material.Fluid",
-		"net.minecraft.world.inventory.MenuType",
-		"net.minecraft.world.entity.EntityType",
-		"net.minecraft.tags.TagLoader",
-		"dev.uncandango.kubegroovy.level.CachedLevelBlock",
-		"dev.uncandango.kubegroovy.color.SimpleColor",
-		"dev.uncandango.kubegroovy.color.SimpleColorWithAlpha",
-		"dev.uncandango.kubegroovy.color.NoColor"
-	};
+
+	private static final Lazy<String[]> INJECTED_TYPES_LAZY = Lazy.of(() -> {
+		var types = List.of(RemapForGY.class.getName(), RemapPrefixForGY.class.getName(), HideFromGY.class.getName());
+		var predicate = Predicates.in(types);
+		var injectedTypes = new HashSet<String>();
+		for (var data : ModList.get().getAllScanData()) {
+			for (var annotation : data.getAnnotations()) {
+				if (predicate.test(annotation.annotationType().getClassName())){
+//					KubeGroovy.LOGGER.info("Found annotation: " + annotation.annotationType().getClassName());
+//					KubeGroovy.LOGGER.info("At class: " + annotation.clazz().getClassName());
+//					KubeGroovy.LOGGER.info("At member: " + annotation.memberName());
+					injectedTypes.add(annotation.clazz().getClassName());
+				}
+			}
+		}
+		return injectedTypes.toArray(String[]::new);
+	});
+
 	private static volatile boolean installed;
 
 	private KubeGroovyMetaClassCreationHandle() {
@@ -82,10 +78,10 @@ public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.M
 	/** Refresh the concrete Minecraft classes which receive KGY interfaces. */
 	public static void refreshInjectedTypes() {
 		ClassLoader loader = KubeGroovyMetaClassCreationHandle.class.getClassLoader();
-		for (String name : INJECTED_TYPES) {
+		for (String name : INJECTED_TYPES_LAZY.get()) {
 			try {
 				refresh(Class.forName(name, false, loader));
-			} catch (ClassNotFoundException ignored) {
+			} catch (ClassNotFoundException | IllegalClassLoadError | NoClassDefFoundError ignored) {
 				// Client-only classes are absent from a dedicated server classpath.
 			}
 		}

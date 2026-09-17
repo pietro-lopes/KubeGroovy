@@ -275,7 +275,7 @@ public class ConsoleGY {
 			var factory = contextFactory == null ? null : contextFactory.get();
 
 			if (factory != null) {
-				line.withSourceLine(SourceLine.of(factory.enter()));
+				line.withSourceLine(SourceLine.of(Context.getCurrent()));
 			}
 		}
 
@@ -475,7 +475,7 @@ public class ConsoleGY {
 
 		if (factory != null) {
 			var linep = new int[]{0};
-			Context.getSourcePositionFromStack(factory.enter(), linep);
+			Context.getSourcePositionFromStack(Context.getCurrent(), linep);
 			return linep[0];
 		}
 

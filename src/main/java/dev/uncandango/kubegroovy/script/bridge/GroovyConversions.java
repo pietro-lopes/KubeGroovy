@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import groovy.lang.Closure;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 
@@ -10,7 +11,6 @@ import java.util.Map;
 
 /** Minimal Groovy coercion helpers used by bridge Context and new engine. */
 public final class GroovyConversions {
-	private static final ThreadLocal<Context> ACTIVE_CONTEXT = new ThreadLocal<>();
 
 	private GroovyConversions() {
 	}
@@ -18,16 +18,7 @@ public final class GroovyConversions {
 	/** Context currently associated with a Groovy callback, including callbacks
 	 * running on an event thread where the legacy Context thread-local is absent. */
 	public static Context getActiveContext() {
-		Context current = Context.getCurrent();
-		return current != null ? current : ACTIVE_CONTEXT.get();
-	}
-
-	public static void pushActiveContext(Context context) {
-		if (context == null) {
-			ACTIVE_CONTEXT.remove();
-		} else {
-			ACTIVE_CONTEXT.set(context);
-		}
+		return Context.getCurrent();
 	}
 
 	public static Object toScript(Object value) {
@@ -179,6 +170,7 @@ public final class GroovyConversions {
 
 	@SuppressWarnings("unchecked")
 	public static <T> T toFunctionalInterface(Object fn, Class<T> type) {
+		var cx = Context.getCurrent();
 		if (fn == null) {
 			return null;
 		}
@@ -193,7 +185,6 @@ public final class GroovyConversions {
 			return (T) delegate;
 		}
 		final Object target = delegate;
-		final Context originatingContext = Context.getCurrent();
 		if (!type.isInterface() || type.getMethods().length == 0) {
 			return (T) target;
 		}
@@ -206,57 +197,38 @@ public final class GroovyConversions {
 						KubeGroovyMetaClassCreationHandle.refreshIfNeeded(argument);
 					}
 				}
-				Context previous = Context.getCurrent();
-				Context previousActive = ACTIVE_CONTEXT.get();
-				if (originatingContext != null && originatingContext != previous) {
-					Context.setCurrent(originatingContext);
-				}
-				if (originatingContext != null) {
-					ACTIVE_CONTEXT.set(originatingContext);
-				}
-				try {
 				if (method.getDeclaringClass() == Object.class) {
-					return method.invoke(target, args);
+					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> method.invoke(target, args));
 				}
 				if (target instanceof Closure<?> c) {
 					if (args == null || args.length == 0) {
-						return c.call();
+						return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(c::call);
 					}
 					if (args.length == 1) {
-						return c.call(args[0]);
+						return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> c.call(args[0]));
 					}
-					return c.call(args);
+					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> c.call(args));
 				}
 				if (target instanceof BaseFunction bf) {
-					return bf.call(Context.getCurrent(), null, null, args == null ? new Object[0] : args);
+					return bf.call(cx, null, null, args == null ? new Object[0] : args);
 				}
 				if (target instanceof java.util.function.Function<?, ?> f) {
 					@SuppressWarnings("rawtypes")
 					var func = (java.util.function.Function) f;
-					return func.apply(args == null || args.length == 0 ? null : args[0]);
+					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> func.apply(args == null || args.length == 0 ? null : args[0]));
 				}
 				if (target instanceof groovy.lang.GroovyCallable<?> gc) {
 					try {
-						return gc.call();
+						ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(gc::call);
 					} catch (Exception e) {
 						throw new RuntimeException(e);
 					}
 				}
 				if (target instanceof Runnable r && (args == null || args.length == 0)) {
-					r.run();
+					ScopedValue.where(KubeGroovyContext.CURRENT, cx).run(r::run);
 					return null;
 				}
 				throw new UnsupportedOperationException("Cannot invoke " + method + " on " + target);
-				} finally {
-					if (previousActive == null) {
-						ACTIVE_CONTEXT.remove();
-					} else {
-						ACTIVE_CONTEXT.set(previousActive);
-					}
-					if (originatingContext != null && originatingContext != previous) {
-						if (previous == null) Context.setCurrent(null); else Context.setCurrent(previous);
-					}
-				}
 			}
 		});
 	}

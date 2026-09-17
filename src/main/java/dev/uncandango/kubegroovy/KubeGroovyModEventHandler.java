@@ -102,23 +102,23 @@ public class KubeGroovyModEventHandler {
 		ConsoleGY.STARTUP.stopCapturingErrors();
 		ConsoleGY.CLIENT.stopCapturingErrors();
 
-		Util.nonCriticalIoPool().execute(() -> {
-			try {
-				var response = HttpClient.newBuilder()
-					.followRedirects(HttpClient.Redirect.ALWAYS)
-					.connectTimeout(Duration.ofSeconds(5L))
-					.build()
-					.send(HttpRequest.newBuilder().uri(URI.create("https://v.kubejs.com/update-check?" + KubeGroovy.QUERY)).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-				if (response.statusCode() == 200) {
-					var body = response.body().trim();
-
-					if (!body.isEmpty()) {
-						ConsoleGY.STARTUP.info("Update available: " + body);
-					}
-				}
-			} catch (Exception ignored) {
-			}
-		});
+//		Util.nonCriticalIoPool().execute(() -> {
+//			try {
+//				var response = HttpClient.newBuilder()
+//					.followRedirects(HttpClient.Redirect.ALWAYS)
+//					.connectTimeout(Duration.ofSeconds(5L))
+//					.build()
+//					.send(HttpRequest.newBuilder().uri(URI.create("https://v.kubejs.com/update-check?" + KubeGroovy.QUERY)).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+//				if (response.statusCode() == 200) {
+//					var body = response.body().trim();
+//
+//					if (!body.isEmpty()) {
+//						ConsoleGY.STARTUP.info("Update available: " + body);
+//					}
+//				}
+//			} catch (Exception ignored) {
+//			}
+//		});
 	}
 
 	private static boolean directionMatches(EnumSet<Direction> directions, @Nullable Object from) {

@@ -11,6 +11,9 @@ import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import groovy.lang.GroovySystem;
+import groovy.lang.MetaClassRegistry;
+import org.codehaus.groovy.runtime.MethodClosure;
 import org.jspecify.annotations.Nullable;
 
 import java.util.function.Consumer;
@@ -242,9 +245,10 @@ public class EventHandler extends BaseFunction {
 		return group + "." + name;
 	}
 
-	@Override
+	//@Override
 	@Nullable
-	public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+	public Object call(Object[] args) {
+		var cx = Context.getCurrent();
 		ScriptType type = ((KubeGroovyContext) cx).getType();
 
 		try {

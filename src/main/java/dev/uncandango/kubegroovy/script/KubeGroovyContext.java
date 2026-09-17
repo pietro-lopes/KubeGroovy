@@ -21,6 +21,7 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import groovy.lang.Binding;
 import groovy.lang.GroovyShell;
+import groovy.util.GroovyScriptEngine;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
@@ -32,6 +33,7 @@ import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
+import java.io.IOException;
 import java.lang.reflect.AccessibleObject;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,7 +46,7 @@ public class KubeGroovyContext extends Context {
 	public final KubeGroovyContextFactory kgyFactory;
 	public final Scriptable topLevelScope;
 	public final Binding binding;
-	public final GroovyShell shell;
+	public final GroovyScriptEngine engine;
 	private @Nullable Map<String, Either<NativeJavaClass, Boolean>> javaClassCache;
 
 	public KubeGroovyContext(KubeGroovyContextFactory factory) {
@@ -56,10 +58,13 @@ public class KubeGroovyContext extends Context {
 		var parent = KubeGroovy.class.getClassLoader();
 		var config = KubeGroovyClassLoader.makeConfig(factory.manager, factory.getTypeWrappers());
 		var loader = new KubeGroovyClassLoader(parent, factory.manager, config);
-		this.shell = new GroovyShell(loader, binding, config);
-		this.topLevelScope = new ScriptableObject();
+		try {
+			this.engine = new GroovyScriptEngine(factory.manager.scriptType.path.toString(), loader);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
-		Context.setCurrent(this);
+		this.topLevelScope = new ScriptableObject();
 
 		var bindingsEvent = new BindingRegistry(this, binding, topLevelScope);
 
@@ -281,28 +286,5 @@ public class KubeGroovyContext extends Context {
 		} else {
 			return super.mapOf(from, kTarget, vTarget);
 		}
-	}
-
-	@Override
-	public Object evaluateString(Scriptable scope, String source, String location, int line, Object security) {
-		Context.setCurrent(this);
-		try {
-			// Sync binding variables into shell before eval (bindings added after construction)
-			return shell.evaluate(source, location);
-		} catch (SecurityException se) {
-			throw reportRuntimeError("Blocked in script " + location + ": " + se.getMessage(), this);
-		} finally {
-			// Mirror new variables into legacy scope for compat readers
-			try {
-				for (Map.Entry<String, Object> e : ((Map<String, Object>) binding.getVariables()).entrySet()) {
-					addToScope(topLevelScope, e.getKey(), e.getValue());
-				}
-			} catch (Exception ignored) {
-			}
-		}
-	}
-
-	public Object evaluate(String source, String location) {
-		return evaluateString(topLevelScope, source, location, 1, null);
 	}
 }

@@ -123,7 +123,7 @@ public class RecipeSchemaStorage {
 		var typeEvent = new RecipeFactoryRegistry(this);
 		KubeGroovyPlugins.forEachPlugin(typeEvent, KubeGroovyPlugin::registerRecipeFactories);
 
-		for (var entry : resourceManager.listResources("KubeGroovy", path -> path.getPath().endsWith("/recipe_mappings.json")).entrySet()) {
+		for (var entry : resourceManager.listResources("kubegroovy", path -> path.getPath().endsWith("/recipe_mappings.json")).entrySet()) {
 			try (var reader = entry.getValue().openAsReader()) {
 				var json = JsonUtils.GSON.fromJson(reader, JsonObject.class);
 
@@ -150,7 +150,7 @@ public class RecipeSchemaStorage {
 		KubeGroovyPlugins.forEachPlugin((k, v) -> COMPONENT_TYPES.put(k, () -> v), KubeGroovyPlugin::registerRecipeComponents);
 
 		var ops = registries.json();
-		for (var entry : resourceManager.listResources("KubeGroovy", path -> path.getPath().endsWith("/recipe_components.json")).entrySet()) {
+		for (var entry : resourceManager.listResources("kubegroovy", path -> path.getPath().endsWith("/recipe_components.json")).entrySet()) {
 			try (var reader = entry.getValue().openAsReader()) {
 				var json = JsonUtils.GSON.fromJson(reader, JsonObject.class);
 
