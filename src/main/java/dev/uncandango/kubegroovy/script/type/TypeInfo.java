@@ -11,6 +11,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.EnumSet;
@@ -95,6 +96,90 @@ public interface TypeInfo {
 
 	default boolean shouldConvert() {
 		return true;
+	}
+
+	static TypeInfo ofList(List<?> type) {
+		// This list will receive the classes and the generic types
+		// Generic types also may contain other generic types: some examples:
+		// [RegistryPredicate, [?]] -> RegistryPredicate<?> -> TypeInfo.of(RegistryPredicate).withParams(TypeInfo.NONE)
+		// [RegistryPredicate, [Consumer, [GameTestHelper]]] -> RegistryPredicate<Consumer<GameTestHelper>> -> TypeInfo.of(RegistryPredicate).withParams(TypeInfo.of(Consumer).withParams(TypeInfo.of(GameTestHelper)))
+		// [RegistryPredicate, [Item]] -> RegistryPredicate<Item>
+		// [RegistryPredicate, [MapCodec, [TestEnvironmentDefinition, [?]]]]
+		// [RegistryPredicate, [ArgumentTypeInfo, [?, ?]]]
+		// [RegistryPredicate, [ConsumeEffect.Type, [?]]]
+		// At runtime the outer list holds 1 element ([Raw]) for a raw type or 2 elements
+		// ([Raw, [args]]) for a parameterized type. A "?" wildcard arrives as Object
+		// (? extends Bound arrives as Bound), so an Object in argument position maps to NONE.
+		// Nested argument lists are flat: each Class may be followed by its own argument
+		// list, e.g. Map<List<String>, Integer> arrives as [Map, [List, [String], Integer]].
+		if (type == null || type.isEmpty()) {
+			return NONE;
+		}
+
+		if (type.size() == 1) {
+			return ofElement(type.get(0));
+		}
+
+		if (type.size() == 2 && type.get(1) instanceof List<?> args) {
+			var base = ofElement(type.get(0));
+
+			if (base == NONE) {
+				return NONE;
+			}
+
+			return base.withParams(ofParamList(args));
+		}
+
+		throw new IllegalArgumentException("Invalid type list: " + type);
+	}
+
+	private static TypeInfo ofElement(Object element) {
+		if (element == null) {
+			return NONE;
+		} else if (element instanceof TypeInfo info) {
+			return info;
+		} else if (element instanceof Class<?> clz) {
+			return of(clz);
+		} else if (element instanceof String name && name.equals("?")) {
+			return NONE;
+		} else if (element instanceof List<?> nested) {
+			return ofList(nested);
+		}
+
+		return NONE;
+	}
+
+	private static TypeInfo[] ofParamList(List<?> flat) {
+		if (flat.isEmpty()) {
+			return EMPTY_ARRAY;
+		}
+
+		var out = new ArrayList<TypeInfo>(flat.size());
+
+		for (int i = 0; i < flat.size();) {
+			var current = flat.get(i);
+
+			if (current instanceof List<?>) {
+				i++;
+				continue;
+			}
+
+			var base = ofElement(current);
+
+			if (base == OBJECT) {
+				base = NONE;
+			}
+
+			if (i + 1 < flat.size() && flat.get(i + 1) instanceof List<?> args) {
+				out.add(base.withParams(ofParamList(args)));
+				i += 2;
+			} else {
+				out.add(base);
+				i++;
+			}
+		}
+
+		return out.toArray(EMPTY_ARRAY);
 	}
 
 	static TypeInfo of(Class<?> c) {

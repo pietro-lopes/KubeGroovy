@@ -45,6 +45,23 @@ public class TypeWrapperRegistry {
 	}
 
 	/** Entry point used by the sandbox-rewritten {@code value as Target} casts. */
+	public static Object coerce(Object value, TypeInfo target) {
+		var cx = Context.getCurrent();
+		if (!(cx instanceof KubeGroovyContext kgy)) {
+			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target.asClass());
+		}
+		Object result = kgy.kgyFactory.getTypeWrappers().coerce(cx, value, target);
+		// A wrapper may return a vanilla value whose script-facing methods are
+		// supplied by an injected KGY interface.  Refresh that concrete class so
+		// the same aliases/properties are available immediately after an explicit
+		// Groovy cast.
+		if (result != null) {
+			KubeGroovyMetaClassCreationHandle.refreshIfNeeded(result);
+		}
+		return result;
+	}
+
+	/** Entry point used by the sandbox-rewritten {@code value as Target} casts. */
 	public static Object coerce(Object value, Class<?> target) {
 		var cx = Context.getCurrent();
 		if (!(cx instanceof KubeGroovyContext kgy)) {

@@ -69,6 +69,12 @@ neoForge {
 		from(file("interfaces.json"))
 		publish(file("interfaces.json"))
 	}
+	runs {
+		configureEach {
+			jvmArgument("-XX:+IgnoreUnrecognizedVMOptions")
+			jvmArgument("-XX:+AllowEnhancedClassRedefinition")
+		}
+	}
 }
 
 repositories {

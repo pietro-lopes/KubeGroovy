@@ -1,26 +1,37 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
+import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
+import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassCodeExpressionTransformer;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.ImportNode;
+import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.expr.ArgumentListExpression;
 import org.codehaus.groovy.ast.expr.ClassExpression;
 import org.codehaus.groovy.ast.expr.ConstantExpression;
 import org.codehaus.groovy.ast.expr.CastExpression;
 import org.codehaus.groovy.ast.expr.ClosureExpression;
 import org.codehaus.groovy.ast.expr.Expression;
+import org.codehaus.groovy.ast.expr.ListExpression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.StaticMethodCallExpression;
 import org.codehaus.groovy.ast.expr.TupleExpression;
 import org.codehaus.groovy.ast.expr.VariableExpression;
+import org.codehaus.groovy.ast.stmt.CatchStatement;
+import org.codehaus.groovy.ast.stmt.EmptyStatement;
+import org.codehaus.groovy.ast.stmt.ExpressionStatement;
+import org.codehaus.groovy.ast.tools.GeneralUtils;
+import org.codehaus.groovy.ast.tools.ParameterUtils;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.control.customizers.CompilationCustomizer;
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
+import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -36,6 +47,29 @@ public final class KubeGroovySandbox {
 
 	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter) {
 		return customizers(filter, null);
+	}
+
+	public static String resolveFullName(SourceUnit source, ClassNode node){
+		var isArray = node.getComponentType() != null;
+		if (isArray) throw new IllegalArgumentException("Array types are not supported");
+		var nodeName = node.getName();
+		String result = null;
+		String visited = null;
+		for (var partialName : nodeName.split("\\.")) {
+			if (result != null) {
+				result += "." + partialName;
+			}
+			if (visited == null) {
+				visited = partialName;
+			} else {
+				visited += "." + partialName;
+			}
+			var fromImport = source.getAST().getImportType(visited);
+			if (fromImport != null) {
+				result = fromImport.getName();
+			}
+		}
+		return result != null ? result : nodeName;
 	}
 
 	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter, @Nullable TypeWrappers wrappers) {
@@ -76,23 +110,48 @@ public final class KubeGroovySandbox {
 					return exp;
 				}
 				ClassNode importNode = null;
-				if (exp instanceof CastExpression cast && wrappers != null && wrappers.hasWrapper((importNode = source.getAST().getImportType(cast.getType().getName())) == null ? cast.getType().getName() : importNode.getName())) {
-					var value = transform(cast.getExpression());
-					var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
-						new ArgumentListExpression(value, new ClassExpression(cast.getType())));
-					rewritten.setSourcePosition(exp);
-					return rewritten;
+				if (exp instanceof CastExpression cast && wrappers != null && cast.isCoerce()) {
+					var isArray = cast.getType().getComponentType() != null;
+					if (wrappers.hasWrapper(resolveFullName(source, isArray ? cast.getType().getComponentType() : cast.getType()))) {
+						var value = transform(cast.getExpression());
+
+						var listExpression = new ListExpression();
+						collectClassList(cast.getType(), listExpression);
+						var typeInfoCall = new StaticMethodCallExpression(ClassHelper.make(TypeInfo.class), "ofList",
+							new ArgumentListExpression(listExpression));
+						var currentContextCall = new StaticMethodCallExpression(ClassHelper.make(Context.class), "getCurrent",
+							new ArgumentListExpression());
+						var gyToJavaCall = new MethodCallExpression(currentContextCall, "gyToJava",
+							new ArgumentListExpression(value, typeInfoCall));
+						gyToJavaCall.setSourcePosition(exp);
+
+						return gyToJavaCall; // GeneralUtils.tryCatchS(new ExpressionStatement(cast),new EmptyStatement(), new CatchStatement(new Parameter(ClassHelper.make(GroovyCastException.class), "e"),new ExpressionStatement(gyToJavaCall)));
+
+//						//KubeGroovy.LOGGER.info(listExpression.getText());
+//						var typeInfoCall = new StaticMethodCallExpression(ClassHelper.make(TypeInfo.class), "ofList",
+//							new ArgumentListExpression(listExpression));
+//						var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
+//								new ArgumentListExpression(value, typeInfoCall));
+//						rewritten.setSourcePosition(exp);
+//						return rewritten;
+					}
 				}
 				if (exp instanceof MethodCallExpression call) {
 					String method = call.getMethodAsString();
 					Expression object = call.getObjectExpression();
 					if ("asType".equals(method) && wrappers != null && call.getArguments() instanceof TupleExpression args
-						&& args.getExpressions().size() == 1 && args.getExpression(0) instanceof ClassExpression target
-						&& wrappers.hasWrapper((importNode = source.getAST().getImportType(target.getType().getName())) == null ? target.getType().getName() : importNode.getName())) {
-						var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
-							new ArgumentListExpression(transform(object), new ClassExpression(target.getType())));
-						rewritten.setSourcePosition(exp);
-						return rewritten;
+						&& args.getExpressions().size() == 1 && args.getExpression(0) instanceof ClassExpression target) {
+						var value = object;
+						var listExpression = new ListExpression();
+						collectClassList(target.getType(), listExpression);
+						var typeInfoCall = new StaticMethodCallExpression(ClassHelper.make(TypeInfo.class), "ofList",
+							new ArgumentListExpression(listExpression));
+						var currentContextCall = new StaticMethodCallExpression(ClassHelper.make(Context.class), "getCurrent",
+							new ArgumentListExpression());
+						var gyToJavaCall = new MethodCallExpression(currentContextCall, "gyToJava",
+								new ArgumentListExpression(value,typeInfoCall));
+						gyToJavaCall.setSourcePosition(exp);
+						return gyToJavaCall;
 					}
 
 					// Block System.exit / halt
@@ -165,5 +224,16 @@ public final class KubeGroovySandbox {
 		};
 
 		return List.of(secure, transformerCustomizer);
+	}
+
+	private static void collectClassList(ClassNode type, ListExpression listExpression) {
+		listExpression.addExpression(new ClassExpression(type));
+		if (type.isUsingGenerics()) {
+			var genericsList = new ListExpression();
+			listExpression.addExpression(genericsList);
+			for (var generics : type.getGenericsTypes()) {
+				collectClassList(generics.getType().getName().equals("?") ? ClassHelper.OBJECT_TYPE : generics.getType(), genericsList);
+			}
+		}
 	}
 }

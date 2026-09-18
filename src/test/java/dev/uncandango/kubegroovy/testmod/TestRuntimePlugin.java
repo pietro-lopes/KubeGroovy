@@ -26,5 +26,7 @@ public class TestRuntimePlugin implements KubeGroovyPlugin {
 		filter.allow("java.lang.AssertionError");
 		filter.allow("dev.uncandango.kubegroovy.core.PlayerSelector");
 		filter.allow("dev.uncandango.kubegroovy.script.bridge.BaseFunction");
+		filter.allow("dev.uncandango.kubegroovy.script.type.TypeInfo");
+		filter.allow("dev.uncandango.kubegroovy.script.bridge.Context");
 	}
 }

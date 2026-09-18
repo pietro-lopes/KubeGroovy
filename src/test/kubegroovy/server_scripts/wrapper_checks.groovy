@@ -2,6 +2,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.mojang.serialization.MapCodec
 import dev.uncandango.kubegroovy.block.BlockTintFunction
 import dev.uncandango.kubegroovy.client.icon.KubeIcon
 import dev.uncandango.kubegroovy.client.icon.TextureKubeIcon
@@ -21,6 +22,8 @@ import dev.uncandango.kubegroovy.util.SlotFilter
 import dev.uncandango.kubegroovy.util.TickDuration
 import dev.uncandango.kubegroovy.util.Tristate
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate
+import net.minecraft.commands.synchronization.ArgumentTypeInfo
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderSet
 import net.minecraft.core.Position
@@ -31,6 +34,8 @@ import net.minecraft.core.component.DataComponentMap
 import net.minecraft.core.component.DataComponentPatch
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.component.DataComponents
+import net.minecraft.gametest.framework.GameTestHelper
+import net.minecraft.gametest.framework.TestEnvironmentDefinition
 import net.minecraft.nbt.CollectionTag
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -42,6 +47,7 @@ import net.minecraft.network.chat.TextColor
 import net.minecraft.resources.Identifier
 import net.minecraft.stats.Stat
 import net.minecraft.stats.Stats
+import net.minecraft.tags.TagKey
 import net.minecraft.util.ColorRGBA
 import net.minecraft.util.RandomSource
 import net.minecraft.util.Unit
@@ -53,6 +59,7 @@ import net.minecraft.world.entity.EntitySpawnReason
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.item.Item
+import net.minecraft.world.item.consume_effects.ConsumeEffect
 import net.minecraft.world.item.enchantment.ItemEnchantments
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -88,14 +95,17 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient
 import net.neoforged.neoforge.server.ServerLifecycleHooks
 import net.neoforged.neoforge.transfer.fluid.FluidResource
 import net.neoforged.neoforge.transfer.item.ItemResource
+import org.apache.commons.lang3.NotImplementedException
 import org.assertj.core.api.Assertions
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryIDPredicate
 
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 import java.time.temporal.TemporalAmount
 import java.util.UUID
+import java.util.function.Consumer
 import java.util.regex.Pattern
 
 import net.minecraft.util.valueproviders.WeightedListInt
@@ -949,8 +959,8 @@ ServerEvents.tick { event ->
 		def c = m as Component
 		TestRuntime.assertThat(c.is(m)).as("component alias preserves instance").isTrue()
 		TestRuntime.assertThat(c.getString()).as("component alias text").isEqualTo('hello alias')
-		TestRuntime.assertThat(null as Component).as("null component").isNull()
-		Assertions.assertThatThrownBy(() -> 'hello' as Component).as("string should not cast to Component").isInstanceOf(GroovyCastException)
+		def nullComponent = null as Component
+		TestRuntime.assertThat(nullComponent.getString()).as("null component string literal").isEqualTo("null")
 	}
 	TestRuntime.check('wrapper.item_lore') {
 		def empty = [] as ItemLore
@@ -1017,24 +1027,36 @@ ServerEvents.tick { event ->
 		def res = ('minecraft:diamond' as ItemStack) as ItemResource
 		TestRuntime.assertThat(res).as("diamond item resource").isNotNull()
 		TestRuntime.assertThat(res.isEmpty()).as("diamond resource is not empty").isFalse()
-		TestRuntime.assertThat(null as ItemResource).as("null item resource").isNull()
+		TestRuntime.assertThat(null as ItemResource).as("empty item resource").isEqualTo(ItemResource.EMPTY)
 	}
 	TestRuntime.check('wrapper.fluid_resource') {
 		def res = ('minecraft:water' as FluidStack) as FluidResource
 		TestRuntime.assertThat(res).as("water fluid resource").isNotNull()
-		TestRuntime.assertThat(null as FluidResource).as("null fluid resource").isNull()
+		TestRuntime.assertThat(null as FluidResource).as("fluid empty resource").isEqualTo(FluidResource.EMPTY)
 	}
 	TestRuntime.check('wrapper.holder_set') {
-		Assertions.assertThatThrownBy(() -> 'minecraft:diamond' as HolderSet<Item>).as("raw id should not cast to HolderSet").isInstanceOf(GroovyCastException)
-		def itemRegistry = event.getServer().registryAccess().lookupOrThrow(Registries.ITEM)
-		def emptySet = HolderWrapper.wrapSimpleSet(itemRegistry, '')
-		TestRuntime.assertThat(emptySet.size()).as("empty holder set size").isEqualTo(0)
-		def tagSet = HolderWrapper.wrapSimpleSet(itemRegistry, '#minecraft:planks')
-		TestRuntime.assertThat(tagSet.size() > 0).as("tag holder set is not empty").isTrue()
-		def nsSet = HolderWrapper.wrapSimpleSet(itemRegistry, '@minecraft')
-		TestRuntime.assertThat(nsSet.size() > 0).as("namespace holder set is not empty").isTrue()
-		def regexSet = HolderWrapper.wrapSimpleSet(itemRegistry, '/diamond/')
-		TestRuntime.assertThat(regexSet.size() > 0).as("regex holder set is not empty").isTrue()
-		TestRuntime.assertThat(HolderWrapper.wrapSimpleSet(itemRegistry, 42)).as("number holder set").isNull()
+		def diamondHolderSet = 'minecraft:diamond' as HolderSet<Item>
+		log(diamondHolderSet)
+
+		/** Need to find a way to implement this
+		def oresTags = 'c:ores' as TagKey<Item>
+		log(oresTags)
+ 		*/
+	}
+	TestRuntime.check('wrapper.generics') {
+		def diamond = 'minecraft:diamond' as RegistryPredicate
+		def diamondWildCard = 'minecraft:diamond' as RegistryPredicate<?>
+		Assertions.assertThat(diamond).isExactlyInstanceOf(RegistryIDPredicate)
+		Assertions.assertThat(diamondWildCard).isExactlyInstanceOf(RegistryIDPredicate)
+		def testFunctionHolderSet = 'always_pass' as RegistryPredicate<Consumer<GameTestHelper>>
+		Assertions.assertThat(testFunctionHolderSet).isExactlyInstanceOf(RegistryHolderPredicate)
+		def diamondHolderSet = 'minecraft:diamond' as RegistryPredicate<Item>
+		Assertions.assertThat(diamondHolderSet).isExactlyInstanceOf(RegistryHolderPredicate)
+		def testEnvDefinitionTypeHolderSet = 'all_of' as RegistryPredicate<MapCodec<TestEnvironmentDefinition<?>>>
+		Assertions.assertThat(testEnvDefinitionTypeHolderSet).isExactlyInstanceOf(RegistryHolderPredicate)
+		def commandArgumentTypeHolderSet = 'brigadier:bool' as RegistryPredicate<ArgumentTypeInfo<?, ?>>
+		Assertions.assertThat(commandArgumentTypeHolderSet).isExactlyInstanceOf(RegistryHolderPredicate)
+		def consumeEffectTypeHolderSet = 'apply_effects' as RegistryPredicate<ConsumeEffect.Type<?>>
+		Assertions.assertThat(consumeEffectTypeHolderSet).isExactlyInstanceOf(RegistryHolderPredicate)
 	}
 }

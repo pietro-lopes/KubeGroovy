@@ -199,6 +199,10 @@ public class KubeGroovyContext extends Context {
 
 	@Override
 	public Object gyToJava(Object from, TypeInfo target) {
+		if (kgyFactory.getTypeWrappers().hasWrapper(target.asClass())) {
+			return kgyFactory.getTypeWrappers().coerce(this, from, target);
+		}
+
 		if (from == null) {
 			return null;
 		}

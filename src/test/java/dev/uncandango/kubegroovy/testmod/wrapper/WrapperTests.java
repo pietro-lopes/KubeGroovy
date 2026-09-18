@@ -93,6 +93,7 @@ public class WrapperTests {
 		"wrapper.item_resource",
 		"wrapper.fluid_resource",
 		"wrapper.holder_set",
+		"wrapper.generics",
 	};
 
 	@GameTest

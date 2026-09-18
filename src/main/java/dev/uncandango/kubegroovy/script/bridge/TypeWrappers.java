@@ -53,11 +53,15 @@ public class TypeWrappers {
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */
-	public Object coerceWithType(Context cx, Object value, TypeInfo target) {
+	public Object coerce(Context cx, Object value, TypeInfo target) {
 		if (target == null) {
 			throw new GroovyCastException(value, Object.class);
 		}
 		value = Wrapper.unwrapped(value);
+
+		if (target.asClass().isArray()) {
+			return coerceCollection(cx, value, target);
+		}
 
 		Object raw = wrappers.get(target.asClass());
 		if (raw == null && value == null || target.asClass().isInstance(value)) {
@@ -85,6 +89,45 @@ public class TypeWrappers {
 		} catch (Throwable ex) {
 			throw new GroovyCastException(value, target.asClass(), ex instanceof Exception e ? e : new RuntimeException(ex));
 		}
+	}
+
+	public Object coerceCollection(Context cx, Object from, TypeInfo target){
+		if (from instanceof Object[] arr && java.util.Collection.class.isAssignableFrom(target.asClass())) {
+			return toCollection(java.util.Arrays.asList(arr), target.asClass());
+		}
+		if (from instanceof Iterable<?> it && java.util.Collection.class.isAssignableFrom(target.asClass())) {
+			var out = new java.util.ArrayList<>();
+			for (var e : it) {
+				out.add(e);
+			}
+			return toCollection(out, target.asClass());
+		}
+		if (target.asClass().isArray() && from instanceof java.util.Collection<?> coll) {
+			var comp = target.componentType().asClass();
+			var arr = java.lang.reflect.Array.newInstance(comp, coll.size());
+			int i = 0;
+			for (var e : coll) {
+				java.lang.reflect.Array.set(arr, i++, coerce(cx, e, target.componentType()));
+			}
+			return arr;
+		}
+		return from;
+	}
+
+	private static Object toCollection(java.util.List<?> list, Class<?> target) {
+		if (target.isInstance(list)) {
+			return list;
+		}
+		if (target == java.util.Set.class || target == java.util.HashSet.class) {
+			return new java.util.HashSet<>(list);
+		}
+		if (target == java.util.SortedSet.class || target == java.util.TreeSet.class) {
+			return new java.util.TreeSet<>((java.util.Collection) list);
+		}
+		if (target == java.util.Queue.class || target == java.util.Deque.class || target == java.util.ArrayDeque.class) {
+			return new java.util.ArrayDeque<>(list);
+		}
+		return list;
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */
