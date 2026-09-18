@@ -1,0 +1,221 @@
+package dev.uncandango.kubegroovy.script.type;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * @author ZZZank
+ */
+public final class TypeConsolidator {
+    private static final Map<Class<?>, Map<VariableTypeInfo, TypeInfo>> MAPPINGS = new ConcurrentHashMap<>();
+
+    private static final boolean DEBUG = false;
+
+    private TypeConsolidator() {
+    }
+
+    @NotNull
+    public static Map<VariableTypeInfo, TypeInfo> getMapping(Class<?> type) {
+        if (DEBUG) {
+            System.out.println("getting mapping from: " + type);
+        }
+        var got = getImpl(type);
+        return got == null ? Collections.emptyMap() : got;
+    }
+
+    @NotNull
+    public static TypeInfo consolidateOrNone(VariableTypeInfo variable, Map<VariableTypeInfo, TypeInfo> mapping) {
+        return mapping.getOrDefault(variable, TypeInfo.NONE);
+    }
+
+    @NotNull
+    public static TypeInfo[] consolidateAll(
+        @NotNull TypeInfo @NotNull [] original,
+        @NotNull Map<VariableTypeInfo, TypeInfo> mapping
+    ) {
+        var len = original.length;
+        if (DEBUG) {
+            System.out.println("consolidating" + Arrays.toString(original));
+        }
+        if (len == 0) {
+            return original;
+        } else if (len == 1) {
+            var consolidated = original[0].consolidate(mapping);
+            return consolidated != original[0] ? new TypeInfo[]{consolidated} : original;
+        }
+		var transformed = original;
+		for (var i = 0; i < original.length; i++) {
+			var type = original[i];
+			var consolidated = type.consolidate(mapping);
+			if (consolidated != type) {
+				if (transformed == original) {
+					transformed = original.clone();
+				}
+				transformed[i] = consolidated;
+			}
+		}
+		return transformed;
+    }
+
+	@NotNull
+	public static List<@NotNull TypeInfo> consolidateAll(
+		@NotNull List<@NotNull TypeInfo> original,
+		@NotNull Map<VariableTypeInfo, TypeInfo> mapping
+	) {
+		var len = original.size();
+		if (DEBUG) {
+			System.out.println("consolidating" + original);
+		}
+		if (len == 0) {
+			return original;
+		} else if (len == 1) {
+			var consolidated = original.getFirst().consolidate(mapping);
+			return consolidated != original.getFirst() ? List.of(consolidated) : original;
+		}
+		var transformed = original;
+		for (int i = 0; i < len; i++) {
+			var type = original.get(i);
+			var consolidated = type.consolidate(mapping);
+			if (consolidated != type) {
+				if (transformed == original) {
+					transformed = new ArrayList<>(original);
+				}
+				transformed.set(i, consolidated);
+			}
+		}
+		return transformed;
+	}
+
+    @Nullable
+    private static Map<VariableTypeInfo, TypeInfo> getImpl(Class<?> type) {
+        if (type == null || type.isPrimitive() || type == Object.class) {
+            return null;
+        }
+		// no '.computeIfAbsent(...)' because of 'java.util.ConcurrentModificationException'
+		var got = MAPPINGS.get(type);
+		if (got == null) {
+			got = TypeConsolidator.collect(type);
+			MAPPINGS.put(type, got);
+		}
+		return got;
+    }
+
+    @NotNull
+    private static Map<VariableTypeInfo, TypeInfo> collect(Class<?> type) {
+        var mapping = new HashMap<VariableTypeInfo, TypeInfo>();
+
+        /**
+         * (classes are named as 'XXX': A, B, C, ...)
+         * (type variables are named as 'Tx': Ta, Tb, Tc, ...)
+		 *
+         * let's consider the most extreme case:
+         * class A<Ta> {}
+         * interface B<Tb> {}
+         * class C<Tc> extends A<Tc> {}
+         * class D<Td> extends C<Td> implements B<A<Td>> {}
+         *
+         * assuming that input 'type' is C.class
+         */
+
+        //collect current level mapping
+        //current level types will only be consolidated by mappings from its subclasses
+        var parent = type.getSuperclass();
+
+        //in our D.class example, this will collect mapping from C<Td>, forming Tc -> Td
+        extractSuperMapping(type.getGenericSuperclass(), mapping);
+
+        //in our D.class example, this will collect mapping from B<A<Td>>, forming Tb -> A<Td>
+        for (var genericInterface : type.getGenericInterfaces()) {
+            extractSuperMapping(genericInterface, mapping);
+        }
+
+        //mapping from super
+        //in our D.class example, super mapping will only include Ta -> Tc
+        var superMapping = getMapping(parent);
+
+		var interfaces = type.getInterfaces();
+		var interfaceMappings = new ArrayList<Map<VariableTypeInfo, TypeInfo>>(interfaces.length);
+		for (var anInterface : interfaces) {
+			interfaceMappings.add(getMapping(anInterface));
+		}
+
+		if (superMapping.isEmpty() || interfaceMappings.stream().allMatch(Map::isEmpty)) {
+            return postMapping(mapping);
+        }
+
+        // 'flatten' super mapping
+        var merged = new HashMap<>(transformMapping(superMapping, mapping));
+		// 'flatten' interface mapping
+		for (var interfaceMapping : interfaceMappings) {
+			merged.putAll(transformMapping(interfaceMapping, mapping));
+		}
+        // merge all mappings
+        merged.putAll(mapping);
+
+        //in our D.class example, our mapping will include Ta -> Td, Tb -> A<Td>, Tc -> Td.
+        //the 'flattened' means that all related type (Ta, Tb, Tc) can be directly mapped to
+        //the type used by D.class (Td), so we only need to apply the mapping ONCE
+        return postMapping(merged);
+    }
+
+	private static Map<VariableTypeInfo, TypeInfo> transformMapping(
+		Map<VariableTypeInfo, TypeInfo> mapping, Map<VariableTypeInfo, TypeInfo> transformer) {
+		if (mapping.isEmpty()) {
+			return Map.of();
+		} else if (mapping.size() == 1) {
+			var entry = mapping.entrySet().iterator().next();
+			return Map.of(entry.getKey(), entry.getValue().consolidate(transformer));
+		}
+		var transformed = new HashMap<>(mapping);
+		for (var entry : transformed.entrySet()) {
+			entry.setValue(entry.getValue().consolidate(transformer));
+		}
+		return transformed;
+	}
+
+    private static void extractSuperMapping(
+        Type superType,
+        Map<VariableTypeInfo, TypeInfo> pushTo
+    ) {
+        if (superType instanceof ParameterizedType parameterized
+            && parameterized.getRawType() instanceof Class<?> parent
+        ) {
+            final var params = parent.getTypeParameters(); // T
+            final var args = parameterized.getActualTypeArguments(); // T is mapped to
+            for (int i = 0; i < args.length; i++) {
+                pushTo.put(TypeInfo.of(params[i]), TypeInfo.of(args[i]));
+            }
+        }
+    }
+
+    private static Map<VariableTypeInfo, TypeInfo> postMapping(Map<VariableTypeInfo, TypeInfo> mapping) {
+        switch (mapping.size()) {
+            case 0:
+                if (DEBUG) {
+                    System.out.println("collected empty mapping");
+                }
+                return Collections.emptyMap();
+            case 1:
+                var entry = mapping.entrySet().iterator().next();
+                if (DEBUG) {
+                    System.out.println("collected singleton mapping: " + entry.getKey() + " -> " + entry.getValue());
+                }
+                return Collections.singletonMap(entry.getKey(), entry.getValue());
+            default:
+                if (DEBUG) {
+                    System.out.println("collected mapping with size: " + mapping.size());
+                }
+                return Collections.unmodifiableMap(mapping);
+        }
+    }
+}
