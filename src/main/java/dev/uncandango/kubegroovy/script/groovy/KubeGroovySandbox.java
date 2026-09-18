@@ -6,6 +6,7 @@ import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassCodeExpressionTransformer;
 import org.codehaus.groovy.ast.ClassNode;
+import org.codehaus.groovy.ast.ImportNode;
 import org.codehaus.groovy.ast.expr.ArgumentListExpression;
 import org.codehaus.groovy.ast.expr.ClassExpression;
 import org.codehaus.groovy.ast.expr.ConstantExpression;
@@ -74,7 +75,8 @@ public final class KubeGroovySandbox {
 					closure.visit(this);
 					return exp;
 				}
-				if (exp instanceof CastExpression cast && wrappers != null && wrappers.hasWrapper(cast.getType().getName())) {
+				ClassNode importNode = null;
+				if (exp instanceof CastExpression cast && wrappers != null && wrappers.hasWrapper((importNode = source.getAST().getImportType(cast.getType().getName())) == null ? cast.getType().getName() : importNode.getName())) {
 					var value = transform(cast.getExpression());
 					var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
 						new ArgumentListExpression(value, new ClassExpression(cast.getType())));
@@ -86,7 +88,7 @@ public final class KubeGroovySandbox {
 					Expression object = call.getObjectExpression();
 					if ("asType".equals(method) && wrappers != null && call.getArguments() instanceof TupleExpression args
 						&& args.getExpressions().size() == 1 && args.getExpression(0) instanceof ClassExpression target
-						&& wrappers.hasWrapper(target.getType().getName())) {
+						&& wrappers.hasWrapper((importNode = source.getAST().getImportType(target.getType().getName())) == null ? target.getType().getName() : importNode.getName())) {
 						var rewritten = new StaticMethodCallExpression(ClassHelper.make(TypeWrapperRegistry.class), "coerce",
 							new ArgumentListExpression(transform(object), new ClassExpression(target.getType())));
 						rewritten.setSourcePosition(exp);

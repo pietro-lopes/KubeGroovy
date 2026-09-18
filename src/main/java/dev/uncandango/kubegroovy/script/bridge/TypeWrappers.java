@@ -42,8 +42,13 @@ public class TypeWrappers {
 	}
 
 	public boolean hasWrapper(String targetName) {
+		// Groovy AST names nested classes with dots (Outer.Inner) while
+		// Class.getName uses '$' (Outer$Inner); match both spellings so
+		// explicit casts to nested wrapper targets are rewritten instead of
+		// falling through to Groovy's native cast.
 		return targetName != null && wrappers.keySet().stream().anyMatch(c ->
-			c.getName().equals(targetName) || c.getSimpleName().equals(targetName));
+			c.getName().equals(targetName) || c.getSimpleName().equals(targetName)
+				|| targetName.equals(c.getCanonicalName()) || c.getName().replace('$', '.').equals(targetName));
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */

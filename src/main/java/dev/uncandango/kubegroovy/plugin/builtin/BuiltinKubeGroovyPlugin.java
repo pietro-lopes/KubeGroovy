@@ -34,6 +34,7 @@ import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.component.DataComponentWrapper;
 import dev.uncandango.kubegroovy.core.PlayerSelector;
 import dev.uncandango.kubegroovy.entity.AttributeBuilder;
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.event.EventGroupRegistry;
 import dev.uncandango.kubegroovy.event.EventGroupWrapper;
 import dev.uncandango.kubegroovy.event.EventGroups;
@@ -180,6 +181,8 @@ import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
 import dev.uncandango.kubegroovy.web.local.KubeGroovyWeb;
 import dev.uncandango.kubegroovy.script.bridge.RecordTypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import net.minecraft.advancements.criterion.DataComponentMatchers;
+import net.minecraft.advancements.criterion.MinMaxBounds;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -592,7 +595,33 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.registerAlias(CustomModelData.class, TypeInfo.PRIMITIVE_INT, (Integer i) ->
 			new CustomModelData(List.of(), List.of(), List.of(), List.of(i))
 		);
-		registry.registerAlias(LockCode.class, TypeInfo.STRING, LockCode::new);
+		// LockCode lost its String constructor in 1.21.2 (now wraps a vanilla item
+		// predicate), so interpret the input as an item id instead of delegating
+		// to a constructor that no longer exists.
+		registry.register(LockCode.class, (TypeWrapperRegistry.ContextFromFunction<LockCode>) (cx, from) -> {
+			if (from == null) {
+				return null;
+			}
+
+			Identifier id;
+
+			if (from instanceof Item item) {
+				id = BuiltInRegistries.ITEM.getKey(item);
+			} else if (from instanceof ItemStack stack) {
+				id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+			} else {
+				id = ID.mc(from);
+			}
+
+			if (id == null) {
+				throw new KubeRuntimeException("Could not create ID from '%s'!".formatted(from));
+			}
+
+			var holder = BuiltInRegistries.ITEM.get(ResourceKey.create(Registries.ITEM, id))
+				.orElseThrow(() -> new KubeRuntimeException("Unknown item: " + id));
+			return new LockCode(new net.minecraft.advancements.criterion.ItemPredicate(
+				Optional.of(HolderSet.direct(holder)), MinMaxBounds.Ints.ANY, DataComponentMatchers.ANY));
+		});
 		registry.registerAlias(BlockItemStateProperties.class, TypeInfo.RAW_MAP.withParams(TypeInfo.STRING, TypeInfo.STRING), BlockItemStateProperties::new);
 
 		registry.registerAlias(ItemResource.class, ItemStack.class, ItemResource::of);

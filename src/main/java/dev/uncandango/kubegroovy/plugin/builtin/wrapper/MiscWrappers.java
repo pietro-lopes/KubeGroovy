@@ -207,12 +207,22 @@ public interface MiscWrappers {
 		if (m.containsKey("clamped_normal")) {
 			return tryParseInt(m.get("mean"))
 				.apply3(MiscWrappers::toClampedNormal, tryParseFloat(m.get("deviation")), parseFloatBounds(m));
+		} else if (m.containsKey("value") && !hasRangeBounds(m)) {
+			// A lone value is a constant; UniformFloat.of(f, f) would throw
+			// ("Max must exceed min"), mirroring the bare-number form above.
+			return tryParseFloat(m.get("value")).map(ConstantFloat::of);
 		} else if (hasBounds(m)) {
 			return parseFloatBounds(m).map(v -> v);
 		} else {
 			return FloatProviders.CODEC.parse(RegistryAccessContainer.of(cx).nbt(), NBTWrapper.wrapCompound(cx, m))
 				.mapError(error -> "Failed to decode FloatProvider from %s: %s".formatted(m, error));
 		}
+	}
+
+	private static boolean hasRangeBounds(Map<String, Object> m) {
+		return m.get("bounds") instanceof List
+			|| (m.containsKey("min") && m.containsKey("max"))
+			|| (m.containsKey("min_inclusive") && m.containsKey("max_inclusive"));
 	}
 
 	private static boolean hasBounds(Map<String, Object> m) {

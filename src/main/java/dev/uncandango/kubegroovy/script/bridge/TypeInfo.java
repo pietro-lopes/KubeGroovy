@@ -10,6 +10,7 @@ import java.util.List;
  */
 public class TypeInfo {
 	public static final TypeInfo NONE = new TypeInfo(Object.class);
+	public static final TypeInfo[] EMPTY_ARRAY = new TypeInfo[0];
 	public static final TypeInfo STRING = new TypeInfo(String.class);
 	public static final TypeInfo CHARACTER = new TypeInfo(Character.class);
 	public static final TypeInfo INT = new TypeInfo(Integer.class);
@@ -55,7 +56,7 @@ public class TypeInfo {
 			return of(c);
 		}
 		if (t instanceof java.lang.reflect.ParameterizedType pt && pt.getRawType() instanceof Class<?> raw) {
-			return of(raw);
+			return of(raw).withParams(ofArray(pt.getActualTypeArguments()));
 		}
 		return NONE;
 	}
@@ -69,6 +70,17 @@ public class TypeInfo {
 			return params.get(i);
 		}
 		return NONE;
+	}
+
+	public static TypeInfo[] ofArray(java.lang.reflect.Type... array) {
+		if (array.length == 0) {
+			return TypeInfo.EMPTY_ARRAY;
+		}
+		var arr = new TypeInfo[array.length];
+		for (int i = 0; i < array.length; i++) {
+			arr[i] = of(array[i]);
+		}
+		return arr;
 	}
 
 	public TypeInfo withParams(TypeInfo... ps) {

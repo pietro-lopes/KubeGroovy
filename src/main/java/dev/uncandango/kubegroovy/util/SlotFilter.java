@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -44,6 +45,14 @@ public record SlotFilter(Optional<Ingredient> item, int index) {
 			return of(Optional.empty(), num.intValue());
 		} else if (o instanceof String || o instanceof Ingredient || o instanceof NativeRegExp || o instanceof Pattern) {
 			return of(Optional.of(IngredientWrapper.wrap(cx, o)), -1);
+		} else if (o instanceof Map<?, ?> map) {
+			var rawItem = map.get("item");
+			var item = rawItem == null
+				? Optional.<Ingredient>empty()
+				: Optional.of(IngredientWrapper.wrap(cx, rawItem));
+			var rawIndex = map.get("index");
+			int index = rawIndex == null ? -1 : ((Number) cx.gyToJava(rawIndex, TypeInfo.INT)).intValue();
+			return of(item, index);
 		} else {
 			return (SlotFilter) ((RecordTypeInfo) target).wrap(cx, o, target);
 		}
