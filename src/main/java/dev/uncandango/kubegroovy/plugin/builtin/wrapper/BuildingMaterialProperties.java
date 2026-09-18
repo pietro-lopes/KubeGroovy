@@ -7,7 +7,7 @@ import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.util.TickDuration;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.BlockSetType;

@@ -9,7 +9,7 @@ import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.OpsContainer;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;

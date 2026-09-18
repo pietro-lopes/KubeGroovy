@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;

@@ -7,7 +7,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.uncandango.kubegroovy.codec.KubeGroovyCodecs;
 import dev.uncandango.kubegroovy.recipe.RecipeScriptContext;
 import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Contract;

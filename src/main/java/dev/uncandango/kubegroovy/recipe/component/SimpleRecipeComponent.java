@@ -1,7 +1,7 @@
 package dev.uncandango.kubegroovy.recipe.component;
 
 import com.mojang.serialization.Codec;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 
 public class SimpleRecipeComponent<T> implements RecipeComponent<T> {

@@ -1,6 +1,6 @@
 package dev.uncandango.kubegroovy.script;
 
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.component.DataComponentType;
 
 import java.lang.reflect.Modifier;

@@ -27,7 +27,7 @@ import dev.uncandango.kubegroovy.util.UtilsGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.bridge.NativeRegExp;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;

@@ -6,7 +6,7 @@ import dev.uncandango.kubegroovy.codec.KubeGroovyCodecs;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.DirectTypeWrapperFactory;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperValidator;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;

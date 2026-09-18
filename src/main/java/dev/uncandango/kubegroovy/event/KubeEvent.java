@@ -2,7 +2,7 @@ package dev.uncandango.kubegroovy.event;
 
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import org.jspecify.annotations.Nullable;
 

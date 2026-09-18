@@ -35,7 +35,7 @@ import dev.uncandango.kubegroovy.util.SlotFilter;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.CustomJavaToGyWrapper;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.resources.Identifier;

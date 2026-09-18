@@ -1,6 +1,6 @@
 package dev.uncandango.kubegroovy.util;
 
-import dev.uncandango.kubegroovy.script.bridge.RecordTypeInfo;
+import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMaps;
 import it.unimi.dsi.fastutil.objects.Object2ByteMap;

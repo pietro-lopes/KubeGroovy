@@ -8,7 +8,7 @@ import dev.uncandango.kubegroovy.script.bridge.ScriptRuntime;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.ScriptableObject;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.jspecify.annotations.NullUnmarked;
 
 import java.time.Duration;

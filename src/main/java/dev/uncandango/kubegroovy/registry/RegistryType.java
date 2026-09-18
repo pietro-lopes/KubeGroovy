@@ -4,7 +4,7 @@ import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.JavaWrapper;
 import dev.uncandango.kubegroovy.util.Cast;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;

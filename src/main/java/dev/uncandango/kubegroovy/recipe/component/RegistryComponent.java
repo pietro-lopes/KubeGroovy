@@ -13,7 +13,7 @@ import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
 import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.util.ID;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;

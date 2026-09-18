@@ -3,7 +3,7 @@ package dev.uncandango.kubegroovy.recipe;
 import dev.uncandango.kubegroovy.event.KubeEvent;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;

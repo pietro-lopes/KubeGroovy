@@ -2,7 +2,7 @@ package dev.uncandango.kubegroovy.recipe.component;
 
 import com.mojang.serialization.Codec;
 import dev.uncandango.kubegroovy.recipe.RecipeScriptContext;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.ExtraCodecs;
 import org.jspecify.annotations.Nullable;

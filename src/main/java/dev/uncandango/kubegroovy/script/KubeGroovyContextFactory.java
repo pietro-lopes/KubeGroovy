@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -11,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class KubeGroovyContextFactory extends ContextFactory {
 	public final ScriptManager manager;
 	private final TypeWrappers typeWrappers = new TypeWrappers();
-	private final Map<String, Object> defaultRecordProperties = new ConcurrentHashMap<>();
 
 	public KubeGroovyContextFactory(ScriptManager manager) {
 		this.manager = manager;
@@ -29,9 +29,5 @@ public class KubeGroovyContextFactory extends ContextFactory {
 	@Override
 	public TypeWrappers getTypeWrappers() {
 		return typeWrappers;
-	}
-
-	public void registerDefaultRecordProperties(Class<?> type, String property, Object value) {
-		defaultRecordProperties.put(type.getName() + "#" + property, value);
 	}
 }

@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import org.jspecify.annotations.Nullable;
 

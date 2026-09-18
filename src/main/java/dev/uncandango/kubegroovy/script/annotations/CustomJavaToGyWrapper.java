@@ -2,7 +2,7 @@ package dev.uncandango.kubegroovy.script.annotations;
 
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 /** Legacy-compat custom Java-to-script wrapper hook. */
 public interface CustomJavaToGyWrapper {

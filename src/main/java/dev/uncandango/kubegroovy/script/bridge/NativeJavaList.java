@@ -1,5 +1,5 @@
 package dev.uncandango.kubegroovy.script.bridge;
-
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import java.util.List;
 
 /** Legacy-compat list wrapper. Backed by a plain List for Groovy port. */

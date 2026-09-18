@@ -6,7 +6,7 @@ import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
 import dev.uncandango.kubegroovy.recipe.match.ItemMatch;
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatchInfo;
 import dev.uncandango.kubegroovy.util.OpsContainer;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;

@@ -8,7 +8,7 @@ import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;

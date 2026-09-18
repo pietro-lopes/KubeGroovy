@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.event.EventTargetType;
 import dev.uncandango.kubegroovy.plugin.builtin.event.KeyBindEvents;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.StringUtilsWrapper;
 import dev.uncandango.kubegroovy.script.ScriptType;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;

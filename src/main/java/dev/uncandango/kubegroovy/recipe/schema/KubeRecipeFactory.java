@@ -4,7 +4,7 @@ import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.recipe.KubeRecipe;
 import dev.uncandango.kubegroovy.recipe.RecipeTypeFunction;
 import dev.uncandango.kubegroovy.script.SourceLine;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.Identifier;
 
 import java.util.function.Supplier;

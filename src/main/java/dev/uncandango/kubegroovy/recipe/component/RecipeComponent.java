@@ -17,7 +17,7 @@ import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.util.IntBounds;
 import dev.uncandango.kubegroovy.util.OpsContainer;
 import dev.uncandango.kubegroovy.util.TinyMap;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 import org.jspecify.annotations.Nullable;
 

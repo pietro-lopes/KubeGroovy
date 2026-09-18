@@ -13,7 +13,7 @@ import dev.uncandango.kubegroovy.recipe.schema.RecipeSchema;
 import dev.uncandango.kubegroovy.recipe.schema.RecipeSchemaStorage;
 import dev.uncandango.kubegroovy.recipe.schema.RecipeSchemaType;
 import dev.uncandango.kubegroovy.util.Cast;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;

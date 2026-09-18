@@ -6,7 +6,7 @@ import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
 import dev.uncandango.kubegroovy.recipe.match.FluidMatch;
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatchInfo;
 import dev.uncandango.kubegroovy.util.OpsContainer;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;

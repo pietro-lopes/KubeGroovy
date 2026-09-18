@@ -3,8 +3,8 @@ package dev.uncandango.kubegroovy.recipe.match;
 import dev.uncandango.kubegroovy.recipe.component.RecipeComponent;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
-import dev.uncandango.kubegroovy.script.bridge.RecordTypeInfo;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.Map;
 import java.util.Optional;

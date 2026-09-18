@@ -39,7 +39,7 @@ import dev.uncandango.kubegroovy.web.LocalWebServer;
 import dev.uncandango.kubegroovy.web.LocalWebServerAPIRegistry;
 import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;

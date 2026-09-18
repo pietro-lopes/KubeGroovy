@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.recipe.RecipeScriptContext;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.ArrayList;
 import java.util.List;

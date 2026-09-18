@@ -1,9 +1,11 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import com.google.gson.JsonObject;
 import net.minecraft.nbt.CompoundTag;
 import org.jspecify.annotations.Nullable;
 
+import java.lang.reflect.Array;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,7 +217,30 @@ public class Context {
 		}
 	}
 
+//	public Object arrayOf(@Nullable Object from, TypeInfo target) {
+//		if (from instanceof Object[] arr) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			return arr.length == 0 ? target.newArray(0) : new ArrayValueProvider.FromPlainJavaArray(arr).createArray(this, target);
+//		} else if (from != null && from.getClass().isArray()) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			int len = Array.getLength(from);
+//			return len == 0 ? target.newArray(0) : new ArrayValueProvider.FromJavaArray(from, len).createArray(this, target);
+//		}
+//
+//		return arrayValueProviderOf(from).createArray(this, target);
+//	}
+
 	public Object toString(Object o) {
 		return String.valueOf(o);
+	}
+
+	public Object reportConversionError(Object value, TypeInfo type) {
+		throw Context.reportRuntimeError("Cannot convert %s to %s".formatted(String.valueOf(value), type.signature()), this);
 	}
 }

@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.Map;
 

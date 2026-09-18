@@ -11,7 +11,7 @@ import dev.uncandango.kubegroovy.codec.KubeGroovyCodecs;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.nbt.NbtOps;

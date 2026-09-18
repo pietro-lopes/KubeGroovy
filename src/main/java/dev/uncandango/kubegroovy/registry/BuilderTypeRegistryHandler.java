@@ -6,7 +6,7 @@ import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.util.Lazy;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;

@@ -2,6 +2,7 @@ package dev.uncandango.kubegroovy.script.bridge;
 
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +50,41 @@ public class TypeWrappers {
 		return targetName != null && wrappers.keySet().stream().anyMatch(c ->
 			c.getName().equals(targetName) || c.getSimpleName().equals(targetName)
 				|| targetName.equals(c.getCanonicalName()) || c.getName().replace('$', '.').equals(targetName));
+	}
+
+	/** Convert an explicit Groovy cast through the registered wrapper. */
+	public Object coerceWithType(Context cx, Object value, TypeInfo target) {
+		if (target == null) {
+			throw new GroovyCastException(value, Object.class);
+		}
+		value = Wrapper.unwrapped(value);
+
+		Object raw = wrappers.get(target.asClass());
+		if (raw == null && value == null || target.asClass().isInstance(value)) {
+			return value;
+		}
+
+		if (!(raw instanceof Entry entry)) {
+			throw new GroovyCastException(value, target.asClass());
+		}
+
+		var type = target;
+		try {
+			if (entry.validator != null && !entry.validator.test(value, type)) {
+				throw new IllegalArgumentException("value is not valid for " + target);
+			}
+			Object result = entry.directFactory != null
+				? entry.directFactory.wrap(value)
+				: entry.factory == null ? null : entry.factory.wrap(cx, value, type);
+			if (result != null && !target.asClass().isInstance(result)) {
+				throw new IllegalArgumentException("wrapper returned " + result.getClass().getName());
+			}
+			return result;
+		} catch (GroovyCastException ex) {
+			throw ex;
+		} catch (Throwable ex) {
+			throw new GroovyCastException(value, target.asClass(), ex instanceof Exception e ? e : new RuntimeException(ex));
+		}
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */

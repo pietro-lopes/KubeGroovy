@@ -12,7 +12,7 @@ import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaClass;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.ScriptableObject;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyClassLoader;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;

@@ -24,7 +24,7 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.EvaluatorException;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;

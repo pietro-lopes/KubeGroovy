@@ -3,7 +3,7 @@ package dev.uncandango.kubegroovy.util;
 import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.Codec;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.jspecify.annotations.Nullable;
 
 import java.time.temporal.Temporal;

@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.player.KubePlayerEvent;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;

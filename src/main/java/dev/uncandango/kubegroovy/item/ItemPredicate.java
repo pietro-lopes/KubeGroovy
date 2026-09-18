@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.plugin.builtin.wrapper.IngredientWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;

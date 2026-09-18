@@ -4,7 +4,7 @@ import dev.uncandango.kubegroovy.plugin.builtin.wrapper.NBTWrapper;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.nbt.Tag;
 
 import java.util.Map;

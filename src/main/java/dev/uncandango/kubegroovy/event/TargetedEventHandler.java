@@ -4,7 +4,7 @@ import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.ScriptTypeHolder;
 import dev.uncandango.kubegroovy.script.ScriptTypePredicate;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import org.jspecify.annotations.Nullable;

@@ -3,6 +3,7 @@ package dev.uncandango.kubegroovy.script.bridge;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.CustomJavaToGyWrapper;
 import groovy.lang.Closure;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 /**
  * Legacy-compat function holder. In Groovy port, script callbacks are Closures or

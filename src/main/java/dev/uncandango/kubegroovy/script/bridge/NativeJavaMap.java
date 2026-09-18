@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import java.util.HashMap;
 import java.util.Map;
 

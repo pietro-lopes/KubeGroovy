@@ -1,5 +1,5 @@
 package dev.uncandango.kubegroovy.script.bridge;
-
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import groovy.lang.GroovyObjectSupport;
 
 /** Legacy-compat java object wrapper. */

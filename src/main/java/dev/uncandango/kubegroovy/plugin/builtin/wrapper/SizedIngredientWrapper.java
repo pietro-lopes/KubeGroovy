@@ -10,7 +10,7 @@ import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.HolderSet;
 import net.minecraft.tags.TagKey;
