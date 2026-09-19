@@ -140,17 +140,18 @@ ServerEvents.tick { event ->
 	TestRuntime.check('binding.context_async') {
 		def executor = CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS)
 		def tasks = [
-				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context after timeout").isNotNull()} as Runnable, executor),
-				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext(Context.getCurrent())).as("context after timeout").isNotNull()} as Runnable, executor)
+				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context should came from Context.getCurrent() in that method").isNotNull()}, executor),
+				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext(Context.getCurrent())).as("context are passed explicitly").isNotNull()}, executor)
 		].toArray(CompletableFuture[]::new)
 		CompletableFuture.allOf(tasks).join();
 	}
 	TestRuntime.check('binding.context_async2') {
 		MinecraftServer server = event.server
-		server.executeBlocking([run: {TestRuntime.assertThat("minecraft:diamond" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on submit").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
-		def task = server.submitAsync([run: {TestRuntime.assertThat("invalid:item" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on submit").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
-		while (!task.isDone()) {
-		}
-		Assertions.assertThat(task).isCompletedExceptionally()
+		server.executeBlocking([run: {TestRuntime.assertThat("minecraft:diamond" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on execute blocking").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
+		// this test pass but polutes log with error that I can't suppress
+//		def task = server.submitAsync([run: {TestRuntime.assertThat("invalid:item" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on submit async").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
+//		while (!task.isDone()) {
+//		}
+//		Assertions.assertThat(task).isCompletedExceptionally()
 	}
 }
