@@ -1,10 +1,12 @@
 package dev.uncandango.kubegroovy.testmod.binding;
 
+import dev.uncandango.kubegroovy.script.bridge.Context;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
 import net.neoforged.testframework.gametest.EmptyTemplate;
 import net.neoforged.testframework.gametest.GameTest;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -115,5 +117,29 @@ public class BindingTests {
 
 			helper.succeed();
 		});
+	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "binding_context", description = "Context on multiple invocations")
+	static void bindingContext(final DynamicTest test) {
+		test.onGameTest(helper -> helper.startSequence()
+			.thenWaitUntil(() -> assertFired(helper, "binding.context"))
+			.thenWaitUntil(() -> assertFired(helper, "binding.context_async"))
+			.thenWaitUntil(() -> assertFired(helper, "binding.context_async2"))
+			.thenExecute(() -> assertVerified(helper, "binding.context"))
+			.thenExecute(() -> assertVerified(helper, "binding.context_async"))
+			.thenExecute(() -> assertVerified(helper, "binding.context_async2"))
+			.thenSucceed());
+	}
+
+	@Nullable
+	public static Context checkContext(){
+		return Context.getCurrent();
+	}
+
+	@Nullable
+	public static Context checkContext(Context cx){
+		return cx;
 	}
 }

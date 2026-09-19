@@ -96,7 +96,7 @@ public class ScheduledEvents {
 				return Undefined.INSTANCE;
 			} else {
 				var timer = (TemporalAmount) cx.gyToJava(args[1], TEMPORAL_AMOUNT_TYPE_INFO);
-				var callback = (Callback) cx.createInterfaceAdapter(Callback.TYPE_INFO, (ScriptableObject) args[0]);
+				var callback = (Callback) cx.createInterfaceAdapter(Callback.TYPE_INFO, args[0]);
 				return scheduledEvents.schedule(timer, interval, callback).id;
 			}
 		}
