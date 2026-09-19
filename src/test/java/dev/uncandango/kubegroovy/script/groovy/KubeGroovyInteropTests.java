@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.groovytest;
 
+import dev.uncandango.kubegroovy.plugin.builtin.wrapper.UtilsWrapper;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -114,6 +116,39 @@ class KubeGroovyInteropTests {
 		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
 			assertSame(previous, Context.getCurrent());
 		});
+	}
+
+	@Test
+	void asyncWrappersPropagateCapturedContext() {
+		var context = new Context();
+		var seenRun = new AtomicReference<Context>();
+		var seenSupply = new AtomicReference<Context>();
+		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
+			var captured = Context.getCurrent();
+			var runFuture = java.util.concurrent.CompletableFuture.runAsync(
+				() -> ScopedValue.where(Context.CURRENT, captured).run(() -> seenRun.set(Context.getCurrent())));
+			runFuture.join();
+			var supplyFuture = java.util.concurrent.CompletableFuture.supplyAsync(
+				() -> ScopedValue.where(Context.CURRENT, captured).call(Context::getCurrent));
+			supplyFuture.join();
+			seenSupply.set((Context) supplyFuture.join());
+		});
+		assertSame(context, seenRun.get());
+		assertSame(context, seenSupply.get());
+	}
+
+	@Test
+	void utilsRunAsyncPropagatesContext() {
+		var context = new Context();
+		var seenRun = new AtomicReference<Context>();
+		var seenSupply = new AtomicReference<Context>();
+		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
+			UtilsWrapper.runAsync(() -> seenRun.set(Context.getCurrent())).join();
+			var supplied = UtilsWrapper.supplyAsync(() -> Context.getCurrent()).join();
+			seenSupply.set((Context) supplied);
+		});
+		assertSame(context, seenRun.get());
+		assertSame(context, seenSupply.get());
 	}
 
 	@Test

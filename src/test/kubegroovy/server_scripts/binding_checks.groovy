@@ -138,10 +138,11 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(context).as("context at normal call").isNotNull()
 	}
 	TestRuntime.check('binding.context_async') {
-		def executor = CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS)
+		def outerCx = Context.getCurrent()
+		TestRuntime.assertThat(outerCx).as("outer context").isNotNull()
 		def tasks = [
-				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context should came from Context.getCurrent() in that method").isNotNull()}, executor),
-				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext(Context.getCurrent())).as("context are passed explicitly").isNotNull()}, executor)
+				Utils.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context via Utils.runAsync propagation").isNotNull() }),
+				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext(outerCx)).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
 		].toArray(CompletableFuture[]::new)
 		CompletableFuture.allOf(tasks).join();
 	}
