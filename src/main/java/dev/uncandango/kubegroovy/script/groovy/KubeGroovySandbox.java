@@ -119,8 +119,8 @@ public final class KubeGroovySandbox {
 						collectClassList(cast.getType(), listExpression);
 						var typeInfoCall = new StaticMethodCallExpression(ClassHelper.make(TypeInfo.class), "ofList",
 							new ArgumentListExpression(listExpression));
-						var currentContextCall = new StaticMethodCallExpression(ClassHelper.make(Context.class), "getCurrent",
-							new ArgumentListExpression());
+						var currentContextCall = new StaticMethodCallExpression(ClassHelper.make(Context.class), "from",
+							new ArgumentListExpression(new VariableExpression("this")));
 						var gyToJavaCall = new MethodCallExpression(currentContextCall, "gyToJava",
 							new ArgumentListExpression(value, typeInfoCall));
 						gyToJavaCall.setSourcePosition(exp);

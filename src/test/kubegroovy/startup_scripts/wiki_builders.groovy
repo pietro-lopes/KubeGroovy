@@ -1,18 +1,20 @@
 import dev.uncandango.kubegroovy.util.KubeIdentifier
 import dev.uncandango.kubegroovy.color.KubeColor
+import net.minecraft.network.chat.Component
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.Ingredient
 
 StartupEvents.registry('item') { event ->
-	event.create('wiki_item' as KubeIdentifier)
-	event.create('wiki_item_glow' as KubeIdentifier).maxStackSize(16).glow(true)
+	event.create('wiki_item') // as KubeIdentifier
+	event.create('wiki_item_glow') // as KubeIdentifier
+			.maxStackSize(16).glow(true)
 }
 
 StartupEvents.registry('block') { event ->
-	event.create('wiki_block' as KubeIdentifier)
-		.displayName('My Custom Block' as MutableComponent)
+	event.create('wiki_block')
+		.displayName('My Custom Block' as Component)//  as MutableComponent
 		.soundType('wool' as SoundType)
 		.hardness(1)
 		.resistance(1)

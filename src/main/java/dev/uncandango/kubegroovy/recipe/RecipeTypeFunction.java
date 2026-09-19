@@ -6,6 +6,7 @@ import dev.uncandango.kubegroovy.recipe.component.ComponentValueMap;
 import dev.uncandango.kubegroovy.recipe.schema.RecipeSchemaType;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.SourceLine;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.util.ErrorStack;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.WrappedGY;
@@ -39,6 +40,7 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 		this.schemaType = schemaType;
 	}
 
+	@HideFromGY
 	@Override
 	public KubeRecipe call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args0) {
 		var sourceLine = SourceLine.of(cx);

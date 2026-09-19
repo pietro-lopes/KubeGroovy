@@ -1,8 +1,9 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
-import groovy.lang.Closure;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
+import groovy.lang.Closure;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

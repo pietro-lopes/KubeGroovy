@@ -100,7 +100,7 @@ public class TestRuntime {
 			}
 		}
 
-		return new AssertionError(error.toString(), error);
+		return new AssertionError("[" + id + "] " + error.toString(), error);
 	}
 
 	/// Re-throws any assertion failure captured under {@code id}, so the game test fails on its own

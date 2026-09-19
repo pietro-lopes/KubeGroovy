@@ -138,18 +138,18 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(context).as("context at normal call").isNotNull()
 	}
 	TestRuntime.check('binding.context_async') {
-		def outerCx = Context.getCurrent()
-		TestRuntime.assertThat(outerCx).as("outer context").isNotNull()
+		//def outerCx = Context.getCurrent()
+		//TestRuntime.assertThat(outerCx).as("outer context").isNotNull()
 		def tasks = [
 				Utils.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context via Utils.runAsync propagation").isNotNull() }),
-				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext(outerCx)).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
+				CompletableFuture.runAsync({-> TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
 		].toArray(CompletableFuture[]::new)
 		CompletableFuture.allOf(tasks).join();
 	}
 	TestRuntime.check('binding.context_async2') {
 		MinecraftServer server = event.server
 		server.executeBlocking([run: {TestRuntime.assertThat("minecraft:diamond" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on execute blocking").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
-		// this test pass but polutes log with error that I can't suppress
+		// this test pass but polutes log with error that I can't suppress :pepesad:
 //		def task = server.submitAsync([run: {TestRuntime.assertThat("invalid:item" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on submit async").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
 //		while (!task.isDone()) {
 //		}

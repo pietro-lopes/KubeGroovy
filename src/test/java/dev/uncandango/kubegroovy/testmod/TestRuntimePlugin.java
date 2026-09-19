@@ -28,5 +28,6 @@ public class TestRuntimePlugin implements KubeGroovyPlugin {
 		filter.allow("dev.uncandango.kubegroovy.script.bridge.BaseFunction");
 		filter.allow("dev.uncandango.kubegroovy.script.type.TypeInfo");
 		filter.allow("dev.uncandango.kubegroovy.script.bridge.Context");
+		filter.allow("dev.uncandango.kubegroovy.script.WithScriptContext");
 	}
 }

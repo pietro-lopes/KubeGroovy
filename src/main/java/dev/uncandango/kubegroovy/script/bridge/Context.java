@@ -1,11 +1,12 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.script.WithScriptContext;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import com.google.gson.JsonObject;
+import groovy.lang.Closure;
 import net.minecraft.nbt.CompoundTag;
 import org.jspecify.annotations.Nullable;
 
-import java.lang.reflect.Array;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,20 @@ public class Context {
 	public static final int CONVERSION_TRIVIAL = 1;
 
 	public static final ScopedValue<Context> CURRENT = ScopedValue.newInstance();
+
+	@Nullable
+	public static Context from(Object obj) {
+		if (obj instanceof Closure<?> cl) {
+			obj = cl.getDelegate();
+			while (obj instanceof Closure<?> c){
+				obj = c.getDelegate();
+			}
+		}
+		if (obj instanceof WithScriptContext script) {
+			return script.cx();
+		}
+		return Context.getCurrent();
+	}
 
 	@Nullable
 	public static Context getCurrent() {

@@ -146,21 +146,11 @@ public interface UtilsWrapper {
 
 	@Info("Runs the provided runnable function in KubeGroovy' background thread and returns its CompletableFuture")
 	static CompletableFuture<Void> runAsync(Runnable task) {
-		var captured = Context.getCurrent();
-		if (captured == null) {
-			return CompletableFuture.runAsync(task, Util.backgroundExecutor());
-		}
-		Runnable wrapped = () -> ScopedValue.where(Context.CURRENT, captured).run(task::run);
-		return CompletableFuture.runAsync(wrapped, Util.backgroundExecutor());
+		return CompletableFuture.runAsync(task, Util.backgroundExecutor());
 	}
 
 	@Info("Runs the provided supplier function in KubeGroovy' background thread and returns its CompletableFuture")
 	static CompletableFuture<Object> supplyAsync(Supplier<Object> task) {
-		var captured = Context.getCurrent();
-		if (captured == null) {
-			return CompletableFuture.supplyAsync(task, Util.backgroundExecutor());
-		}
-		Supplier<Object> wrapped = () -> ScopedValue.where(Context.CURRENT, captured).call(task::get);
-		return CompletableFuture.supplyAsync(wrapped, Util.backgroundExecutor());
+		return CompletableFuture.supplyAsync(task, Util.backgroundExecutor());
 	}
 }
