@@ -6,6 +6,7 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import com.google.gson.JsonObject;
 import groovy.lang.Closure;
 import net.minecraft.nbt.CompoundTag;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Array;
@@ -175,7 +176,10 @@ public class Context {
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public <T> T createInterfaceAdapter(TypeInfo type, Object fn) {
 		Class<?> raw = type == null ? Object.class : type.asClass();
-		return (T) GroovyConversions.toFunctionalInterface(fn, (Class) raw);
+		if (raw.isInterface() && (fn instanceof Closure || fn instanceof BaseFunction)) {
+			return (T) GroovyConversions.toFunctionalInterface(fn, raw);
+		}
+		return (T) DefaultGroovyMethods.asType(fn, (Class) raw);
 	}
 
 	public boolean isListLike(Object o) {
@@ -234,62 +238,63 @@ public class Context {
 	}
 
 	public Object listOf(@Nullable Object from, TypeInfo target) {
-		if (from instanceof Object[] arr) {
-			if (target == null) {
-				return from;
-			}
-
-			if (arr.length == 0) {
-				return new ArrayList<>(0);
-			} else {
-				int len = arr.length;
-				var list = new ArrayList<>(0);
-
-				for (Object o : arr) {
-					try {
-						list.add(this.gyToJava(o, target));
-					} catch (EvaluatorException ee) {
-						return this.reportConversionError(arr, target);
-					}
-				}
-
-				return list;
-			}
-
-		} else if (from != null && from.getClass().isArray()) {
-			if (target == null) {
-				return from;
-			}
-
-			int len = Array.getLength(from);
-			if (len == 0) {
-				return new ArrayList<>(0);
-			}
-
-			var list = new ArrayList<>();
-			for (int i = 0; i < len; i++) {
-				try {
-					list.add(this.gyToJava(Array.get(from, i), target));
-				} catch (EvaluatorException ee) {
-					return this.reportConversionError(from, target);
-				}
-			}
-
-			return list;
-		}
-
-		if (from instanceof Iterable<?> iterable) {
-			var list = new ArrayList<>();
-			iterable.forEach(element -> {
-				list.add(this.gyToJava(element, target));
-			});
-
-			return list;
-		}
-
-		if (from == null) return from;
-
-		return this.reportConversionError(from, target);
+		return arrayValueProviderOf(from).createList(this, target);
+		//		if (from instanceof Object[] arr) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			if (arr.length == 0) {
+//				return new ArrayList<>(0);
+//			} else {
+//				int len = arr.length;
+//				var list = new ArrayList<>(0);
+//
+//				for (Object o : arr) {
+//					try {
+//						list.add(this.gyToJava(o, target));
+//					} catch (EvaluatorException ee) {
+//						return this.reportConversionError(arr, target);
+//					}
+//				}
+//
+//				return list;
+//			}
+//
+//		} else if (from != null && from.getClass().isArray()) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			int len = Array.getLength(from);
+//			if (len == 0) {
+//				return new ArrayList<>(0);
+//			}
+//
+//			var list = new ArrayList<>();
+//			for (int i = 0; i < len; i++) {
+//				try {
+//					list.add(this.gyToJava(Array.get(from, i), target));
+//				} catch (EvaluatorException ee) {
+//					return this.reportConversionError(from, target);
+//				}
+//			}
+//
+//			return list;
+//		}
+//
+//		if (from instanceof Iterable<?> iterable) {
+//			var list = new ArrayList<>();
+//			iterable.forEach(element -> {
+//				list.add(this.gyToJava(element, target));
+//			});
+//
+//			return list;
+//		}
+//
+//		if (from == null) return from;
+//
+//		return this.reportConversionError(from, target);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -364,6 +369,22 @@ public class Context {
 		//return GroovyConversions.toJava(from, target == null ? Object.class : target.asClass());
 	}
 
+	public ArrayValueProvider arrayValueProviderOf(Object value) {
+		if (value instanceof Object[] arr) {
+			return arr.length == 0 ? ArrayValueProvider.EMPTY : new ArrayValueProvider.FromPlainJavaArray(arr);
+		} else if (value != null && value.getClass().isArray()) {
+			int len = Array.getLength(value);
+			return len == 0 ? ArrayValueProvider.EMPTY : new ArrayValueProvider.FromJavaArray(value, len);
+		}
+
+		return switch (value) {
+			case Wrapper w -> arrayValueProviderOf(w.unwrap()); // other stuff like NJO wrapping set falls through to this
+			case List<?> list -> ArrayValueProvider.fromJavaList(list, list);
+			case Iterable<?> itr -> ArrayValueProvider.fromIterable(itr);
+			case null, default -> value == null ? ArrayValueProvider.FromObject.FROM_NULL : new ArrayValueProvider.FromObject(value);
+		};
+	}
+
 	public Object classOf(Object from) {
 		if (from instanceof Class<?> c) {
 			return c;
@@ -376,109 +397,110 @@ public class Context {
 	}
 
 	public Object setOf(@Nullable Object from, TypeInfo target) {
-		if (from instanceof Set<?> set) {
-			return set;
-		}
-
-		if (from instanceof List<?> list) {
-			var set = new LinkedHashSet<>(list.size());
-
-			for (var o : list) {
-				set.add(gyToJava(o, target));
-			}
-
-			return set;
-		}
-
-		if (from instanceof Object[] objArray) {
-			var set = new LinkedHashSet<>(objArray.length);
-
-			for (var o : objArray) {
-				set.add(gyToJava(o, target));
-			}
-
-			return set;
-		}
-
-		if (from instanceof Collection<?> collection) {
-			var set = new LinkedHashSet<>(collection.size());
-
-			for (var o : collection) {
-				set.add(gyToJava(o, target));
-			}
-
-			return set;
-		}
-		if (from == null) return from;
-		return this.reportConversionError(from, target);
+		return arrayValueProviderOf(from).createSet(this, target);
+//		if (from instanceof Set<?> set) {
+//			return set;
+//		}
+//
+//		if (from instanceof List<?> list) {
+//			var set = new LinkedHashSet<>(list.size());
+//
+//			for (var o : list) {
+//				set.add(gyToJava(o, target));
+//			}
+//
+//			return set;
+//		}
+//
+//		if (from instanceof Object[] objArray) {
+//			var set = new LinkedHashSet<>(objArray.length);
+//
+//			for (var o : objArray) {
+//				set.add(gyToJava(o, target));
+//			}
+//
+//			return set;
+//		}
+//
+//		if (from instanceof Collection<?> collection) {
+//			var set = new LinkedHashSet<>(collection.size());
+//
+//			for (var o : collection) {
+//				set.add(gyToJava(o, target));
+//			}
+//
+//			return set;
+//		}
+//		if (from == null) return from;
+//		return this.reportConversionError(from, target);
 	}
 
 	public Object arrayOf(@Nullable Object from, TypeInfo target) {
-
-		if (from instanceof Object[] arr) {
-			if (target == null) {
-				return from;
-			}
-
-			if (arr.length == 0) {
-				return target.newArray(0);
-			} else {
-				int len = arr.length;
-				var array = target.newArray(len);
-
-				for (int i = 0; i < len; i++) {
-					try {
-						Array.set(array, i, this.gyToJava(arr[i], target));
-					} catch (EvaluatorException ee) {
-						return this.reportConversionError(arr, target);
-					}
-				}
-
-				return array;
-			}
-
-		} else if (from != null && from.getClass().isArray()) {
-			if (target == null) {
-				return from;
-			}
-
-			int len = Array.getLength(from);
-			if (len == 0) {
-				return target.newArray(0);
-			}
-
-			var array = target.newArray(len);
-			for (int i = 0; i < len; i++) {
-				try {
-					Array.set(array, i, this.gyToJava(Array.get(from, i), target));
-				} catch (EvaluatorException ee) {
-					return this.reportConversionError(from, target);
-				}
-			}
-
-			return array;
-		}
-
-		if (from instanceof Iterable<?> iterable) {
-			var list = new ArrayList<>();
-			iterable.forEach(list::add);
-			var len = list.size();
-			var array = target.newArray(len);
-			if (len == 0) {
-				return array;
-			}
-			for (int i = 0; i < len; i++) {
-				try {
-					Array.set(array, i, this.gyToJava(list.get(i), target));
-				} catch (EvaluatorException ee) {
-					return this.reportConversionError(iterable, target);
-				}
-			}
-			return array;
-		}
-
-		if (from == null) return from;
-		return this.reportConversionError(from, target);
+		return arrayValueProviderOf(from).createArray(this, target);
+//		if (from instanceof Object[] arr) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			if (arr.length == 0) {
+//				return target.newArray(0);
+//			} else {
+//				int len = arr.length;
+//				var array = target.newArray(len);
+//
+//				for (int i = 0; i < len; i++) {
+//					try {
+//						Array.set(array, i, this.gyToJava(arr[i], target));
+//					} catch (EvaluatorException ee) {
+//						return this.reportConversionError(arr, target);
+//					}
+//				}
+//
+//				return array;
+//			}
+//
+//		} else if (from != null && from.getClass().isArray()) {
+//			if (target == null) {
+//				return from;
+//			}
+//
+//			int len = Array.getLength(from);
+//			if (len == 0) {
+//				return target.newArray(0);
+//			}
+//
+//			var array = target.newArray(len);
+//			for (int i = 0; i < len; i++) {
+//				try {
+//					Array.set(array, i, this.gyToJava(Array.get(from, i), target));
+//				} catch (EvaluatorException ee) {
+//					return this.reportConversionError(from, target);
+//				}
+//			}
+//
+//			return array;
+//		}
+//
+//		if (from instanceof Iterable<?> iterable) {
+//			var list = new ArrayList<>();
+//			iterable.forEach(list::add);
+//			var len = list.size();
+//			var array = target.newArray(len);
+//			if (len == 0) {
+//				return array;
+//			}
+//			for (int i = 0; i < len; i++) {
+//				try {
+//					Array.set(array, i, this.gyToJava(list.get(i), target));
+//				} catch (EvaluatorException ee) {
+//					return this.reportConversionError(iterable, target);
+//				}
+//			}
+//			return array;
+//		}
+//
+//		if (from == null) return from;
+//		return this.reportConversionError(from, target);
 	}
 
 	public Object toString(Object o) {

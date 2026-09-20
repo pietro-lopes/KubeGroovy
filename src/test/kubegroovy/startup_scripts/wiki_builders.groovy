@@ -7,8 +7,8 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.Ingredient
 
 StartupEvents.registry('item') { event ->
-	event.create('wiki_item') // as KubeIdentifier
-	event.create('wiki_item_glow') // as KubeIdentifier
+	event.create('wiki_item')
+	event.create('wiki_item_glow')
 			.maxStackSize(16).glow(true)
 }
 
@@ -24,11 +24,11 @@ StartupEvents.registry('block') { event ->
 
 StartupEvents.registry('creative_mode_tab') { event ->
 	def content = Ingredient.of(Items.DIRT, Items.GRASS_BLOCK)
-	event.create('wiki_tab' as KubeIdentifier)
+	event.create('wiki_tab')
 		.icon { Items.DIRT.defaultInstance }
 		.content { content }
 }
 
 StartupEvents.registry('mob_effect') { event ->
-	event.create('wiki_effect' as KubeIdentifier).color(0x00FF00 as KubeColor).beneficial()
+	event.create('wiki_effect').color(0x00FF00).beneficial()
 }

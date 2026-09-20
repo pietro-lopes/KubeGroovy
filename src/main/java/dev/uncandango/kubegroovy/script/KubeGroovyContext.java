@@ -195,6 +195,7 @@ public class KubeGroovyContext extends Context {
 					.orElseThrow(() -> reportRuntimeError("Can't interpret '%s' as '%s': entry not found".formatted(from, reg.key().identifier()), this));
 			}
 		}
+
 		return GroovyConversions.toJava(from, c);
 	}
 

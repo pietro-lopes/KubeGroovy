@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import groovy.lang.Closure;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -121,6 +122,9 @@ public final class GroovyConversions {
 			}
 			if (target.isInterface() && from instanceof Closure<?> c) {
 				return toFunctionalInterface(c, target);
+			}
+			if (target.isInterface()) {
+				return DefaultGroovyMethods.asType(from, target);
 			}
 		} catch (Exception ignored) {
 		}
