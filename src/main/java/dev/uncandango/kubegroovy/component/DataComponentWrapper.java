@@ -336,11 +336,11 @@ public interface DataComponentWrapper {
 				}
 			}
 			case null -> success(DataComponentMap.EMPTY);
-			case String s -> {
+			case CharSequence s -> {
 				try {
-					yield success(readMap(reg.nbt(), new StringReader(s)));
+					yield success(readMap(reg.nbt(), new StringReader(s.toString())));
 				} catch (CommandSyntaxException ex) {
-					yield error(() -> "Invalid string format '%s' for DataComponentMap: %s".formatted(s, ex.getMessage()));
+					yield error(() -> "Invalid string format '%s' for DataComponentMap: %s".formatted(s.toString(), ex.getMessage()));
 				}
 			}
 			default -> error(() -> "Don't know how to convert %s to DataComponentMap!".formatted(o));
@@ -377,9 +377,9 @@ public interface DataComponentWrapper {
 				}
 			}
 			case null -> success(DataComponentPatch.EMPTY);
-			case String s -> {
+			case CharSequence s -> {
 				try {
-					yield success(readPatch(reg.nbt(), new StringReader(s)));
+					yield success(readPatch(reg.nbt(), new StringReader(s.toString())));
 				} catch (CommandSyntaxException ex) {
 					yield error(() -> "Invalid string format '%s' for DataComponentPatch: %s".formatted(s, ex.getMessage()));
 				}

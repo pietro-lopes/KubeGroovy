@@ -98,21 +98,21 @@ public record MapColorHelper(int id, String name, MapColor color, Vector3f rgb) 
 			case Undefined undefined -> throw new KubeRuntimeException("MapColor cannot be undefined!");
 			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("MapColor cannot be undefined!");
 			case MapColor c -> c;
-			case String s when s.isBlank() -> throw new KubeRuntimeException("MapColor string cannot be blank!");
-			case String s when s.charAt(0) == '#' -> {
+			case CharSequence s when s.toString().isBlank() -> throw new KubeRuntimeException("MapColor string cannot be blank!");
+			case CharSequence s when s.toString().charAt(0) == '#' -> {
 				try {
-					yield findClosest(Integer.decode(s)).color;
+					yield findClosest(Integer.decode(s.toString())).color;
 				} catch (Exception ex) {
-					throw new KubeRuntimeException("Invalid MapColor hex value '%s'".formatted(s), ex);
+					throw new KubeRuntimeException("Invalid MapColor hex value '%s'".formatted(s.toString()), ex);
 				}
 			}
-			case String s -> {
-				var color = NAME_MAP.get(s.toLowerCase(Locale.ROOT));
+			case CharSequence s -> {
+				var color = NAME_MAP.get(s.toString().toLowerCase(Locale.ROOT));
 				if (color != null) {
 					yield color.color;
 				}
 
-				throw new KubeRuntimeException("Unknown MapColor '%s'".formatted(s));
+				throw new KubeRuntimeException("Unknown MapColor '%s'".formatted(s.toString()));
 			}
 			case Number n -> findClosest(n.intValue()).color;
 			case DyeColor c -> c.getMapColor();

@@ -112,7 +112,7 @@ public final class KubeGroovySandbox {
 				ClassNode importNode = null;
 				if (exp instanceof CastExpression cast && wrappers != null && cast.isCoerce()) {
 					var isArray = cast.getType().getComponentType() != null;
-					if (wrappers.hasWrapper(resolveFullName(source, isArray ? cast.getType().getComponentType() : cast.getType()))) {
+					//if (wrappers.hasWrapper(resolveFullName(source, isArray ? cast.getType().getComponentType() : cast.getType()))) {
 						var value = transform(cast.getExpression());
 
 						var listExpression = new ListExpression();
@@ -134,7 +134,7 @@ public final class KubeGroovySandbox {
 //								new ArgumentListExpression(value, typeInfoCall));
 //						rewritten.setSourcePosition(exp);
 //						return rewritten;
-					}
+					//}
 				}
 				if (exp instanceof MethodCallExpression call) {
 					String method = call.getMethodAsString();

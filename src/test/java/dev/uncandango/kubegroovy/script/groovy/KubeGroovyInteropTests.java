@@ -7,6 +7,7 @@ import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
@@ -59,21 +60,21 @@ class KubeGroovyInteropTests {
 				validated.set(true);
 				return from instanceof String;
 			},
-			(cx, from, target) -> new WrappedValue((String) from));
+			(cx, from, target) -> new WrappedValue((String) from), true);
 
-		var value = (WrappedValue) wrappers.coerce(new Context(), "wrapped", WrappedValue.class);
+		var value = (WrappedValue) wrappers.coerce(new Context(new ContextFactory()), "wrapped", WrappedValue.class);
 		assertEquals("wrapped", value.value());
 		assertTrue(validated.get());
-		assertThrows(GroovyCastException.class, () -> wrappers.coerce(new Context(), 42, WrappedValue.class));
+		assertThrows(GroovyCastException.class, () -> wrappers.coerce(new Context(new ContextFactory()), 42, WrappedValue.class));
 
-		wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)));
-		assertEquals("direct", ((DirectValue) wrappers.coerce(new Context(), "direct", DirectValue.class)).value());
+		wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)), false);
+		assertEquals("direct", ((DirectValue) wrappers.coerce(new Context(new ContextFactory()), "direct", DirectValue.class)).value());
 	}
 
 	@Test
 	void sandboxRewritesExplicitCastAndAsTypeForms() {
 		var wrappers = new TypeWrappers();
-		wrappers.register(String.class, (cx, value, target) -> String.valueOf(value));
+		wrappers.register(String.class, (cx, value, target) -> String.valueOf(value), true);
 		var configuration = new CompilerConfiguration();
 		KubeGroovySandbox.customizers(null, wrappers).forEach(configuration::addCompilationCustomizers);
 		var shell = new GroovyShell(configuration);
@@ -83,7 +84,7 @@ class KubeGroovyInteropTests {
 
 	@Test
 	void callableFunctionsRestoreTheirOriginatingContext() {
-		var context = new Context();
+		var context = new Context(new ContextFactory());
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
 			var function = new BaseFunction((Function<Object[], Object>) args -> {
 				assertSame(context, Context.getCurrent());
@@ -91,7 +92,7 @@ class KubeGroovyInteropTests {
 			});
 			assertEquals("value", function.call("value"));
 		});
-		var previous = new Context();
+		var previous = new Context(new ContextFactory());
 		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
 			assertSame(previous, Context.getCurrent());
 		});
@@ -100,7 +101,7 @@ class KubeGroovyInteropTests {
 	@Test
 	@SuppressWarnings("unchecked")
 	void callbackAdaptersRestoreTheirOriginatingContext() {
-		var context = new Context();
+		var context = new Context(new ContextFactory());
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run( () -> {
 			Closure<Object> closure = new Closure<Object>(this) {
 				public Object doCall(Object value) {
@@ -112,7 +113,7 @@ class KubeGroovyInteropTests {
 			assertEquals("value", ((Function<Object, Object>) callback).apply("value"));
 		});
 
-		var previous = new Context();
+		var previous = new Context(new ContextFactory());
 		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
 			assertSame(previous, Context.getCurrent());
 		});
@@ -120,7 +121,7 @@ class KubeGroovyInteropTests {
 
 	@Test
 	void asyncWrappersPropagateCapturedContext() {
-		var context = new Context();
+		var context = new Context(new ContextFactory());
 		var seenRun = new AtomicReference<Context>();
 		var seenSupply = new AtomicReference<Context>();
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
@@ -139,7 +140,7 @@ class KubeGroovyInteropTests {
 
 	@Test
 	void utilsRunAsyncPropagatesContext() {
-		var context = new Context();
+		var context = new Context(new ContextFactory());
 		var seenRun = new AtomicReference<Context>();
 		var seenSupply = new AtomicReference<Context>();
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
@@ -160,7 +161,7 @@ class KubeGroovyInteropTests {
 		assertEquals("normal", InvokerHelper.getProperty(target, "alias"));
 		assertEquals("renamed", InvokerHelper.getProperty(target, "renamed"));
 
-		var context = new Context();
+		var context = new Context(new ContextFactory());
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
 			assertEquals("context:context", InvokerHelper.invokeMethod(target, "contextValue", new Object[]{"context"}));
 		});

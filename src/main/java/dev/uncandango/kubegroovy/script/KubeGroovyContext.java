@@ -50,6 +50,7 @@ public class KubeGroovyContext extends Context {
 	private @Nullable Map<String, Either<NativeJavaClass, Boolean>> javaClassCache;
 
 	public KubeGroovyContext(KubeGroovyContextFactory factory) {
+		super(factory);
 		this.kgyFactory = factory;
 		KubeGroovyMetaClassCreationHandle.install();
 		KubeGroovyMetaClassCreationHandle.refreshInjectedTypes();
@@ -195,23 +196,6 @@ public class KubeGroovyContext extends Context {
 			}
 		}
 		return GroovyConversions.toJava(from, c);
-	}
-
-	@Override
-	public Object gyToJava(Object from, TypeInfo target) {
-		if (kgyFactory.getTypeWrappers().hasWrapper(target.asClass())) {
-			return kgyFactory.getTypeWrappers().coerce(this, from, target);
-		}
-
-		if (from == null) {
-			return null;
-		}
-		// Fast paths for registry types handled in internalGyToJavaLast
-		try {
-			return internalGyToJavaLast(from, target);
-		} catch (RuntimeException e) {
-			throw e;
-		}
 	}
 
 	@Contract("null, false -> null; null, true -> fail")

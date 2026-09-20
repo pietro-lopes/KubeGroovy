@@ -2,6 +2,7 @@ package dev.uncandango.kubegroovy.script.type;
 
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Scriptable;
+import groovy.lang.GString;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +65,8 @@ public interface TypeInfo {
 	TypeInfo NUMBER = new BasicClassTypeInfo(Number.class);
 	TypeInfo STRING = new BasicClassTypeInfo(String.class);
 	TypeInfo STRING_ARRAY = STRING.asArray();
+	TypeInfo GSTRING = new BasicClassTypeInfo(GString.class);
+	TypeInfo GSTRING_ARRAY = GSTRING.asArray();
 	TypeInfo CLASS = new BasicClassTypeInfo(Class.class);
 	TypeInfo DATE = new BasicClassTypeInfo(Date.class);
 	TypeInfo CONTEXT = new BasicClassTypeInfo(Context.class);

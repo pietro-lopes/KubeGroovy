@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
+import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -7,6 +8,7 @@ import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
+import dev.uncandango.kubegroovy.script.type.TypeConsolidator;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import groovy.lang.Closure;
 import groovy.lang.MetaBeanProperty;
@@ -15,6 +17,7 @@ import groovy.lang.MetaClassRegistry;
 import groovy.lang.MetaMethod;
 import groovy.lang.MissingMethodException;
 import groovy.lang.MissingPropertyException;
+import net.neoforged.fml.loading.FMLLoader;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.groovy.util.BeanUtils;
 import org.codehaus.groovy.reflection.CachedMethod;
@@ -38,29 +41,33 @@ import java.util.Objects;
  * fallback for KubeGroovy's annotated addon interfaces and context-leading APIs.
  */
 final class KubeGroovyMetaClass extends MetaClassImpl {
+	private static final String CALL_METHOD = "call";
+	private static final String DO_CALL_METHOD = "doCall";
+
 	KubeGroovyMetaClass(MetaClassRegistry registry, Class<?> type) {
 		super(registry, type);
 	}
 
-	record ContextMethodKey (String name, int paramCount, boolean isStatic){};
-	private Map<ContextMethodKey, MetaMethod> CONTEXT_METHODS;
+	record ContextMethodKey (String name, int paramCount, boolean isStatic){}
+	private final Map<ContextMethodKey, MetaMethod> methodsIndex = new HashMap<>();
 
 	@Override
 	public synchronized void initialize() {
 		if (!isInitialized()) {
+			TypeConsolidator.getMapping(theClass);
 			addRemappedBeanProperties();
-			CONTEXT_METHODS = new HashMap<>();
-			var publicMethodsWithContext = Arrays.stream(theClass.getMethods())
-				.filter(KubeGroovyMetaClass::isVisibleBridgeMethod)
-				.filter(KubeGroovyMetaClass::hasContextPrefix)
-				.toList();
-
-			for (Method method : publicMethodsWithContext) {
-				var alias = remappedAliases(method);
-	    		var key = new ContextMethodKey(!alias.isEmpty() ? alias.getFirst().name() : method.getName(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()) );
-				var metaMethod = metaMethod(method);
-				CONTEXT_METHODS.put(key, metaMethod);
-			}
+//			contextMethods = new HashMap<>();
+//			var publicMethodsWithContext = Arrays.stream(theClass.getMethods())
+//				.filter(KubeGroovyMetaClass::isVisibleBridgeMethod)
+//				.filter(KubeGroovyMetaClass::hasContextPrefix)
+//				.toList();
+//
+//			for (Method method : publicMethodsWithContext) {
+//				var alias = remappedAliases(method);
+//	    		var key = new ContextMethodKey(!alias.isEmpty() ? alias.getFirst().name() : method.getName(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()) );
+//				var metaMethod = metaMethod(method);
+//				contextMethods.put(key, metaMethod);
+//			}
 		}
 		super.initialize();
 	}
@@ -71,10 +78,34 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 			if (!isVisibleBridgeMethod(method)) {
 				continue;
 			}
+			var aliases = new ArrayList<RemappedAlias>();
 			for (RemappedAlias alias : remappedAliases(method)) {
+				aliases.add(alias);
 				var accessor = remappedAccessor(method, alias);
 				if (accessor != null) {
 					properties.computeIfAbsent(accessor.property(), ignored -> new BeanPropertyMethods()).add(accessor);
+				}
+			}
+			var module = method.getDeclaringClass().getModule();
+			if (module != null) {
+				if (FMLLoader.getCurrent().getLoadingModList().getModFileById(module.getName()) != null) {
+					if (aliases.isEmpty()) {
+						var key = new ContextMethodKey(method.getName(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()));
+						var metaMethod = metaMethod(method);
+						var replaced = methodsIndex.put(key, metaMethod);
+						if (replaced != null) {
+							//KubeGroovy.LOGGER.warn("Duplicate method: {} replaced {} with key {}", replaced, metaMethod, key);
+						}
+					} else {
+						for (var alias : aliases) {
+							var key = new ContextMethodKey(alias.name(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()));
+							var metaMethod = metaMethod(method);
+							var replaced = methodsIndex.put(key, metaMethod);
+							if (replaced != null) {
+								//KubeGroovy.LOGGER.warn("Duplicate method: {} replaced {} with key {}",replaced, metaMethod, key);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -147,7 +178,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 		if (cached == null) {
 			cached = new CachedMethod(method);
 		}
-		return hasContextPrefix(method) ? new ContextMetaMethod(cached, logicalParameterTypes(method)) : cached;
+		return new ContextMetaMethod(cached, logicalParameterTypes(method));
 	}
 
 	private static List<RemappedAlias> remappedAliases(Method method) {
@@ -247,117 +278,120 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 			if (context == null) {
 				throw new MissingMethodExceptionNoStack(getName(), getDeclaringClass().getTheClass(), arguments);
 			}
-			var actual = new Object[arguments.length + 1];
-			actual[0] = context;
-			var isVarArgs = this.isVargsMethod();
-			if (isVarArgs) {
-				throw new NotImplementedException("Varargs not supported");
+			Object[] actual;
+			boolean hasContext = hasContextPrefix(((CachedMethod)this.delegate).getCachedMethod());
+			if (hasContext) {
+				actual = new Object[arguments.length + 1];
+				actual[0] = context;
+			} else {
+				actual = new Object[arguments.length];
 			}
+//			var isVarArgs = this.isVargsMethod();
+//			if (isVarArgs) {
+//				KubeGroovy.LOGGER.info("VarArg breakpoint!");
+//			}
 			var methodParams = TypeInfo.ofArray(((CachedMethod)this.delegate).getCachedMethod().getGenericParameterTypes());
-			if (methodParams.length - 1 != arguments.length) {
+			if (methodParams.length - (hasContext ? 1 : 0) != arguments.length) {
 				throw new IllegalArgumentException("Method " + getName() + " expected " + methodParams.length + " arguments, but got " + arguments.length);
 			}
 			for (var i = 0; i < arguments.length; i++) {
-				arguments[i] = context.gyToJava(arguments[i], methodParams[i + 1]);
+				arguments[i] = context.gyToJava(arguments[i], methodParams[i + (hasContext ? 1 : 0)]);
 			}
-			System.arraycopy(arguments, 0, actual, 1, arguments.length);
+			System.arraycopy(arguments, 0, actual, (hasContext ? 1 : 0), arguments.length);
 			return delegate.invoke(object, actual);
 		}
 	}
 
-	@Override
-	public Object invokeMethod(Object object, String name, Object[] arguments) {
+	private static Context getContextFromArgs(Object receiver, Object[] args) {
 		Context cx = Context.getCurrent();
 		if (cx == null) {
-			cx = Context.from(object);
+			cx = Context.from(receiver);
 			if (cx == null) {
-				for (var arg : arguments) {
-					cx = Context.from(arg);
-					if (cx != null) {
-						break;
+				if (args != null) {
+					for (var arg : args) {
+						cx = Context.from(arg);
+						if (cx != null) {
+							break;
+						}
 					}
 				}
 			}
 		}
-		try {
-			var contextMethod = CONTEXT_METHODS.get(new ContextMethodKey(name, arguments == null ? 0 : arguments.length, false));
-			if (contextMethod != null) {
-				return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> contextMethod.invoke(object, arguments));
-			}
-			return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeMethod(object, name, arguments));
-		} catch (RuntimeException missing) {
-			MissingMethodException dispatchFailure = missingMethodCause(missing);
-			if (dispatchFailure == null) {
-				throw missing;
-			}
-			Object result = ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> invokeFallback(object, name, arguments == null ? new Object[0] : arguments));;
-			if (result != Fallback.MISSING) {
-				return result;
-			}
-			throw dispatchFailure;
-		}
+		return cx;
 	}
 
 	@Override
-	public Object invokeMethod(Class sender, Object object, String name, Object[] arguments, boolean isCallToSuper, boolean fromInsideClass) {
-		Object[] actualArguments = arguments == null ? new Object[0] : arguments;
-//		Object contextResult = invokeContextFallback(object, name, actualArguments);
-//		if (contextResult != Fallback.MISSING) {
-//			return contextResult;
+	public Object invokeMethod(Class sender, Object object, String methodName, Object[] originalArguments, boolean isCallToSuper, boolean fromInsideClass) {
+		Context cx = getContextFromArgs(object, originalArguments);
+		return switch (methodName) {
+			case DO_CALL_METHOD, CALL_METHOD -> ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeMethod(sender, object, methodName, originalArguments, isCallToSuper, fromInsideClass));
+			default -> {
+				var indexedMethod = methodsIndex.get(new ContextMethodKey(methodName, originalArguments == null ? 0 : originalArguments.length, false));
+				if (indexedMethod != null) {
+					yield ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> indexedMethod.invoke(object, originalArguments));
+				} else {
+					yield ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeMethod(sender, object, methodName, originalArguments, isCallToSuper, fromInsideClass));
+				}
+			}
+		};
+//		if (methodName.equals(DO_CALL_METHOD) || methodName.equals(CALL_METHOD)) {
+//
 //		}
-		try {
-			var contextMethod = CONTEXT_METHODS.get(new ContextMethodKey(name, actualArguments.length, false));
-			if (contextMethod != null) {
-				return ScopedValue.where(KubeGroovyContext.CURRENT, Context.getCurrent()).call(() -> contextMethod.invoke(object, actualArguments));
-			}
-			Objects.requireNonNull(Context.getCurrent());
-			return super.invokeMethod(sender, object, name, actualArguments, isCallToSuper, fromInsideClass);
-		} catch (RuntimeException missing) {
-			MissingMethodException dispatchFailure = missingMethodCause(missing);
-			if (dispatchFailure == null) {
-				throw missing;
-			}
-			Object result = invokeFallback(object, name, arguments == null ? new Object[0] : arguments);
-			if (result != Fallback.MISSING) {
-				return result;
-			}
-			throw dispatchFailure;
-		}
+//
+//
+//		var contextMethod = contextMethods.get(new ContextMethodKey(methodName, originalArguments == null ? 0 : originalArguments.length, false));
+//		if (contextMethod != null) {
+//			return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> contextMethod.invoke(object, originalArguments));
+//		}
+//		return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeMethod(sender, object, methodName, originalArguments, isCallToSuper, fromInsideClass));
 	}
+
+//	@Override
+//	public Object invokeMethod(Object object, String name, Object[] arguments) {
+//		Context cx = getContextFromArgs(object, arguments);
+//
+//		var contextMethod = contextMethods.get(new ContextMethodKey(name, arguments == null ? 0 : arguments.length, false));
+//		if (contextMethod != null) {
+//			return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> contextMethod.invoke(object, arguments));
+//		}
+//		return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeMethod(object, name, arguments));
+//	}
 
 	@Override
 	public Object invokeStaticMethod(Object object, String name, Object[] arguments) {
-		Context cx = Context.getCurrent();
-		if (cx == null) {
-			cx = Context.from(object);
-			if (cx == null) {
-				for (var arg : arguments) {
-					cx = Context.from(arg);
-					if (cx != null) {
-						break;
-					}
-				}
-			}
+		Context cx = getContextFromArgs(object, arguments);
+		var indexedMethod = methodsIndex.get(new ContextMethodKey(name, arguments == null ? 0 : arguments.length, true));
+		if (indexedMethod != null) {
+			return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> indexedMethod.invoke(object, arguments));
 		}
-		try {
-			var contextMethod = CONTEXT_METHODS.get(new ContextMethodKey(name, arguments == null ? 0 : arguments.length, true));
-			if (contextMethod != null) {
-				return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> contextMethod.invoke(object, arguments));
-			}
-			return super.invokeStaticMethod(object, name, arguments);
-		} catch (RuntimeException missing) {
-			MissingMethodException dispatchFailure = missingMethodCause(missing);
-			if (dispatchFailure == null) {
-				throw missing;
-			}
-			Class<?> receiver = object instanceof Class<?> c ? c : getTheClass();
-			Object result = invokeFallback(receiver, name, arguments == null ? new Object[0] : arguments);
-			if (result != Fallback.MISSING) {
-				return result;
-			}
-			throw dispatchFailure;
-		}
+		return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> super.invokeStaticMethod(object, name, arguments));
 	}
+
+//	@Override
+//	public Object invokeMethod(Class sender, Object object, String name, Object[] arguments, boolean isCallToSuper, boolean fromInsideClass) {
+//		Object[] actualArguments = arguments == null ? new Object[0] : arguments;
+//		Objects.requireNonNull(Context.getCurrent());
+//		try {
+//			var contextMethod = contextMethods.get(new ContextMethodKey(name, actualArguments.length, false));
+//			if (contextMethod != null) {
+//				return contextMethod.invoke(object, actualArguments);
+//			}
+//
+//			return super.invokeMethod(sender, object, name, actualArguments, isCallToSuper, fromInsideClass);
+//		} catch (RuntimeException missing) {
+//			MissingMethodException dispatchFailure = missingMethodCause(missing);
+//			if (dispatchFailure == null) {
+//				throw missing;
+//			}
+//			Object result = invokeFallback(object, name, arguments == null ? new Object[0] : arguments);
+//			if (result != Fallback.MISSING) {
+//				return result;
+//			}
+//			throw dispatchFailure;
+//		}
+//	}
+
+
 
 	private static MissingMethodException missingMethodCause(RuntimeException error) {
 		Throwable current = error;

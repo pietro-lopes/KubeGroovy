@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.MiscWrappers;
+import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
@@ -70,7 +71,7 @@ public class JsonIO {
 	/** Script-safe overload: accepts a game-relative string and validates it. */
 	public static String readString(Object path) throws IOException {
 		var cx = Context.getCurrent();
-		return readString(MiscWrappers.wrapPath(cx == null ? new Context() : cx, path));
+		return readString(MiscWrappers.wrapPath(cx == null ? new Context(new ContextFactory()) : cx, path));
 	}
 
 	@Nullable
@@ -81,7 +82,7 @@ public class JsonIO {
 	/** Script-safe overload: accepts a game-relative string and validates it. */
 	public static Map<?, ?> read(Object path) throws IOException {
 		var cx = Context.getCurrent();
-		cx = cx == null ? new Context() : cx;
+		cx = cx == null ? new Context(new ContextFactory()) : cx;
 		return cx.optionalMapOf(readJson(MiscWrappers.wrapPath(cx, path)));
 	}
 
@@ -99,7 +100,7 @@ public class JsonIO {
 	/** Script-safe overload: converts Groovy maps/lists and validates the path. */
 	public static void write(Object path, @Nullable Object json) throws IOException {
 		var cx = Context.getCurrent();
-		cx = cx == null ? new Context() : cx;
+		cx = cx == null ? new Context(new ContextFactory()) : cx;
 		write(MiscWrappers.wrapPath(cx, path), JsonUtils.of(cx, json));
 	}
 

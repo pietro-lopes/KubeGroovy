@@ -43,7 +43,7 @@ public record SlotFilter(Optional<Ingredient> item, int index) {
 	public static SlotFilter wrap(Context cx, Object o, TypeInfo target) {
 		if (o instanceof Number num) {
 			return of(Optional.empty(), num.intValue());
-		} else if (o instanceof String || o instanceof Ingredient || o instanceof NativeRegExp || o instanceof Pattern) {
+		} else if (o instanceof CharSequence || o instanceof Ingredient || o instanceof NativeRegExp || o instanceof Pattern) {
 			return of(Optional.of(IngredientWrapper.wrap(cx, o)), -1);
 		} else if (o instanceof Map<?, ?> map) {
 			var rawItem = map.get("item");

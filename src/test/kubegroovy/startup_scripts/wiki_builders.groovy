@@ -14,11 +14,11 @@ StartupEvents.registry('item') { event ->
 
 StartupEvents.registry('block') { event ->
 	event.create('wiki_block')
-		.displayName('My Custom Block' as Component)//  as MutableComponent
-		.soundType('wool' as SoundType)
+		.displayName('My Custom Block')
+		.soundType('wool')
 		.hardness(1)
 		.resistance(1)
-		.tagBlock(['minecraft:mineable/pickaxe' as net.minecraft.resources.Identifier] as net.minecraft.resources.Identifier[])
+		.tagBlock(['minecraft:mineable/pickaxe'])
 		.requiresTool(true)
 }
 

@@ -92,7 +92,7 @@ public class WrapperTests {
 		"wrapper.block_state_properties",
 		"wrapper.item_resource",
 		"wrapper.fluid_resource",
-		"wrapper.holder_set",
+		"wrapper.registry_related",
 		"wrapper.generics",
 	};
 

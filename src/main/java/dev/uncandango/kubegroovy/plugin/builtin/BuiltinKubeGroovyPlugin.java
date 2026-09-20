@@ -491,47 +491,47 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 
 	@Override
 	public void registerTypeWrappers(TypeWrapperRegistry registry) {
-		registry.register(RegistryPredicate.class, RegistryPredicate::of);
+		registry.register(RegistryPredicate.class, RegistryPredicate::of,true);
 
 		// Java / Minecraft //
 		// registry.register(String.class, String::valueOf);
 		// registry.register(CharSequence.class, String::valueOf);
-		registry.register(UUID.class, UUIDWrapper::fromString);
-		registry.register(Pattern.class, RegExpKGY::wrap);
-		registry.register(JsonObject.class, JsonUtils::objectOf);
-		registry.register(JsonArray.class, JsonUtils::arrayOf);
-		registry.register(JsonElement.class, JsonUtils::of);
-		registry.register(JsonPrimitive.class, JsonUtils::primitiveOf);
-		registry.register(Path.class, MiscWrappers::wrapPath);
-		registry.register(File.class, MiscWrappers::wrapFile);
-		registry.register(TemporalAmount.class, TimeGY::wrapTemporalAmount);
-		registry.register(Duration.class, TimeGY::wrapDuration);
-		registry.register(TickDuration.class, TickDuration::wrap);
+		registry.register(UUID.class, UUIDWrapper::fromString, true);
+		registry.register(Pattern.class, RegExpKGY::wrap, true);
+		registry.register(JsonObject.class, JsonUtils::objectOf, true);
+		registry.register(JsonArray.class, JsonUtils::arrayOf, true);
+		registry.register(JsonElement.class, JsonUtils::of, true);
+		registry.register(JsonPrimitive.class, JsonUtils::primitiveOf, true);
+		registry.register(Path.class, MiscWrappers::wrapPath, true);
+		registry.register(File.class, MiscWrappers::wrapFile, true);
+		registry.register(TemporalAmount.class, TimeGY::wrapTemporalAmount, true);
+		registry.register(Duration.class, TimeGY::wrapDuration, true);
+		registry.register(TickDuration.class, TickDuration::wrap, true);
 
-		registry.register(HolderSet.class, (cx, from, target) -> HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0)));
-		registry.register(Identifier.class, ID::mc);
-		registry.register(KubeIdentifier.class, KubeIdentifier::wrap);
-		registry.register(CompoundTag.class, (from, target) -> NBTWrapper.isTagCompound(from), NBTWrapper::wrapCompound);
-		registry.register(CollectionTag.class, (from, target) -> NBTWrapper.isTagCollection(from), NBTWrapper::wrapCollection);
-		registry.register(ListTag.class, (from, target) -> NBTWrapper.isTagCollection(from), NBTWrapper::wrapListTag);
-		registry.register(Tag.class, NBTWrapper::wrap);
-		registry.register(DataComponentType.class, DataComponentWrapper::wrapType);
-		registry.register(DataComponentMap.class, DataComponentWrapper::filter, DataComponentWrapper::mapOf);
-		registry.register(DataComponentPatch.class, DataComponentWrapper::filter, DataComponentWrapper::patchOf);
+		registry.register(HolderSet.class, (cx, from, target) -> HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0)), true);
+		registry.register(Identifier.class, ID::mc, true);
+		registry.register(KubeIdentifier.class, KubeIdentifier::wrap, true);
+		registry.register(CompoundTag.class, (from, target) -> NBTWrapper.isTagCompound(from), NBTWrapper::wrapCompound, true);
+		registry.register(CollectionTag.class, (from, target) -> NBTWrapper.isTagCollection(from), NBTWrapper::wrapCollection, true);
+		registry.register(ListTag.class, (from, target) -> NBTWrapper.isTagCollection(from), NBTWrapper::wrapListTag, true);
+		registry.register(Tag.class, NBTWrapper::wrap, true);
+		registry.register(DataComponentType.class, DataComponentWrapper::wrapType, true);
+		registry.register(DataComponentMap.class, DataComponentWrapper::filter, DataComponentWrapper::mapOf, true);
+		registry.register(DataComponentPatch.class, DataComponentWrapper::filter, DataComponentWrapper::patchOf, true);
 
-		registry.register(BlockPos.class, MiscWrappers::wrapBlockPos);
-		registry.register(Vec3.class, MiscWrappers::wrapVec3);
-		registry.register(Vec3i.class, MiscWrappers::wrapBlockPos);
+		registry.register(BlockPos.class, MiscWrappers::wrapBlockPos, false);
+		registry.register(Vec3.class, MiscWrappers::wrapVec3, false);
+		registry.register(Vec3i.class, MiscWrappers::wrapBlockPos, false);
 
-		registry.register(Item.class, ItemWrapper::wrapItem);
-		registry.register(ItemLike.class, ItemWrapper::wrapItem);
+		registry.register(Item.class, ItemWrapper::wrapItem, true);
+		registry.register(ItemLike.class, ItemWrapper::wrapItem, true);
 		registry.registerEnumFromStringCodec(MobCategory.class, MobCategory.CODEC);
-		registry.register(ItemEnchantments.class, ItemEnchantmentsWrapper::wrap);
+		registry.register(ItemEnchantments.class, ItemEnchantmentsWrapper::wrap, false);
 
-		registry.register(AABB.class, AABBWrapper::wrap);
-		registry.register(IntProvider.class, MiscWrappers::wrapIntProvider);
-		registry.register(FloatProvider.class, MiscWrappers::wrapFloatProvider);
-		registry.register(NumberProvider.class, MiscWrappers::wrapNumberProvider);
+		registry.register(AABB.class, AABBWrapper::wrap, false);
+		registry.register(IntProvider.class, MiscWrappers::wrapIntProvider, false);
+		registry.register(FloatProvider.class, MiscWrappers::wrapFloatProvider, false);
+		registry.register(NumberProvider.class, MiscWrappers::wrapNumberProvider, false);
 		registry.registerEnumFromStringCodec(LootContext.EntityTarget.class, LootContext.EntityTarget.CODEC);
 
 		// No equivalent
@@ -540,92 +540,71 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		// FIXME registry.register(Enchantment.Cost.class, EnchantmentBuilder::wrapCost);
 
 		registry.registerEnumFromStringCodec(ArmorType.class, ArmorType.CODEC);
-		registry.register(BlockSetType.class, BlockWrapper::wrapSetType);
-		registry.register(BlockState.class, BlockWrapper::wrapBlockState);
-		registry.register(ItemAbility.class, ItemWrapper::wrapItemAbility);
-		registry.register(ColorRGBA.class, ColorWrapper::wrapColorRGBA);
+		registry.register(BlockSetType.class, BlockWrapper::wrapSetType, true);
+		registry.register(BlockState.class, BlockWrapper::wrapBlockState, true);
+		registry.register(ItemAbility.class, ItemWrapper::wrapItemAbility, true);
+		registry.register(ColorRGBA.class, ColorWrapper::wrapColorRGBA, true);
 
 		// KubeGroovy //
 		// TODO(low): which way makes more sense for wrappers? stack => template or template => stack?
-		registry.register(ItemStack.class, ItemWrapper::wrap);
-		registry.register(Ingredient.class, IngredientWrapper::wrap);
-		registry.register(ItemPredicate.class, ItemPredicate::wrap);
-		registry.register(SizedIngredient.class, SizedIngredientWrapper::wrap);
-		registry.register(BlockStatePredicate.class, BlockStatePredicate::wrap);
-		registry.register(RuleTest.class, BlockStatePredicate::wrapRuleTest);
-		registry.register(FluidStack.class, FluidWrapper::wrap);
-		registry.register(FluidIngredient.class, FluidWrapper::wrapIngredient);
-		registry.register(SizedFluidIngredient.class, FluidWrapper::wrapSizedIngredient);
-		registry.register(RecipeFilter.class, RecipeFilter::wrap);
-		registry.register(SlotFilter.class, SlotFilter::wrap);
+		registry.register(ItemStack.class, ItemWrapper::wrap, true);
+		registry.register(Ingredient.class, IngredientWrapper::wrap, true);
+		registry.register(ItemPredicate.class, ItemPredicate::wrap, true);
+		registry.registerCodec(net.minecraft.advancements.criterion.ItemPredicate.class, net.minecraft.advancements.criterion.ItemPredicate.CODEC);
+		registry.register(SizedIngredient.class, SizedIngredientWrapper::wrap, true);
+		registry.register(BlockStatePredicate.class, BlockStatePredicate::wrap, true);
+		registry.register(RuleTest.class, BlockStatePredicate::wrapRuleTest, true);
+		registry.register(FluidStack.class, FluidWrapper::wrap, true);
+		registry.register(FluidIngredient.class, FluidWrapper::wrapIngredient, true);
+		registry.register(SizedFluidIngredient.class, FluidWrapper::wrapSizedIngredient, true);
+		registry.register(RecipeFilter.class, RecipeFilter::wrap, true);
+		registry.register(SlotFilter.class, SlotFilter::wrap, true);
 
 
-		registry.register(ArmorMaterial.class, o -> o instanceof ArmorMaterial armorMaterial ? armorMaterial : null);
-		registry.register(ToolMaterial.class, ItemToolMaterials::wrap);
+		registry.register(ArmorMaterial.class, o -> o instanceof ArmorMaterial armorMaterial ? armorMaterial : null, false);
+		registry.register(ToolMaterial.class, ItemToolMaterials::wrap, true);
 
-		registry.register(PlayerSelector.class, PlayerSelector::wrap);
-		registry.register(DamageSource.class, DamageSourceWrapper::wrap);
-		registry.register(EntitySelector.class, EntitySelectorWrapper::wrap);
-		registry.register(ReplacementMatch.class, ReplacementMatch::wrap);
-		registry.register(ReplacementMatchInfo.class, ReplacementMatchInfo::wrap);
-		registry.register(Stat.class, PlayerStatsGY::wrapStat);
-		registry.register(MapColor.class, MapColorHelper::wrap);
-		registry.register(SoundType.class, SoundTypeWrapper.INSTANCE);
-		registry.register(ParticleOptions.class, ParticleOptionsWrapper::wrap);
-		registry.register(ItemTintFunction.class, ItemTintFunction::wrap);
-		registry.register(BlockTintFunction.class, BlockTintFunction::wrap);
-		registry.register(Tristate.class, Tristate::wrap);
+		registry.register(PlayerSelector.class, PlayerSelector::wrap, true);
+		registry.register(DamageSource.class, DamageSourceWrapper::wrap, true);
+		registry.register(EntitySelector.class, EntitySelectorWrapper::wrap, true);
+		registry.register(ReplacementMatch.class, ReplacementMatch::wrap, true);
+		registry.register(ReplacementMatchInfo.class, ReplacementMatchInfo::wrap, true);
+		registry.register(Stat.class, PlayerStatsGY::wrapStat, true);
+		registry.register(MapColor.class, MapColorHelper::wrap, true);
+		registry.register(SoundType.class, SoundTypeWrapper.INSTANCE, true);
+		registry.register(ParticleOptions.class, ParticleOptionsWrapper::wrap, true);
+		registry.register(ItemTintFunction.class, ItemTintFunction::wrap, true);
+		registry.register(BlockTintFunction.class, BlockTintFunction::wrap, true);
+		registry.register(Tristate.class, Tristate::wrap, true);
 
 		// components //
-		registry.register(MutableComponent.class, TextWrapper::wrap);
-		registry.register(KubeColor.class, ColorWrapper::wrap);
-		registry.register(TextColor.class, ColorWrapper::wrapTextColor);
-		registry.register(ClickEvent.class, TextWrapper::wrapClickEvent);
-		registry.registerAlias(Component.class, TextWrapper.TYPE_INFO, Function.identity());
-		registry.registerAlias(ItemLore.class, TypeInfo.RAW_LIST.withParams(TextWrapper.TYPE_INFO), TextWrapper::lore);
-		registry.registerAlias(ItemAttributeModifiers.class, TypeInfo.RAW_LIST.withParams(TypeInfo.of(ItemAttributeModifiers.Entry.class)), ItemAttributeModifiers::new);
+		registry.register(MutableComponent.class, TextWrapper::wrap, true);
+		registry.register(KubeColor.class, ColorWrapper::wrap, true);
+		registry.register(TextColor.class, ColorWrapper::wrapTextColor, true);
+		registry.register(ClickEvent.class, TextWrapper::wrapClickEvent, true);
+		registry.registerAlias(Component.class, TextWrapper.TYPE_INFO, Function.identity(), true);
+		registry.registerAlias(ItemLore.class, TypeInfo.RAW_LIST.withParams(TextWrapper.TYPE_INFO), TextWrapper::lore, false);
+		registry.registerAlias(ItemAttributeModifiers.class, TypeInfo.RAW_LIST.withParams(TypeInfo.of(ItemAttributeModifiers.Entry.class)), ItemAttributeModifiers::new, false);
 
 		// codecs
 		registry.registerCodec(Fireworks.class, Fireworks.CODEC);
 		registry.registerCodec(KubeIcon.class, KubeIcon.CODEC);
 
 		// alias
-		registry.registerAlias(Unit.class, TypeInfo.NONE, o -> Unit.INSTANCE);
-		registry.registerAlias(CustomData.class, CompoundTag.class, CustomData::of);
+		registry.registerAlias(Unit.class, TypeInfo.NONE, o -> Unit.INSTANCE, false);
+		registry.registerAlias(CustomData.class, CompoundTag.class, CustomData::of, true);
 		registry.registerAlias(CustomModelData.class, TypeInfo.PRIMITIVE_INT, (Integer i) ->
-			new CustomModelData(List.of(), List.of(), List.of(), List.of(i))
+			new CustomModelData(List.of(), List.of(), List.of(), List.of(i)),
+			true
 		);
 		// LockCode lost its String constructor in 1.21.2 (now wraps a vanilla item
 		// predicate), so interpret the input as an item id instead of delegating
 		// to a constructor that no longer exists.
-		registry.register(LockCode.class, (TypeWrapperRegistry.ContextFromFunction<LockCode>) (cx, from) -> {
-			if (from == null) {
-				return null;
-			}
+		registry.registerAlias(LockCode.class, net.minecraft.advancements.criterion.ItemPredicate.class, LockCode::new, false);
+		registry.registerAlias(BlockItemStateProperties.class, TypeInfo.RAW_MAP.withParams(TypeInfo.STRING, TypeInfo.STRING), BlockItemStateProperties::new, false);
 
-			Identifier id;
-
-			if (from instanceof Item item) {
-				id = BuiltInRegistries.ITEM.getKey(item);
-			} else if (from instanceof ItemStack stack) {
-				id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-			} else {
-				id = ID.mc(from);
-			}
-
-			if (id == null) {
-				throw new KubeRuntimeException("Could not create ID from '%s'!".formatted(from));
-			}
-
-			var holder = BuiltInRegistries.ITEM.get(ResourceKey.create(Registries.ITEM, id))
-				.orElseThrow(() -> new KubeRuntimeException("Unknown item: " + id));
-			return new LockCode(new net.minecraft.advancements.criterion.ItemPredicate(
-				Optional.of(HolderSet.direct(holder)), MinMaxBounds.Ints.ANY, DataComponentMatchers.ANY));
-		});
-		registry.registerAlias(BlockItemStateProperties.class, TypeInfo.RAW_MAP.withParams(TypeInfo.STRING, TypeInfo.STRING), BlockItemStateProperties::new);
-
-		registry.registerAlias(ItemResource.class, ItemStack.class, ItemResource::of);
-		registry.registerAlias(FluidResource.class, FluidStack.class, FluidResource::of);
+		registry.registerAlias(ItemResource.class, ItemStack.class, ItemResource::of, true);
+		registry.registerAlias(FluidResource.class, FluidStack.class, FluidResource::of, true);
 	}
 
 	@Override

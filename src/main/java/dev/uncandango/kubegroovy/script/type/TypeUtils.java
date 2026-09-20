@@ -55,6 +55,8 @@ public class TypeUtils {
 			TypeInfo.NUMBER,
 			TypeInfo.STRING,
 			TypeInfo.STRING_ARRAY,
+			TypeInfo.GSTRING,
+			TypeInfo.GSTRING_ARRAY,
 			TypeInfo.CLASS,
 			TypeInfo.DATE,
 			TypeInfo.CONTEXT,

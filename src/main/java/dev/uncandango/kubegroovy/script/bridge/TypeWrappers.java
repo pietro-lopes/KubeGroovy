@@ -4,7 +4,9 @@ import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -16,30 +18,52 @@ import java.util.concurrent.ConcurrentHashMap;
  * making arbitrary Java method calls implicitly coerce values.
  */
 public class TypeWrappers {
-	public final Map<Class<?>, Object> wrappers = new ConcurrentHashMap<>();
+	public final Map<Class<?>, Entry> wrappers = new ConcurrentHashMap<>();
+	public static final List<TypeInfo> COERSE_ONLY_CHARSEQUENCE = List.of(TypeInfo.of(CharSequence.class));
 
-	private record Entry(@Nullable TypeWrapperValidator validator, @Nullable TypeWrapperFactory<?> factory,
-			@Nullable DirectTypeWrapperFactory<?> directFactory) {
+	public record Entry(TypeWrapperValidator validator, @Nullable TypeWrapperFactory<?> factory,
+						List<TypeInfo> explicitCoercions) {
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory) {
-		wrappers.put(target, new Entry(validator, factory, null));
+	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		wrappers.put(target, new Entry(validator, factory, coercesCharSequence ? COERSE_ONLY_CHARSEQUENCE : List.of()));
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperFactory<T> factory) {
-		wrappers.put(target, new Entry(null, factory, null));
+	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory, List<TypeInfo> explicitCoercions) {
+		wrappers.put(target, new Entry(validator, factory, Objects.requireNonNull(explicitCoercions)));
 	}
 
-	public <T> void registerDirect(Class<T> target, TypeWrapperValidator validator, DirectTypeWrapperFactory<T> factory) {
-		wrappers.put(target, new Entry(validator, null, factory));
+	public <T> void register(Class<T> target, TypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		wrappers.put(target, new Entry(TypeWrapperValidator.ALWAYS_VALID, factory, coercesCharSequence ? COERSE_ONLY_CHARSEQUENCE : List.of()));
 	}
 
-	public <T> void registerDirect(Class<T> target, DirectTypeWrapperFactory<T> factory) {
-		wrappers.put(target, new Entry(null, null, factory));
+	public <T> void register(Class<T> target, TypeWrapperFactory<T> factory, List<TypeInfo> explicitCoercions) {
+		wrappers.put(target, new Entry(TypeWrapperValidator.ALWAYS_VALID, factory, Objects.requireNonNull(explicitCoercions)));
 	}
 
-	public boolean hasWrapper(Class<?> target) {
-		return target != null && wrappers.containsKey(target);
+	public <T> void registerDirect(Class<T> target, TypeWrapperValidator validator, DirectTypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		wrappers.put(target, new Entry(validator, factory, coercesCharSequence ? COERSE_ONLY_CHARSEQUENCE : List.of()));
+	}
+
+	public <T> void registerDirect(Class<T> target, TypeWrapperValidator validator, DirectTypeWrapperFactory<T> factory, List<TypeInfo> explicitCoercions) {
+		wrappers.put(target, new Entry(validator, factory, Objects.requireNonNull(explicitCoercions)));
+	}
+
+	public <T> void registerDirect(Class<T> target, DirectTypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		wrappers.put(target, new Entry(TypeWrapperValidator.ALWAYS_VALID, factory, coercesCharSequence ? COERSE_ONLY_CHARSEQUENCE : List.of()));
+	}
+
+	public <T> void registerDirect(Class<T> target, DirectTypeWrapperFactory<T> factory, List<TypeInfo> explicitCoercions) {
+		wrappers.put(target, new Entry(TypeWrapperValidator.ALWAYS_VALID, factory, explicitCoercions));
+	}
+
+	public boolean hasWrapper(Object from, TypeInfo target) {
+		if (target instanceof TypeWrapperFactory<?>) {
+			return true;
+		}
+
+		var wrapper = wrappers.get(target.asClass());
+		return wrapper != null && wrapper.validator().test(from, target);
 	}
 
 	public boolean hasWrapper(String targetName) {
@@ -50,6 +74,23 @@ public class TypeWrappers {
 		return targetName != null && wrappers.keySet().stream().anyMatch(c ->
 			c.getName().equals(targetName) || c.getSimpleName().equals(targetName)
 				|| targetName.equals(c.getCanonicalName()) || c.getName().replace('$', '.').equals(targetName));
+	}
+
+	@Nullable
+	public TypeWrapperFactory<?> getWrapperFactory(@Nullable Object from, TypeInfo target) {
+		if (target == TypeInfo.OBJECT) {
+			return null;
+		}
+
+		var cl = target.asClass();
+
+		var wrapper = wrappers.get(cl);
+
+		if (wrapper != null && wrapper.validator().test(from, target)) {
+			return wrapper.factory();
+		} else {
+			return null;
+		}
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */
@@ -74,12 +115,10 @@ public class TypeWrappers {
 
 		var type = target;
 		try {
-			if (entry.validator != null && !entry.validator.test(value, type)) {
+			if (!entry.validator.test(value, type)) {
 				throw new IllegalArgumentException("value is not valid for " + target);
 			}
-			Object result = entry.directFactory != null
-				? entry.directFactory.wrap(value)
-				: entry.factory == null ? null : entry.factory.wrap(cx, value, type);
+			Object result = entry.factory == null ? null : entry.factory.wrap(cx, value, type);
 			if (result != null && !target.asClass().isInstance(result)) {
 				throw new IllegalArgumentException("wrapper returned " + result.getClass().getName());
 			}
@@ -151,9 +190,7 @@ public class TypeWrappers {
 			if (entry.validator != null && !entry.validator.test(value, type)) {
 				throw new IllegalArgumentException("value is not valid for " + target.getName());
 			}
-			Object result = entry.directFactory != null
-				? entry.directFactory.wrap(value)
-				: entry.factory == null ? null : entry.factory.wrap(cx, value, type);
+			Object result = entry.factory == null ? null : entry.factory.wrap(cx, value, type);
 			if (result != null && !target.isInstance(result)) {
 				throw new IllegalArgumentException("wrapper returned " + result.getClass().getName());
 			}

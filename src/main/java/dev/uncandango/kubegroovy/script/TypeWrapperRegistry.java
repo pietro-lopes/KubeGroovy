@@ -41,7 +41,7 @@ public class TypeWrapperRegistry {
 	}
 
 	public <T> boolean hasTypeWrapper(Class<T> target) {
-		return typeWrappers.hasWrapper(target);
+		return typeWrappers.hasWrapper(target.getName());
 	}
 
 	/** Entry point used by the sandbox-rewritten {@code value as Target} casts. */
@@ -83,38 +83,38 @@ public class TypeWrapperRegistry {
 		return cx instanceof KubeGroovyContext kgy && kgy.kgyFactory.getTypeWrappers().hasWrapper(targetName);
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory) {
-		typeWrappers.register(target, validator, factory);
+	public <T> void register(Class<T> target, TypeWrapperValidator validator, TypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		typeWrappers.register(target, validator, factory, coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperFactory<T> factory) {
-		typeWrappers.register(target, factory);
+	public <T> void register(Class<T> target, TypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		typeWrappers.register(target, factory, coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperValidator validator, ContextFromFunction<T> factory) {
-		typeWrappers.register(target, validator, (cx, from, t) -> factory.apply(cx, from));
+	public <T> void register(Class<T> target, TypeWrapperValidator validator, ContextFromFunction<T> factory, boolean coercesCharSequence) {
+		typeWrappers.register(target, validator, (cx, from, t) -> factory.apply(cx, from), coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, ContextFromFunction<T> factory) {
-		typeWrappers.register(target, (cx, from, t) -> factory.apply(cx, from));
+	public <T> void register(Class<T> target, ContextFromFunction<T> factory, boolean coercesCharSequence) {
+		typeWrappers.register(target, (cx, from, t) -> factory.apply(cx, from), coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, RegistriesFromFunction<T> factory) {
+	public <T> void register(Class<T> target, RegistriesFromFunction<T> factory, boolean coercesCharSequence) {
 		typeWrappers.register(target, (cx, from, t) -> {
 			try {
 				return factory.apply(RegistryAccessContainer.of(cx), from);
 			} catch (KubeRuntimeException ex) {
 				throw ex.source(SourceLine.of(cx));
 			}
-		});
+		}, coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, TypeWrapperValidator validator, DirectTypeWrapperFactory<T> factory) {
-		typeWrappers.registerDirect(target, validator, factory);
+	public <T> void register(Class<T> target, TypeWrapperValidator validator, DirectTypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		typeWrappers.registerDirect(target, validator, factory, coercesCharSequence);
 	}
 
-	public <T> void register(Class<T> target, DirectTypeWrapperFactory<T> factory) {
-		typeWrappers.registerDirect(target, factory);
+	public <T> void register(Class<T> target, DirectTypeWrapperFactory<T> factory, boolean coercesCharSequence) {
+		typeWrappers.registerDirect(target, factory, coercesCharSequence);
 	}
 
 	public <T extends Enum<T> & StringRepresentable> void registerEnumFromStringCodec(Class<T> target, Codec<T> codec, @Nullable T defaultValue, boolean forceLowerCase) {
@@ -129,7 +129,7 @@ public class TypeWrapperRegistry {
 				var s = o.toString();
 				return s.isEmpty() ? defaultValue : KubeGroovyCodecs.byName(codec, forceLowerCase ? s.toLowerCase(Locale.ROOT) : s);
 			}
-		});
+		}, true);
 	}
 
 	public <T extends Enum<T> & StringRepresentable> void registerEnumFromStringCodec(Class<T> target, Codec<T> codec) {
@@ -137,7 +137,7 @@ public class TypeWrapperRegistry {
 	}
 
 	public <T> void registerCodec(Class<T> target, Codec<T> codec, @Nullable T defaultValue) {
-		typeWrappers.register(target, new CodecTypeWrapper<>(target, codec, defaultValue));
+		typeWrappers.register(target, new CodecTypeWrapper<>(target, codec, defaultValue), false);
 	}
 
 	public <T> void registerCodec(Class<T> target, Codec<T> codec) {
@@ -145,23 +145,23 @@ public class TypeWrapperRegistry {
 	}
 
 	public <T> void registerMapCodec(Class<T> target, MapCodec<T> codec, @Nullable T defaultValue) {
-		typeWrappers.register(target, new MapCodecTypeWrapper<>(target, codec, defaultValue));
+		typeWrappers.register(target, new MapCodecTypeWrapper<>(target, codec, defaultValue), false);
 	}
 
 	public <T> void registerMapCodec(Class<T> target, MapCodec<T> codec) {
 		registerMapCodec(target, codec, null);
 	}
 
-	public <F, T> void registerAlias(Class<T> target, Class<F> from, Function<F, T> converter) {
-		registerAlias(target, TypeInfo.of(from), converter);
+	public <F, T> void registerAlias(Class<T> target, Class<F> from, Function<F, T> converter, boolean coercesCharSequence) {
+		registerAlias(target, TypeInfo.of(from), converter, coercesCharSequence);
 	}
 
-	public <F, T> void registerAlias(Class<T> target, TypeInfo from, @Nullable Function<F, T> converter) {
+	public <F, T> void registerAlias(Class<T> target, TypeInfo from, @Nullable Function<F, T> converter, boolean coercesCharSequence) {
 		if (converter != null) {
 			typeWrappers.register(target, (cx, f, typeInfo) -> {
 				var o1 = cx.gyToJava(f, from);
 				return o1 == null ? null : Cast.to(converter.apply(Cast.to(o1)));
-			});
+			}, coercesCharSequence);
 		}
 	}
 }

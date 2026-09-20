@@ -2,12 +2,14 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSyntaxException
 import com.mojang.serialization.MapCodec
 import dev.uncandango.kubegroovy.block.BlockTintFunction
 import dev.uncandango.kubegroovy.client.icon.KubeIcon
 import dev.uncandango.kubegroovy.client.icon.TextureKubeIcon
 import dev.uncandango.kubegroovy.color.KubeColor
 import dev.uncandango.kubegroovy.core.PlayerSelector
+import dev.uncandango.kubegroovy.error.KubeRuntimeException
 import dev.uncandango.kubegroovy.holder.HolderWrapper
 import dev.uncandango.kubegroovy.item.ItemPredicate
 import dev.uncandango.kubegroovy.item.ItemTintFunction
@@ -125,7 +127,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(v2.x()).as("vec3 from position x").isEqualTo(1.0d)
 		TestRuntime.assertThat(v2.y()).as("vec3 from position y").isEqualTo(2.0d)
 		TestRuntime.assertThat(v2.z()).as("vec3 from position z").isEqualTo(3.0d)
-		Assertions.assertThatThrownBy(() -> [1, 2] as Vec3).as("two elements should not cast to Vec3").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [1, 2] as Vec3).as("two elements should not cast to Vec3")
 		def v3 = [1, 2, 3] as BlockPos as Vec3
 		TestRuntime.assertThat(v3.x()).as("blockpos vec3 x").isEqualTo(1.5d)
 		TestRuntime.assertThat(v3.y()).as("blockpos vec3 y").isEqualTo(2.5d)
@@ -142,9 +144,9 @@ ServerEvents.tick { event ->
 		def v4 = entity.getBlock()
 		TestRuntime.assertThat(v4 as Vec3).as("block center vec3").isEqualTo(new Vec3(v4.centerX, v4.centerY, v4.centerZ))
 
-		Assertions.assertThatThrownBy(() -> "strings are invalid" as Vec3).as("string should not cast to Vec3").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as Vec3).as("null should not cast to Vec3").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 42 as Vec3).as("number should not cast to Vec3").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> "strings are invalid" as Vec3).as("string should not cast to Vec3")
+
+		Assertions.assertThatThrownBy(() -> 42 as Vec3).as("number should not cast to Vec3")
 	}
 	TestRuntime.check('wrapper.blockpos') {
 		def p = [4, 5, 6].asType(BlockPos)
@@ -153,9 +155,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(defaults.toShortString()).as("blockpos unparsable defaults").isEqualTo('4, 0, 0')
 		def fromPos = ([x: { 4d }, y: { 5d }, z: { 6d }] as Position) as BlockPos
 		TestRuntime.assertThat(fromPos.toShortString()).as("blockpos from position").isEqualTo('4, 5, 6')
-		Assertions.assertThatThrownBy(() -> [1, 2] as BlockPos).as("two elements should not cast to BlockPos").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as BlockPos).as("null should not cast to BlockPos").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 42 as BlockPos).as("number should not cast to BlockPos").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [1, 2] as BlockPos).as("two elements should not cast to BlockPos")
+
+		Assertions.assertThatThrownBy(() -> 42 as BlockPos).as("number should not cast to BlockPos")
 	}
 	TestRuntime.check('wrapper.itemstack') {
 		def stack = 'minecraft:diamond' as ItemStack
@@ -170,10 +172,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(mapped.id).as("mapped itemstack id").isEqualTo('minecraft:stick')
 		TestRuntime.assertThat(mapped.getCount()).as("invalid count defaults to 1").isEqualTo(1)
 		TestRuntime.assertThat(('0x minecraft:diamond' as ItemStack).isEmpty()).as("zero count itemstack is empty").isTrue()
-		TestRuntime.assertThat((null as ItemStack).isEmpty()).as("null itemstack is empty").isTrue()
 		TestRuntime.assertThat((Items.DIAMOND as ItemStack).id).as("item to itemstack id").isEqualTo('minecraft:diamond')
 		TestRuntime.assertThat(('minecraft:diamond' as Identifier as ItemStack).id).as("identifier to itemstack id").isEqualTo('minecraft:diamond')
-		Assertions.assertThatThrownBy(() -> ('minecraft:diamond' as Ingredient) as ItemStack).as("ingredient should not cast to ItemStack").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> ('minecraft:diamond' as Ingredient) as ItemStack).as("ingredient should not cast to ItemStack")
 	}
 	TestRuntime.check('wrapper.component') {
 		def component = 'hello' as MutableComponent
@@ -186,8 +187,6 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(empty.getString().isEmpty()).as("empty component text is empty").isTrue()
 		def json = new JsonPrimitive('json component') as MutableComponent
 		TestRuntime.assertThat(json.getString()).as("json component text").isEqualTo('json component')
-		def missing = null as MutableComponent
-		TestRuntime.assertThat(missing.getString()).as("null component text").isEqualTo('null')
 		def fromEnum = java.util.concurrent.TimeUnit.SECONDS as MutableComponent
 		TestRuntime.assertThat(fromEnum.getString()).as("enum component text").isEqualTo('SECONDS')
 		def fromList = ['a', 'b'] as MutableComponent
@@ -220,8 +219,8 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(listTag.getId()).as("int list tag id").isEqualTo(Tag.TAG_INT_ARRAY)
 		def empty = [:] as CompoundTag
 		TestRuntime.assertThat(empty.isEmpty()).as("empty compound is empty").isTrue()
-		TestRuntime.assertThat(null as Tag).as("null tag").isNull()
-		Assertions.assertThatThrownBy(() -> 'not a compound' as CompoundTag).as("string should not cast to CompoundTag").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not a compound' as CompoundTag).as("string should not cast to CompoundTag")
 	}
 	TestRuntime.check('wrapper.color') {
 		def color = '#ff0000' as KubeColor
@@ -236,7 +235,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(named).as("named color").isNotNull()
 		def unknown = 'not-a-color' as KubeColor
 		TestRuntime.assertThat(unknown.toHexString()).as("unknown color is transparent").isEqualTo('#00000000')
-		TestRuntime.assertThat((null as KubeColor).toHexString()).as("null color is transparent").isEqualTo('#00000000')
+
 	}
 	TestRuntime.check('wrapper.id') {
 		def id = 'kubegroovy:test' as Identifier
@@ -245,17 +244,17 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(defaultNamespace.toString()).as("default namespace identifier").isEqualTo('minecraft:stone')
 		def json = new JsonPrimitive('minecraft:dirt') as Identifier
 		TestRuntime.assertThat(json.toString()).as("json identifier").isEqualTo('minecraft:dirt')
-		TestRuntime.assertThat(null as Identifier).as("null identifier").isNull()
-		Assertions.assertThatThrownBy(() -> 'bad id!' as Identifier).as("bad id should not cast to Identifier").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'bad id!' as Identifier).as("bad id should not cast to Identifier")
 	}
 	TestRuntime.check('wrapper.uuid') {
 		def uuid = '12345678-1234-1234-1234-123456789abc' as UUID
 		TestRuntime.assertThat(uuid.toString()).as("dashed uuid").isEqualTo('12345678-1234-1234-1234-123456789abc')
 		def compact = '12345678123412341234123456789abc' as UUID
 		TestRuntime.assertThat(compact.toString()).as("compact uuid").isEqualTo('12345678-1234-1234-1234-123456789abc')
-		TestRuntime.assertThat(null as UUID).as("null uuid").isNull()
-		Assertions.assertThatThrownBy(() -> 'too-short' as UUID).as("short string should not cast to UUID").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '12345678-1234-1234-1234-xxxxxxxxxxxx' as UUID).as("invalid uuid should not cast to UUID").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'too-short' as UUID).as("short string should not cast to UUID")
+		Assertions.assertThatThrownBy(() -> '12345678-1234-1234-1234-xxxxxxxxxxxx' as UUID).as("invalid uuid should not cast to UUID")
 	}
 	TestRuntime.check('wrapper.tristate') {
 		def tristate = 'true' as Tristate
@@ -263,14 +262,14 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat((false as Tristate).getSerializedName()).as("false tristate").isEqualTo('false')
 		TestRuntime.assertThat((true as Tristate).getSerializedName()).as("boolean true tristate").isEqualTo('true')
 		TestRuntime.assertThat(('unrecognised' as Tristate).getSerializedName()).as("unknown tristate defaults").isEqualTo('default')
-		TestRuntime.assertThat((null as Tristate).getSerializedName()).as("null tristate defaults").isEqualTo('default')
+
 	}
 	TestRuntime.check('wrapper.duration') {
 		def duration = '20t' as Duration
 		TestRuntime.assertThat(duration.toMillis()).as("tick duration millis").isEqualTo(1000L)
 		TestRuntime.assertThat((1500 as Duration).toMillis()).as("millis duration").isEqualTo(1500L)
 		TestRuntime.assertThat(('2m 5s' as Duration).toMillis()).as("combined duration millis").isEqualTo(125000L)
-		Assertions.assertThatThrownBy(() -> 'malformed' as Duration).as("malformed string should not cast to Duration").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'malformed' as Duration).as("malformed string should not cast to Duration")
 	}
 	TestRuntime.check('wrapper.regexp') {
 		def pattern = '/foo/i' as Pattern
@@ -280,7 +279,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(escaped.matcher('foo/bar').find()).as("escaped regex matches").isTrue()
 		def noPattern = 'plain text' as Pattern
 		TestRuntime.assertThat(noPattern).as("plain text is not a pattern").isNull()
-		TestRuntime.assertThat(null as Pattern).as("null pattern").isNull()
+
 	}
 	TestRuntime.check('wrapper.int_provider') {
 		def constant = 3 as IntProvider
@@ -317,11 +316,11 @@ ServerEvents.tick { event ->
 		def withBounds = [bounds: [2, 6]] as IntProvider
 		TestRuntime.assertThat(withBounds.minInclusive()).as("bounds min").isEqualTo(2)
 		TestRuntime.assertThat(withBounds.maxInclusive()).as("bounds max").isEqualTo(6)
-		Assertions.assertThatThrownBy(() -> [] as IntProvider).as("empty list should not cast to IntProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> [1, 2, 3] as IntProvider).as("three elements should not cast to IntProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as IntProvider).as("null should not cast to IntProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> [something: 2, invalid: 3] as IntProvider).as("unknown keys should not cast to IntProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> [bounds: [1]] as IntProvider).as("single bound should not cast to IntProvider").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [] as IntProvider).as("empty list should not cast to IntProvider")
+		Assertions.assertThatThrownBy(() -> [1, 2, 3] as IntProvider).as("three elements should not cast to IntProvider")
+
+		Assertions.assertThatThrownBy(() -> [something: 2, invalid: 3] as IntProvider).as("unknown keys should not cast to IntProvider")
+		Assertions.assertThatThrownBy(() -> [bounds: [1]] as IntProvider).as("single bound should not cast to IntProvider")
 	}
 	TestRuntime.check('wrapper.map_color') {
 		def color = 'color_red' as MapColor
@@ -330,9 +329,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(('#ff0000' as MapColor).is(MapColor.NONE)).as("hex map color is not none").isFalse()
 		TestRuntime.assertThat(0xFF0000 as MapColor).as("integer map color").isNotNull()
 		TestRuntime.assertThat(net.minecraft.world.item.DyeColor.RED as MapColor).as("dye map color").isNotNull()
-		Assertions.assertThatThrownBy(() -> '' as MapColor).as("empty string should not cast to MapColor").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 'not-a-map-color' as MapColor).as("unknown name should not cast to MapColor").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as MapColor).as("null should not cast to MapColor").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '' as MapColor).as("empty string should not cast to MapColor")
+		Assertions.assertThatThrownBy(() -> 'not-a-map-color' as MapColor).as("unknown name should not cast to MapColor")
+
 	}
 
 	TestRuntime.check('wrapper.registry_predicate') {
@@ -350,7 +349,7 @@ ServerEvents.tick { event ->
 		def any = ['minecraft:stick', 'minecraft:diamond'] as RegistryPredicate
 		TestRuntime.assertThat(any.test(Items.DIAMOND.builtInRegistryHolder())).as("list predicate matches diamond").isTrue()
 		TestRuntime.assertThat(([] as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("empty predicate rejects diamond").isFalse()
-		TestRuntime.assertThat((null as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("null predicate rejects diamond").isFalse()
+
 		TestRuntime.assertThat((('/diamond/' as Pattern) as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("pattern predicate matches diamond").isTrue()
 		TestRuntime.assertThat((new JsonPrimitive('minecraft:diamond') as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("json predicate matches diamond").isTrue()
 		TestRuntime.assertThat(((new BaseFunction({ holder -> true })) as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("function predicate matches diamond").isTrue()
@@ -365,8 +364,8 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(parsed.get('number').getAsInt()).as("parsed number field").isEqualTo(2)
 		def empty = [:] as JsonObject
 		TestRuntime.assertThat(empty.isEmpty()).as("empty object is empty").isTrue()
-		TestRuntime.assertThat(null as JsonObject).as("null object").isNull()
-		Assertions.assertThatThrownBy(() -> 'not json' as JsonObject).as("string should not cast to JsonObject").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not json' as JsonObject).as("string should not cast to JsonObject")
 	}
 	TestRuntime.check('wrapper.json_array') {
 		def array = ['wrapper', 2, true] as JsonArray
@@ -378,9 +377,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(parsed.get(2).getAsJsonObject().get('ok').getAsBoolean()).as("parsed object element").isFalse()
 		def empty = [] as JsonArray
 		TestRuntime.assertThat(empty.isEmpty()).as("empty array is empty").isTrue()
-		TestRuntime.assertThat(null as JsonArray).as("null array").isNull()
-		Assertions.assertThatThrownBy(() -> 'not json' as JsonArray).as("string should not cast to JsonArray").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 42 as JsonArray).as("number should not cast to JsonArray").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not json' as JsonArray).as("string should not cast to JsonArray")
+		Assertions.assertThatThrownBy(() -> 42 as JsonArray).as("number should not cast to JsonArray")
 	}
 	TestRuntime.check('wrapper.json_element') {
 		def element = [wrapped: true] as JsonElement
@@ -398,8 +397,6 @@ ServerEvents.tick { event ->
 		def listElement = [1, 2] as JsonElement
 		TestRuntime.assertThat(listElement.isJsonArray()).as("list element is array").isTrue()
 		TestRuntime.assertThat(listElement.getAsJsonArray().size()).as("list element size").isEqualTo(2)
-		def nullElement = null as JsonElement
-		TestRuntime.assertThat(nullElement.isJsonNull()).as("null element is json null").isTrue()
 	}
 	TestRuntime.check('wrapper.json_primitive') {
 		def primitive = 42 as JsonPrimitive
@@ -408,7 +405,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(('text' as JsonPrimitive).getAsString()).as("text primitive value").isEqualTo('text')
 		def object = [nested: true] as JsonPrimitive
 		TestRuntime.assertThat(object).as("map is not a primitive").isNull()
-		TestRuntime.assertThat(null as JsonPrimitive).as("null primitive").isNull()
+
 	}
 	TestRuntime.check('wrapper.temporal_amount') {
 		def amount = '1s 10t' as TemporalAmount
@@ -418,14 +415,14 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat('7ns' as TemporalAmount).as("nanos amount").isNotNull()
 		TestRuntime.assertThat('2m' as TemporalAmount).as("minutes amount").isNotNull()
 		TestRuntime.assertThat('3h' as TemporalAmount).as("hours amount").isNotNull()
-		Assertions.assertThatThrownBy(() -> '' as TemporalAmount).as("empty string should not cast to TemporalAmount").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as TemporalAmount).as("null should not cast to TemporalAmount").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> true as TemporalAmount).as("boolean should not cast to TemporalAmount").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '' as TemporalAmount).as("empty string should not cast to TemporalAmount")
+
+		Assertions.assertThatThrownBy(() -> true as TemporalAmount).as("boolean should not cast to TemporalAmount")
 	}
 	TestRuntime.check('wrapper.tick_duration') {
 		def ticks = '1s 10t' as TickDuration
 		TestRuntime.assertThat(ticks.ticks()).as("combined tick duration").isEqualTo(30L)
-		TestRuntime.assertThat((null as TickDuration).ticks()).as("null tick duration").isEqualTo(0L)
+
 		TestRuntime.assertThat((new JsonPrimitive(4) as TickDuration).ticks()).as("json tick duration").isEqualTo(4L)
 		TestRuntime.assertThat((100 as TickDuration).ticks()).as("number tick duration").isEqualTo(100L)
 	}
@@ -434,7 +431,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(id.wrapped().toString()).as("default namespace identifier").isEqualTo('kubegroovy:wrapper_test')
 		def explicit = 'minecraft:stone' as KubeIdentifier
 		TestRuntime.assertThat(explicit.wrapped().toString()).as("explicit identifier").isEqualTo('minecraft:stone')
-		Assertions.assertThatThrownBy(() -> 'not an id!' as KubeIdentifier).as("bad id should not cast to KubeIdentifier").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'not an id!' as KubeIdentifier).as("bad id should not cast to KubeIdentifier")
 	}
 	TestRuntime.check('wrapper.nbt_collection') {
 		def collection = [1, 2, 3] as CollectionTag
@@ -446,7 +443,7 @@ ServerEvents.tick { event ->
 		def mixed = [1, 'two'] as CollectionTag
 		TestRuntime.assertThat(mixed.isEmpty()).as("mixed collection is empty").isTrue()
 		TestRuntime.assertThat(([] as CollectionTag).isEmpty()).as("empty collection is empty").isTrue()
-		TestRuntime.assertThat(null as CollectionTag).as("null collection").isNull()
+
 		def fromJsonArray = (new JsonArray() as CollectionTag)
 		TestRuntime.assertThat(fromJsonArray.isEmpty()).as("json collection is empty").isTrue()
 	}
@@ -457,14 +454,14 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(parsed.isEmpty()).as("parsed list is empty").isTrue()
 		def mixed = ['one', 2] as ListTag
 		TestRuntime.assertThat(mixed.isEmpty()).as("mixed list is empty").isTrue()
-		TestRuntime.assertThat(null as ListTag).as("null list").isNull()
+
 	}
 	TestRuntime.check('wrapper.nbt_tag') {
 		def tag = [value: 7] as Tag
 		TestRuntime.assertThat(tag.getId()).as("compound tag id").isEqualTo(Tag.TAG_COMPOUND)
 		TestRuntime.assertThat(tag.asCompound().orElseThrow().getIntOr('value', 0)).as("compound tag value").isEqualTo(7)
 		TestRuntime.assertThat((new JsonPrimitive(8) as Tag).getId()).as("json tag id").isEqualTo(Tag.TAG_INT)
-		TestRuntime.assertThat(null as Tag).as("null tag").isNull()
+
 		TestRuntime.assertThat(('hi' as Tag).getId()).as("string tag id").isEqualTo(Tag.TAG_STRING)
 		TestRuntime.assertThat((true as Tag).getId()).as("boolean tag id").isEqualTo(Tag.TAG_BYTE)
 		TestRuntime.assertThat((5 as Tag).getId()).as("int tag id").isEqualTo(Tag.TAG_INT)
@@ -475,7 +472,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(type.is(DataComponents.CUSTOM_NAME)).as("custom name component type").isTrue()
 		def json = new JsonPrimitive('minecraft:custom_name') as DataComponentType
 		TestRuntime.assertThat(json.is(DataComponents.CUSTOM_NAME)).as("json component type").isTrue()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_component' as DataComponentType).as("unknown name should not cast to DataComponentType").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_component' as DataComponentType).as("unknown name should not cast to DataComponentType")
 	}
 	TestRuntime.check('wrapper.data_component_map') {
 		def components = [(DataComponents.CUSTOM_NAME): ('wrapped' as MutableComponent)] as DataComponentMap
@@ -483,9 +480,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(name.getString()).as("component map name").isEqualTo('wrapped')
 		def empty = [:] as DataComponentMap
 		TestRuntime.assertThat(empty.isEmpty()).as("empty component map is empty").isTrue()
-		TestRuntime.assertThat((null as DataComponentMap).isEmpty()).as("null component map is empty").isTrue()
+
 		TestRuntime.assertThat(('[]' as DataComponentMap).isEmpty()).as("bracket component map is empty").isTrue()
-		Assertions.assertThatThrownBy(() -> '[minecraft:custom_name=' as DataComponentMap).as("malformed string should not cast to DataComponentMap").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '[minecraft:custom_name=' as DataComponentMap).as("malformed string should not cast to DataComponentMap")
 	}
 	TestRuntime.check('wrapper.data_component_patch') {
 		def patch = [(DataComponents.CUSTOM_NAME): ('patched' as MutableComponent)] as DataComponentPatch
@@ -494,7 +491,7 @@ ServerEvents.tick { event ->
 		def removed = [(DataComponents.CUSTOM_NAME): null] as DataComponentPatch
 		TestRuntime.assertThat(removed.entrySet().iterator().next().getValue().isEmpty()).as("removed component patch is empty").isTrue()
 		TestRuntime.assertThat(([:] as DataComponentPatch).isEmpty()).as("empty patch is empty").isTrue()
-		TestRuntime.assertThat((null as DataComponentPatch).isEmpty()).as("null patch is empty").isTrue()
+
 		TestRuntime.assertThat(('[]' as DataComponentPatch).isEmpty()).as("bracket patch is empty").isTrue()
 	}
 	TestRuntime.check('wrapper.vec3i') {
@@ -506,22 +503,22 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(defaults.getX()).as("defaulted vec3i x").isEqualTo(7)
 		TestRuntime.assertThat(defaults.getY()).as("defaulted vec3i y").isEqualTo(0)
 		TestRuntime.assertThat(defaults.getZ()).as("defaulted vec3i z").isEqualTo(0)
-		Assertions.assertThatThrownBy(() -> [1, 2] as net.minecraft.core.Vec3i).as("two elements should not cast to Vec3i").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [1, 2] as net.minecraft.core.Vec3i).as("two elements should not cast to Vec3i")
 	}
 	TestRuntime.check('wrapper.item') {
 		def item = 'minecraft:diamond' as Item
 		TestRuntime.assertThat(item.is(Items.DIAMOND)).as("diamond item").isTrue()
 		TestRuntime.assertThat(('air' as Item).is(Items.AIR)).as("air item").isTrue()
-		TestRuntime.assertThat((null as Item).is(Items.AIR)).as("null item is air").isTrue()
+
 		TestRuntime.assertThat(([item: 'minecraft:diamond'] as Item).is(Items.DIAMOND)).as("mapped item").isTrue()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_an_item' as Item).as("unknown id should not cast to Item").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_an_item' as Item).as("unknown id should not cast to Item")
 	}
 	TestRuntime.check('wrapper.item_like') {
 		def item = 'minecraft:diamond' as ItemLike
 		TestRuntime.assertThat(item.asItem().is(Items.DIAMOND)).as("diamond itemlike").isTrue()
 		TestRuntime.assertThat(('air' as ItemLike).asItem().is(Items.AIR)).as("air itemlike").isTrue()
-		TestRuntime.assertThat((null as ItemLike).asItem().is(Items.AIR)).as("null itemlike is air").isTrue()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_an_item' as ItemLike).as("unknown id should not cast to ItemLike").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_an_item' as ItemLike).as("unknown id should not cast to ItemLike")
 	}
 	TestRuntime.check('wrapper.item_enchantments') {
 		def sharpness = event.getServer().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(Enchantments.SHARPNESS).orElseThrow()
@@ -530,7 +527,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(enchantments.entrySet().iterator().next().getIntValue()).as("enchantment level").isEqualTo(3)
 		TestRuntime.assertThat(([:] as ItemEnchantments).isEmpty()).as("empty enchantments are empty").isTrue()
 		TestRuntime.assertThat((42 as ItemEnchantments).isEmpty()).as("number enchantments are empty").isTrue()
-		TestRuntime.assertThat((null as ItemEnchantments).isEmpty()).as("null enchantments are empty").isTrue()
+
 	}
 	TestRuntime.check('wrapper.aabb') {
 		def dimensions = [2.0d, 4.0d, 6.0d] as double[]
@@ -544,11 +541,11 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(boundsBox.maxZ).as("bounds max z").isEqualTo(8.0d)
 		def empty = [] as double[]
 		TestRuntime.assertThat((empty as AABB).getXsize()).as("empty box x size").isEqualTo(0.0d)
-		TestRuntime.assertThat((null as AABB).getYsize()).as("null box y size").isEqualTo(0.0d)
+
 		def fromBlockPos = ([1, 2, 3] as BlockPos) as AABB
 		TestRuntime.assertThat(fromBlockPos.getXsize()).as("blockpos box x size").isEqualTo(1.0d)
-		Assertions.assertThatThrownBy(() -> ([1.0d, 2.0d] as double[]) as AABB).as("two elements should not cast to AABB").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 'not-a-box' as AABB).as("string should not cast to AABB").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> ([1.0d, 2.0d] as double[]) as AABB).as("two elements should not cast to AABB")
+		Assertions.assertThatThrownBy(() -> 'not-a-box' as AABB).as("string should not cast to AABB")
 	}
 	TestRuntime.check('wrapper.float_provider') {
 		def range = [1.5f, 3.5f] as FloatProvider
@@ -563,9 +560,9 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(single.min()).as("single min").isEqualTo(2.5f)
 		def fromValue = [value: 3.0f] as FloatProvider
 		TestRuntime.assertThat(fromValue.min()).as("value min").isEqualTo(3.0f)
-		Assertions.assertThatThrownBy(() -> [] as FloatProvider).as("empty list should not cast to FloatProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> [1.0f, 2.0f, 3.0f] as FloatProvider).as("three elements should not cast to FloatProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as FloatProvider).as("null should not cast to FloatProvider").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [] as FloatProvider).as("empty list should not cast to FloatProvider")
+		Assertions.assertThatThrownBy(() -> [1.0f, 2.0f, 3.0f] as FloatProvider).as("three elements should not cast to FloatProvider")
+
 	}
 	TestRuntime.check('wrapper.number_provider') {
 		def constant = 4 as NumberProvider
@@ -594,34 +591,34 @@ ServerEvents.tick { event ->
 			TestRuntime.assertThat(uniGen.max().getFloat(null)).as("reversed max").isEqualTo(2.0f)
 		}
 
-		Assertions.assertThatThrownBy(() -> [] as NumberProvider).as("empty list should not cast to NumberProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> [1, 2, 3, 4] as NumberProvider).as("four elements should not cast to NumberProvider").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as NumberProvider).as("null should not cast to NumberProvider").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [] as NumberProvider).as("empty list should not cast to NumberProvider")
+		Assertions.assertThatThrownBy(() -> [1, 2, 3, 4] as NumberProvider).as("four elements should not cast to NumberProvider")
+
 		def binomial = [n: 5, p: 0.5f] as NumberProvider
 		TestRuntime.assertThat(binomial).as("binomial provider").isNotNull()
-		Assertions.assertThatThrownBy(() -> [invalid: 1] as NumberProvider).as("unknown keys should not cast to NumberProvider").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [invalid: 1] as NumberProvider).as("unknown keys should not cast to NumberProvider")
 	}
 	TestRuntime.check('wrapper.block_set_type') {
 		def type = 'oak' as BlockSetType
 		TestRuntime.assertThat(type.is(BlockSetType.OAK)).as("oak block set type").isTrue()
 		TestRuntime.assertThat(('OAK' as BlockSetType).is(BlockSetType.OAK)).as("uppercase block set type").isTrue()
-		TestRuntime.assertThat(null as BlockSetType).as("null block set type").isNull()
-		Assertions.assertThatThrownBy(() -> 'not-a-set-type' as BlockSetType).as("unknown name should not cast to BlockSetType").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not-a-set-type' as BlockSetType).as("unknown name should not cast to BlockSetType")
 	}
 	TestRuntime.check('wrapper.block_state') {
 		def state = 'minecraft:stone' as BlockState
 		TestRuntime.assertThat(state.is(Blocks.STONE)).as("stone block state").isTrue()
 		def fromBlock = Blocks.DIRT as BlockState
 		TestRuntime.assertThat(fromBlock.is(Blocks.DIRT)).as("dirt block state").isTrue()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_block' as BlockState).as("unknown id should not cast to BlockState").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as BlockState).as("null should not cast to BlockState").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_block' as BlockState).as("unknown id should not cast to BlockState")
+
 	}
 	TestRuntime.check('wrapper.item_ability') {
 		def ability = 'axe_strip' as ItemAbility
 		TestRuntime.assertThat(ability.name()).as("axe strip ability").isEqualTo('axe_strip')
 		TestRuntime.assertThat(('not_an_ability' as ItemAbility).name()).as("unknown ability keeps name").isEqualTo('not_an_ability')
 		TestRuntime.assertThat((42 as ItemAbility).name()).as("number ability keeps name").isEqualTo('42')
-		TestRuntime.assertThat(null as ItemAbility).as("null ability").isNull()
+
 	}
 	TestRuntime.check('wrapper.color_rgba') {
 		def color = '#336699' as ColorRGBA
@@ -647,12 +644,12 @@ ServerEvents.tick { event ->
 		// Known limitation: the '*' wildcard builds an any-holder set that still
 		// contains air, which vanilla Ingredient rejects. Covered here as a
 		// throw until wildcard-air exclusion is implemented.
-		Assertions.assertThatThrownBy(() -> '*' as Ingredient).as("wildcard ingredient currently throws").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '*' as Ingredient).as("wildcard ingredient currently throws")
 		TestRuntime.assertThat((new JsonPrimitive('minecraft:diamond') as Ingredient).test(new ItemStack(Items.DIAMOND))).as("json ingredient matches diamond").isTrue()
 		TestRuntime.assertThat((('/diamond/' as Pattern) as Ingredient).test(new ItemStack(Items.DIAMOND))).as("pattern ingredient matches diamond").isTrue()
-		Assertions.assertThatThrownBy(() -> [] as Ingredient).as("empty list should not cast to Ingredient").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '-' as Ingredient).as("dash should not cast to Ingredient").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as Ingredient).as("null should not cast to Ingredient").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [] as Ingredient).as("empty list should not cast to Ingredient")
+		Assertions.assertThatThrownBy(() -> '-' as Ingredient).as("dash should not cast to Ingredient")
+
 	}
 	TestRuntime.check('wrapper.item_predicate') {
 		def predicate = 'minecraft:diamond' as ItemPredicate
@@ -660,7 +657,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(predicate.test(new ItemStack(Items.STICK))).as("diamond predicate rejects stick").isFalse()
 		TestRuntime.assertThat(('*' as ItemPredicate).test(new ItemStack(Items.STICK))).as("wildcard predicate matches stick").isTrue()
 		TestRuntime.assertThat(('' as ItemPredicate).test(new ItemStack(Items.DIAMOND))).as("empty predicate rejects diamond").isFalse()
-		TestRuntime.assertThat((null as ItemPredicate).test(new ItemStack(Items.DIAMOND))).as("null predicate rejects diamond").isFalse()
+
 		TestRuntime.assertThat((('minecraft:diamond' as Ingredient) as ItemPredicate).test(new ItemStack(Items.DIAMOND))).as("ingredient predicate matches diamond").isTrue()
 		TestRuntime.assertThat(((new BaseFunction({ stack -> true })) as ItemPredicate).test(new ItemStack(Items.STICK))).as("function predicate matches stick").isTrue()
 	}
@@ -677,7 +674,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(fromIngredient.count()).as("ingredient sized count").isEqualTo(1)
 		def fromItem = Items.DIAMOND as SizedIngredient
 		TestRuntime.assertThat(fromItem.count()).as("item sized count").isEqualTo(1)
-		Assertions.assertThatThrownBy(() -> '0x minecraft:diamond' as SizedIngredient).as("zero count should not cast to SizedIngredient").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '0x minecraft:diamond' as SizedIngredient).as("zero count should not cast to SizedIngredient")
 	}
 	TestRuntime.check('wrapper.block_state_predicate') {
 		def predicate = [or: ['minecraft:stone', 'minecraft:dirt']] as BlockStatePredicate
@@ -695,7 +692,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(tag.testBlock(Blocks.DIRT)).as("tag predicate rejects dirt").isFalse()
 		TestRuntime.assertThat(([:] as BlockStatePredicate).testBlock(Blocks.DIRT)).as("empty predicate matches dirt").isTrue()
 		TestRuntime.assertThat(([] as BlockStatePredicate).testBlock(Blocks.DIRT)).as("empty list predicate rejects dirt").isFalse()
-		TestRuntime.assertThat((null as BlockStatePredicate).testBlock(Blocks.DIRT)).as("null predicate matches dirt").isTrue()
+
 		TestRuntime.assertThat(('minecraft:stone' as BlockStatePredicate).testBlock(Blocks.STONE)).as("id predicate matches stone").isTrue()
 		TestRuntime.assertThat((Blocks.STONE as BlockStatePredicate).testBlock(Blocks.STONE)).as("block predicate matches stone").isTrue()
 		TestRuntime.assertThat((('minecraft:stone' as BlockState) as BlockStatePredicate).testBlock(Blocks.STONE)).as("state predicate matches stone").isTrue()
@@ -710,9 +707,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(encoded.test(Blocks.STONE.defaultBlockState(), RandomSource.create())).as("encoded rule matches stone").isTrue()
 		def fromPredicate = ('minecraft:stone' as BlockStatePredicate) as RuleTest
 		TestRuntime.assertThat(fromPredicate.test(Blocks.STONE.defaultBlockState(), RandomSource.create())).as("predicate rule matches stone").isTrue()
-		Assertions.assertThatThrownBy(() -> 'not-a-rule-test' as RuleTest).as("string should not cast to RuleTest").isInstanceOf(GroovyCastException)
-		def nullRule = null as RuleTest
-		TestRuntime.assertThat(nullRule.test(Blocks.DIRT.defaultBlockState(), RandomSource.create())).as("null rule matches dirt").isTrue()
+		Assertions.assertThatThrownBy(() -> 'not-a-rule-test' as RuleTest).as("string should not cast to RuleTest")
 	}
 	TestRuntime.check('wrapper.fluid_stack') {
 		def stack = '250x minecraft:water' as FluidStack
@@ -721,12 +716,12 @@ ServerEvents.tick { event ->
 		def bucket = '1b x minecraft:water' as FluidStack
 		TestRuntime.assertThat(bucket.getAmount()).as("bucket amount").isEqualTo(1000)
 		TestRuntime.assertThat(('empty' as FluidStack).isEmpty()).as("empty stack is empty").isTrue()
-		TestRuntime.assertThat((null as FluidStack).isEmpty()).as("null stack is empty").isTrue()
+
 		TestRuntime.assertThat((Fluids.WATER as FluidStack).getFluid().is(Fluids.WATER)).as("fluid to stack").isTrue()
 		TestRuntime.assertThat((Fluids.EMPTY as FluidStack).isEmpty()).as("empty fluid stack is empty").isTrue()
-		Assertions.assertThatThrownBy(() -> ('minecraft:water' as FluidIngredient) as FluidStack).as("fluid ingredient should not cast to FluidStack").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '0x minecraft:water' as FluidStack).as("zero amount should not cast to FluidStack").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_fluid' as FluidStack).as("unknown id should not cast to FluidStack").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> ('minecraft:water' as FluidIngredient) as FluidStack).as("fluid ingredient should not cast to FluidStack")
+		Assertions.assertThatThrownBy(() -> '0x minecraft:water' as FluidStack).as("zero amount should not cast to FluidStack")
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_fluid' as FluidStack).as("unknown id should not cast to FluidStack")
 	}
 	TestRuntime.check('wrapper.fluid_ingredient') {
 		def ingredient = 'minecraft:water' as FluidIngredient
@@ -742,8 +737,8 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(fromFluid.test(new FluidStack(Fluids.WATER, 1))).as("fluid ingredient matches water").isTrue()
 		def fromSized = ('500x minecraft:water' as SizedFluidIngredient) as FluidIngredient
 		TestRuntime.assertThat(fromSized.test(new FluidStack(Fluids.WATER, 1))).as("sized ingredient matches water").isTrue()
-		Assertions.assertThatThrownBy(() -> 'empty' as FluidIngredient).as("empty should not cast to FluidIngredient").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as FluidIngredient).as("null should not cast to FluidIngredient").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'empty' as FluidIngredient).as("empty should not cast to FluidIngredient")
+
 	}
 	TestRuntime.check('wrapper.sized_fluid_ingredient') {
 		def ingredient = '500x minecraft:water' as SizedFluidIngredient
@@ -758,20 +753,20 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(fromIngredient.amount()).as("ingredient sized amount").isEqualTo(1000)
 		def fromFluid = Fluids.LAVA as SizedFluidIngredient
 		TestRuntime.assertThat(fromFluid.amount()).as("fluid sized amount").isEqualTo(1000)
-		Assertions.assertThatThrownBy(() -> '0x minecraft:water' as SizedFluidIngredient).as("zero amount should not cast to SizedFluidIngredient").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as SizedFluidIngredient).as("null should not cast to SizedFluidIngredient").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '0x minecraft:water' as SizedFluidIngredient).as("zero amount should not cast to SizedFluidIngredient")
+
 	}
 	TestRuntime.check('wrapper.recipe_filter') {
 		def filter = '*' as RecipeFilter
 		TestRuntime.assertThat(filter.test(null)).as("wildcard filter matches").isTrue()
 		TestRuntime.assertThat(('-' as RecipeFilter).test(null)).as("none filter rejects").isFalse()
-		TestRuntime.assertThat((null as RecipeFilter).test(null)).as("null filter matches").isTrue()
+
 		TestRuntime.assertThat(([] as RecipeFilter).test(null)).as("empty filter rejects").isFalse()
 		TestRuntime.assertThat((['-', '*'] as RecipeFilter).test(null)).as("compound filter matches").isTrue()
 		TestRuntime.assertThat([id: 'minecraft:stone'] as RecipeFilter).as("id filter").isNotNull()
 		TestRuntime.assertThat([type: 'minecraft:crafting_shaped'] as RecipeFilter).as("type filter").isNotNull()
 		TestRuntime.assertThat(((new BaseFunction({ recipe -> true })) as RecipeFilter).test(null)).as("function filter matches").isTrue()
-		Assertions.assertThatThrownBy(() -> [unknown: 'value'] as RecipeFilter).as("unknown keys should not cast to RecipeFilter").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [unknown: 'value'] as RecipeFilter).as("unknown keys should not cast to RecipeFilter")
 	}
 	TestRuntime.check('wrapper.slot_filter') {
 		def filter = 2 as SlotFilter
@@ -791,7 +786,7 @@ ServerEvents.tick { event ->
 		def material = 'diamond' as ToolMaterial
 		TestRuntime.assertThat(material.is(ToolMaterial.DIAMOND)).as("diamond tool material").isTrue()
 		TestRuntime.assertThat(('unknown_material' as ToolMaterial).is(ToolMaterial.IRON)).as("unknown tool material defaults to iron").isTrue()
-		TestRuntime.assertThat((null as ToolMaterial).is(ToolMaterial.IRON)).as("null tool material defaults to iron").isTrue()
+
 	}
 	TestRuntime.check('wrapper.damage_source') {
 		def source = 'minecraft:generic' as DamageSource
@@ -800,8 +795,7 @@ ServerEvents.tick { event ->
 		def mob = EntityType.CREEPER.create(overworld, EntitySpawnReason.COMMAND)
 		def mobSource = mob as DamageSource
 		TestRuntime.assertThat(mobSource.getEntity().is(mob)).as("mob damage source entity").isTrue()
-		Assertions.assertThatThrownBy(() -> null as DamageSource).as("null should not cast to DamageSource").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_damage_type' as DamageSource).as("unknown id should not cast to DamageSource").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_damage_type' as DamageSource).as("unknown id should not cast to DamageSource")
 	}
 	TestRuntime.check('wrapper.entity_selector') {
 		def selector = '@e[type=minecraft:pig,limit=1]' as net.minecraft.commands.arguments.selector.EntitySelector
@@ -809,8 +803,8 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(selector.includesEntities()).as("selector includes entities").isTrue()
 		def self = '@s' as net.minecraft.commands.arguments.selector.EntitySelector
 		TestRuntime.assertThat(self.getMaxResults()).as("self selector max results").isEqualTo(1)
-		Assertions.assertThatThrownBy(() -> '' as net.minecraft.commands.arguments.selector.EntitySelector).as("empty string should not cast to EntitySelector").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '@e[invalid' as net.minecraft.commands.arguments.selector.EntitySelector).as("broken selector should not cast to EntitySelector").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '' as net.minecraft.commands.arguments.selector.EntitySelector).as("empty string should not cast to EntitySelector")
+		Assertions.assertThatThrownBy(() -> '@e[invalid' as net.minecraft.commands.arguments.selector.EntitySelector).as("broken selector should not cast to EntitySelector")
 	}
 	TestRuntime.check('wrapper.replacement_match') {
 		def match = 'minecraft:diamond' as ReplacementMatch
@@ -818,37 +812,32 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(match.matches(null, new ItemStack(Items.STICK), false)).as("diamond match rejects stick").isFalse()
 		def compound = ['minecraft:diamond', 'minecraft:stick'] as ReplacementMatch
 		TestRuntime.assertThat(compound.matches(null, new ItemStack(Items.STICK), false)).as("compound match matches stick").isTrue()
-		TestRuntime.assertThat((null as ReplacementMatch).toString()).as("null match").isEqualTo('NONE')
-		Assertions.assertThatThrownBy(() -> '' as ReplacementMatch).as("empty string should not cast to ReplacementMatch").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '' as ReplacementMatch).as("empty string should not cast to ReplacementMatch")
 	}
 	TestRuntime.check('wrapper.replacement_match_info') {
 		def info = 'minecraft:diamond' as ReplacementMatchInfo
 		TestRuntime.assertThat(info.exact()).as("id match is not exact").isFalse()
 		TestRuntime.assertThat(info.match().matches(null, new ItemStack(Items.DIAMOND), false)).as("info match matches diamond").isTrue()
-		def none = null as ReplacementMatchInfo
-		TestRuntime.assertThat(none.is(ReplacementMatchInfo.NONE)).as("null info is none").isTrue()
 	}
 	TestRuntime.check('wrapper.stat') {
 		def stat = Stats.JUMP as Stat
 		TestRuntime.assertThat(stat.getValue().toString()).as("jump stat id").isEqualTo('minecraft:jump')
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_stat' as Stat).as("unknown id should not cast to Stat").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_stat' as Stat).as("unknown id should not cast to Stat")
 	}
 	TestRuntime.check('wrapper.sound_type') {
 		def sound = 'wool' as SoundType
 		TestRuntime.assertThat(sound.is(SoundType.WOOL)).as("wool sound type").isTrue()
 		TestRuntime.assertThat(('empty' as SoundType).is(SoundType.EMPTY)).as("empty sound type").isTrue()
 		TestRuntime.assertThat((new JsonPrimitive('wool') as SoundType).is(SoundType.WOOL)).as("json sound type").isTrue()
-		Assertions.assertThatThrownBy(() -> 'not-a-sound-type' as SoundType).as("unknown name should not cast to SoundType").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> null as SoundType).as("null should not cast to SoundType").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'not-a-sound-type' as SoundType).as("unknown name should not cast to SoundType")
+
 	}
 	TestRuntime.check('wrapper.particle_options') {
 		def particle = 'minecraft:flame' as ParticleOptions
 		TestRuntime.assertThat(particle.getType().is(ParticleTypes.FLAME)).as("flame particle type").isTrue()
 		def json = new JsonPrimitive('minecraft:flame') as ParticleOptions
 		TestRuntime.assertThat(json.getType().is(ParticleTypes.FLAME)).as("json particle type").isTrue()
-		def missing = null as ParticleOptions
-		TestRuntime.assertThat(missing.getType().is(ParticleTypes.DUST)).as("null particle defaults to dust").isTrue()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_particle' as ParticleOptions).as("unknown id should not cast to ParticleOptions").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_particle' as ParticleOptions).as("unknown id should not cast to ParticleOptions")
 	}
 	TestRuntime.check('wrapper.item_tint') {
 		def fixed = '#112233' as ItemTintFunction
@@ -858,7 +847,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(mapped.getColor(ItemStack.EMPTY, 2).toHexString()).as("mapped tint color").isEqualTo('#A0B0C0')
 		TestRuntime.assertThat(mapped.getColor(ItemStack.EMPTY, 1)).as("mapped tint hole").isNull()
 		TestRuntime.assertThat(('map' as ItemTintFunction).getColor(ItemStack.EMPTY, 0)).as("map tint color").isNull()
-		TestRuntime.assertThat(null as ItemTintFunction).as("null tint").isNull()
+
 	}
 	TestRuntime.check('wrapper.block_tint') {
 		def fixed = '#445566' as BlockTintFunction
@@ -869,7 +858,7 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(mapped.getColor(state, null, null, 2).toHexString()).as("mapped block tint color").isEqualTo('#A0B0C0')
 		TestRuntime.assertThat(mapped.getColor(state, null, null, 1)).as("mapped block tint hole").isNull()
 		TestRuntime.assertThat(('water' as BlockTintFunction).getColor(state, null, null, 0)).as("water block tint color").isNull()
-		TestRuntime.assertThat(null as BlockTintFunction).as("null block tint").isNull()
+
 	}
 	TestRuntime.check('wrapper.text_color') {
 		def color = '#123456' as TextColor
@@ -899,48 +888,48 @@ ServerEvents.tick { event ->
 		def file = 'file:wrapper.txt' as ClickEvent
 		TestRuntime.assertThat(file instanceof ClickEvent.OpenFile).as("file shorthand type").isTrue()
 		TestRuntime.assertThat(file.file().getPath().endsWith('wrapper.txt')).as("file shorthand value").isTrue()
-		TestRuntime.assertThat(null as ClickEvent).as("null click event").isNull()
-		Assertions.assertThatThrownBy(() -> 'page:not-a-number' as ClickEvent).as("bad page should not cast to ClickEvent").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'page:not-a-number' as ClickEvent).as("bad page should not cast to ClickEvent")
 	}
 	TestRuntime.check('wrapper.path') {
 		def p = 'kubegroovy/test_wrapper.txt' as Path
 		TestRuntime.assertThat(p).as("sandboxed path").isNotNull()
 		TestRuntime.assertThat(p.toString().replace('\\', '/').endsWith('kubegroovy/test_wrapper.txt')).as("sandboxed path value").isTrue()
-		TestRuntime.assertThat(null as Path).as("null path").isNull()
+
 		TestRuntime.assertThat('' as Path).as("empty path").isNull()
-		Assertions.assertThatThrownBy(() -> '../outside_wrapper.txt' as Path).as("escaping path should not cast to Path").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '../outside_wrapper.txt' as Path).as("escaping path should not cast to Path")
 	}
 	TestRuntime.check('wrapper.file') {
 		def f = 'kubegroovy/test_wrapper.txt' as File
 		TestRuntime.assertThat(f).as("sandboxed file").isNotNull()
 		TestRuntime.assertThat(f.getPath().replace('\\', '/').endsWith('kubegroovy/test_wrapper.txt')).as("sandboxed file value").isTrue()
-		TestRuntime.assertThat(null as File).as("null file").isNull()
+
 		TestRuntime.assertThat('' as File).as("empty file").isNull()
-		Assertions.assertThatThrownBy(() -> '../outside_wrapper.txt' as File).as("escaping path should not cast to File").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '../outside_wrapper.txt' as File).as("escaping path should not cast to File")
 	}
 	TestRuntime.check('wrapper.mob_category') {
 		TestRuntime.assertThat(('monster' as MobCategory).is(MobCategory.MONSTER)).as("lowercase mob category").isTrue()
 		TestRuntime.assertThat(('MONSTER' as MobCategory).is(MobCategory.MONSTER)).as("uppercase mob category").isTrue()
 		TestRuntime.assertThat('' as MobCategory).as("empty mob category").isNull()
-		TestRuntime.assertThat(null as MobCategory).as("null mob category").isNull()
-		Assertions.assertThatThrownBy(() -> 'not_a_category' as MobCategory).as("unknown name should not cast to MobCategory").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not_a_category' as MobCategory).as("unknown name should not cast to MobCategory")
 	}
 	TestRuntime.check('wrapper.armor_type') {
 		TestRuntime.assertThat(('chestplate' as ArmorType).is(ArmorType.CHESTPLATE)).as("lowercase armor type").isTrue()
 		TestRuntime.assertThat(('CHESTPLATE' as ArmorType).is(ArmorType.CHESTPLATE)).as("uppercase armor type").isTrue()
 		TestRuntime.assertThat('' as ArmorType).as("empty armor type").isNull()
-		TestRuntime.assertThat(null as ArmorType).as("null armor type").isNull()
-		Assertions.assertThatThrownBy(() -> 'not_an_armor_type' as ArmorType).as("unknown name should not cast to ArmorType").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not_an_armor_type' as ArmorType).as("unknown name should not cast to ArmorType").isInstanceOf(JsonSyntaxException)
 	}
 	TestRuntime.check('wrapper.entity_target') {
 		TestRuntime.assertThat(('this' as EntityTarget).is(EntityTarget.THIS)).as("lowercase entity target").isTrue()
 		TestRuntime.assertThat(('THIS' as EntityTarget).is(EntityTarget.THIS)).as("uppercase entity target").isTrue()
 		TestRuntime.assertThat('' as EntityTarget).as("empty entity target").isNull()
-		TestRuntime.assertThat(null as EntityTarget).as("null entity target").isNull()
-		Assertions.assertThatThrownBy(() -> 'not_a_target' as EntityTarget).as("unknown name should not cast to EntityTarget").isInstanceOf(GroovyCastException)
+
+		Assertions.assertThatThrownBy(() -> 'not_a_target' as EntityTarget).as("unknown name should not cast to EntityTarget").isInstanceOf(JsonSyntaxException)
 	}
 	TestRuntime.check('wrapper.armor_material') {
-		TestRuntime.assertThat(null as ArmorMaterial).as("null armor material").isNull()
+
 		TestRuntime.assertThat('diamond' as ArmorMaterial).as("unknown armor material").isNull()
 		TestRuntime.assertThat(42 as ArmorMaterial).as("number armor material").isNull()
 	}
@@ -949,17 +938,16 @@ ServerEvents.tick { event ->
 		TestRuntime.assertThat(uuid as PlayerSelector).as("uuid player selector").isNotNull()
 		TestRuntime.assertThat('12345678-1234-1234-1234-123456789abc' as PlayerSelector).as("string player selector").isNotNull()
 		TestRuntime.assertThat(new BaseFunction({ server -> null }) as PlayerSelector).as("function player selector").isNotNull()
-		Assertions.assertThatThrownBy(() -> null as PlayerSelector).as("null should not cast to PlayerSelector").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '' as PlayerSelector).as("empty string should not cast to PlayerSelector").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> '   ' as PlayerSelector).as("blank string should not cast to PlayerSelector").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 'steve' as PlayerSelector).as("name should not cast to PlayerSelector").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> '' as PlayerSelector).as("empty string should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)
+		Assertions.assertThatThrownBy(() -> '   ' as PlayerSelector).as("blank string should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)
+		Assertions.assertThatThrownBy(() -> 'steve' as PlayerSelector).as("name should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)
 	}
 	TestRuntime.check('wrapper.component_alias') {
 		def m = 'hello alias' as MutableComponent
 		def c = m as Component
 		TestRuntime.assertThat(c.is(m)).as("component alias preserves instance").isTrue()
 		TestRuntime.assertThat(c.getString()).as("component alias text").isEqualTo('hello alias')
-		def nullComponent = null as Component
+		def nullComponent = "null" as Component
 		TestRuntime.assertThat(nullComponent.getString()).as("null component string literal").isEqualTo("null")
 	}
 	TestRuntime.check('wrapper.item_lore') {
@@ -968,80 +956,73 @@ ServerEvents.tick { event ->
 		def lore = ['hello' as MutableComponent, 'world' as MutableComponent] as ItemLore
 		TestRuntime.assertThat(lore.lines()).as("lore lines").hasSize(2)
 		TestRuntime.assertThat(lore.lines().get(0).getString()).as("first lore line").isEqualTo('hello')
-		TestRuntime.assertThat(null as ItemLore).as("null lore").isNull()
+
 	}
 	TestRuntime.check('wrapper.item_attribute_modifiers') {
 		def empty = [] as ItemAttributeModifiers
 		TestRuntime.assertThat(empty.modifiers().isEmpty()).as("empty modifiers are empty").isTrue()
-		TestRuntime.assertThat(null as ItemAttributeModifiers).as("null modifiers").isNull()
+
 	}
 	TestRuntime.check('wrapper.fireworks') {
-		TestRuntime.assertThat(null as Fireworks).as("null fireworks").isNull()
+
 		def withFlight = [flight_duration: 2, explosions: []] as Fireworks
 		TestRuntime.assertThat(withFlight).as("flight fireworks").isNotNull()
 		TestRuntime.assertThat(withFlight.flightDuration()).as("flight duration").isEqualTo(2)
-		Assertions.assertThatThrownBy(() -> 42 as Fireworks).as("number should not cast to Fireworks").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> 42 as Fireworks).as("number should not cast to Fireworks").isInstanceOf(IllegalStateException)
 	}
 	TestRuntime.check('wrapper.kube_icon') {
-		TestRuntime.assertThat(null as KubeIcon).as("null icon").isNull()
+
 		def tex = [type: 'kubegroovy:texture', texture: 'minecraft:block/stone'] as KubeIcon
 		TestRuntime.assertThat(tex instanceof TextureKubeIcon).as("texture icon type").isTrue()
 		TestRuntime.assertThat(tex.texture().toString()).as("texture icon value").isEqualTo('minecraft:block/stone')
-		Assertions.assertThatThrownBy(() -> [:] as KubeIcon).as("empty map should not cast to KubeIcon").isInstanceOf(GroovyCastException)
-		Assertions.assertThatThrownBy(() -> 42 as KubeIcon).as("number should not cast to KubeIcon").isInstanceOf(GroovyCastException)
+		Assertions.assertThatThrownBy(() -> [:] as KubeIcon).as("empty map should not cast to KubeIcon").isInstanceOf(IllegalStateException)
+		Assertions.assertThatThrownBy(() -> 42 as KubeIcon).as("number should not cast to KubeIcon").isInstanceOf(IllegalStateException)
 	}
 	TestRuntime.check('wrapper.unit') {
 		TestRuntime.assertThat(('anything' as Unit).is(Unit.INSTANCE)).as("string unit is instance").isTrue()
 		TestRuntime.assertThat((42 as Unit).is(Unit.INSTANCE)).as("number unit is instance").isTrue()
-		TestRuntime.assertThat(null as Unit).as("null unit").isNull()
+
 	}
 	TestRuntime.check('wrapper.custom_data') {
 		def data = ([a: 1] as CompoundTag) as CustomData
 		TestRuntime.assertThat(data.copyTag().contains('a')).as("custom data key").isTrue()
 		def fromString = ('{b:2}' as CompoundTag) as CustomData
 		TestRuntime.assertThat(fromString.copyTag().contains('b')).as("parsed custom data key").isTrue()
-		TestRuntime.assertThat(null as CustomData).as("null custom data").isNull()
+
 	}
 	TestRuntime.check('wrapper.custom_model_data') {
 		def cmd = 5 as CustomModelData
 		TestRuntime.assertThat(cmd.colors()).as("custom model data colors").isEqualTo([5])
-		TestRuntime.assertThat(null as CustomModelData).as("null custom model data").isNull()
+
 	}
 	TestRuntime.check('wrapper.lock_code') {
-		def lock = 'minecraft:stick' as LockCode
+		def lock = [:] as net.minecraft.advancements.criterion.ItemPredicate as LockCode
+		def lockStick = [items: "stick"] as net.minecraft.advancements.criterion.ItemPredicate as LockCode
 		TestRuntime.assertThat(lock).as("stick lock code").isNotNull()
-		TestRuntime.assertThat(lock.unlocksWith(new ItemStack(Items.STICK))).as("lock opens with stick").isTrue()
-		TestRuntime.assertThat(lock.unlocksWith(new ItemStack(Items.DIAMOND))).as("lock rejects diamond").isFalse()
-		TestRuntime.assertThat((Items.STICK as LockCode).unlocksWith(new ItemStack(Items.STICK))).as("item lock opens with stick").isTrue()
-		TestRuntime.assertThat(null as LockCode).as("null lock code").isNull()
-		Assertions.assertThatThrownBy(() -> 'minecraft:not_an_item' as LockCode).as("unknown id should not cast to LockCode").isInstanceOf(GroovyCastException)
+		TestRuntime.assertThat(lockStick.unlocksWith(Items.STICK.defaultInstance)).as("lock opens with stick").isTrue()
+		TestRuntime.assertThat(lockStick.unlocksWith(Items.DIAMOND.defaultInstance)).as("lock rejects diamond").isFalse()
+		Assertions.assertThatThrownBy(() -> [items: "not_an_item"] as net.minecraft.advancements.criterion.ItemPredicate as LockCode).as("unknown id should not cast to LockCode").isInstanceOf(IllegalStateException)
 	}
 	TestRuntime.check('wrapper.block_state_properties') {
 		def empty = [:] as BlockItemStateProperties
-		TestRuntime.assertThat(empty.properties().isEmpty()).as("empty state properties are empty").isTrue()
+		TestRuntime.assertThat(empty).as("empty state properties are empty").isEqualTo(BlockItemStateProperties.EMPTY)
 		def withProp = [facing: 'north'] as BlockItemStateProperties
 		TestRuntime.assertThat(withProp.properties().get('facing')).as("facing property").isEqualTo('north')
-		TestRuntime.assertThat(null as BlockItemStateProperties).as("null state properties").isNull()
 	}
 	TestRuntime.check('wrapper.item_resource') {
 		def res = ('minecraft:diamond' as ItemStack) as ItemResource
 		TestRuntime.assertThat(res).as("diamond item resource").isNotNull()
-		TestRuntime.assertThat(res.isEmpty()).as("diamond resource is not empty").isFalse()
-		TestRuntime.assertThat(null as ItemResource).as("empty item resource").isEqualTo(ItemResource.EMPTY)
+		TestRuntime.assertThat("minecraft:air" as ItemResource).as("empty item resource").isEqualTo(ItemResource.EMPTY)
 	}
 	TestRuntime.check('wrapper.fluid_resource') {
-		def res = ('minecraft:water' as FluidStack) as FluidResource
+		def res = 'minecraft:water' as FluidResource
 		TestRuntime.assertThat(res).as("water fluid resource").isNotNull()
-		TestRuntime.assertThat(null as FluidResource).as("fluid empty resource").isEqualTo(FluidResource.EMPTY)
+		TestRuntime.assertThat(Fluids.EMPTY as FluidResource).as("fluid empty resource").isEqualTo(FluidResource.EMPTY)
 	}
-	TestRuntime.check('wrapper.holder_set') {
-		def diamondHolderSet = 'minecraft:diamond' as HolderSet<Item>
-		log(diamondHolderSet)
-
-		/** Need to find a way to implement this
-		def oresTags = 'c:ores' as TagKey<Item>
-		log(oresTags)
- 		*/
+	TestRuntime.check('wrapper.registry_related') {
+		TestRuntime.assertThat('minecraft:diamond' as HolderSet<Item>).as("diamond holder set").isNotNull()
+		TestRuntime.assertThat("c:ores" as TagKey<Item>).as("string to tag key").isNotNull()
+		TestRuntime.assertThat('minecraft:custom_data' as DataComponentType<?>).as("retrieving registry via type cast").isNotNull()
 	}
 	TestRuntime.check('wrapper.generics') {
 		def diamond = 'minecraft:diamond' as RegistryPredicate

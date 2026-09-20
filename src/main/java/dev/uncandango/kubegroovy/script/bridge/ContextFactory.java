@@ -12,7 +12,7 @@ public class ContextFactory {
 	private final Map<Class<?>, Object[]> defaultRecordProperties = new IdentityHashMap<>();
 
 	protected Context createContext() {
-		return new Context();
+		return new Context(this);
 	}
 
 	@Deprecated

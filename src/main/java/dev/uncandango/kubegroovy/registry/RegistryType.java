@@ -34,7 +34,13 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 	public static synchronized <T> void register(ResourceKey<Registry<T>> key, TypeInfo type) {
 		var t = new RegistryType<>(key, type.asClass(), type);
 		KEY_MAP.put(key, t);
-		TYPE_MAP.put(type, t);
+		if (TYPE_MAP.containsKey(type)) {
+			if (DevProperties.get().logRegistryTypes) {
+				KubeGroovy.LOGGER.warn("Registry key \"{}\" and \"{}\" share the same class and generics \"{}\", skipping \"{}\"...", key.identifier(), TYPE_MAP.get(type).key().identifier(), type, key.identifier());
+			}
+		} else {
+			TYPE_MAP.put(type, t);
+		}
 		CLASS_MAP.computeIfAbsent(t.baseClass, c -> new ArrayList<>(1)).add(t);
 
 		if (DevProperties.get().logRegistryTypes) {
