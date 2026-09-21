@@ -123,7 +123,7 @@ public final class GroovyConversions {
 			if (target.isInterface() && from instanceof Closure<?> c) {
 				return toFunctionalInterface(c, target);
 			}
-			if (target.isInterface()) {
+			if (target.isInterface() && from instanceof Map<?,?>) {
 				return DefaultGroovyMethods.asType(from, target);
 			}
 		} catch (Exception ignored) {

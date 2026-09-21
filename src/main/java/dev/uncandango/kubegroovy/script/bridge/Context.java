@@ -1,11 +1,13 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.error.MissingContextException;
 import dev.uncandango.kubegroovy.script.WithScriptContext;
 import dev.uncandango.kubegroovy.script.type.ArrayTypeInfo;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import com.google.gson.JsonObject;
 import groovy.lang.Closure;
 import net.minecraft.nbt.CompoundTag;
+import org.codehaus.groovy.runtime.ConversionHandler;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.jspecify.annotations.Nullable;
 
@@ -40,16 +42,16 @@ public class Context {
 
 	@Nullable
 	public static Context from(Object obj) {
-		if (obj instanceof Closure<?> cl) {
-			obj = cl.getDelegate();
-			while (obj instanceof Closure<?> c){
-				obj = c.getDelegate();
-			}
+		var result = switch (obj) {
+			case Closure<?> cl -> from(cl.getDelegate());
+			case ConversionHandler ch -> from(ch.getDelegate());
+			case WithScriptContext script -> script.cx();
+			default -> Context.getCurrent();
+		};
+		if (result == null) {
+			throw new MissingContextException();
 		}
-		if (obj instanceof WithScriptContext script) {
-			return script.cx();
-		}
-		return Context.getCurrent();
+		return result;
 	}
 
 	@Nullable

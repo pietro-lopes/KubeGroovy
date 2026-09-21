@@ -15,6 +15,15 @@ public final class GameAsserts {
 	}
 
 	/// Runs {@code assertions}, converting any [AssertionError] into a [GameTestAssertException].
+	public static void assertj(Runnable assertions) {
+		try {
+			assertions.run();
+		} catch (AssertionError error) {
+			throw new GameTestAssertException(Component.literal(String.valueOf(error.getMessage())), 0);
+		}
+	}
+
+	/// Runs {@code assertions}, converting any [AssertionError] into a [GameTestAssertException].
 	public static void assertj(GameTestHelper helper, Runnable assertions) {
 		try {
 			assertions.run();

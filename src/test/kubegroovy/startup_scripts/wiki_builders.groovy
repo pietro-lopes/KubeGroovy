@@ -1,10 +1,4 @@
-import dev.uncandango.kubegroovy.util.KubeIdentifier
-import dev.uncandango.kubegroovy.color.KubeColor
-import net.minecraft.network.chat.Component
-import net.minecraft.world.level.block.SoundType
-import net.minecraft.network.chat.MutableComponent
-import net.minecraft.world.item.Items
-import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.ItemStack
 
 StartupEvents.registry('item') { event ->
 	event.create('wiki_item')
@@ -23,10 +17,11 @@ StartupEvents.registry('block') { event ->
 }
 
 StartupEvents.registry('creative_mode_tab') { event ->
-	def content = Ingredient.of(Items.DIRT, Items.GRASS_BLOCK)
 	event.create('wiki_tab')
-		.icon { Items.DIRT.defaultInstance }
-		.content { content }
+		.icon { "minecraft:carrot" } // "minecraft:carrot" as ItemStack
+		.content { showRestrictedItems ->
+			["minecraft:dirt", "minecraft:grass_block"]
+		}
 }
 
 StartupEvents.registry('mob_effect') { event ->

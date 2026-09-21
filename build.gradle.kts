@@ -1,7 +1,12 @@
 import com.almostreliable.almostgradle.dependency.LoadingMode
+import net.neoforged.moddevgradle.tasks.JarJar
 import java.util.Locale
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import java.net.URI
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.StandardOpenOption
 
 plugins {
 	id("net.neoforged.moddev") version "2.0.138"
@@ -107,11 +112,14 @@ repositories {
 		}
 	}
 	mavenCentral()
+	flatDir {
+		dir("libs")
+	}
 }
 
 dependencies {
-	api("org.apache.groovy:groovy:$groovyVersion")
-	api("org.apache.groovy:groovy-callsite:$groovyVersion")
+
+	//api("org.apache.groovy:groovy-callsite:$groovyVersion")
 	testImplementation("org.assertj:assertj-core:3.27.3")
 	implementation("dev.latvian.mods:better-advanced-tooltips") {
 		version {
@@ -122,6 +130,13 @@ dependencies {
 
 	// not updated to 26.1 yet
 	/*compileOnly("dev.architectury:architectury-neoforge:$archVersion")*/
+
+	jarJar(implementation("blank:groovy") { // org.apache.groovy:groovy / blank:groovy
+		version {
+			strictly("[$groovyVersion,)")
+			prefer(groovyVersion)
+		}
+	})
 
 	jarJar(implementation("dev.latvian.apps:tiny-java-server") {
 		version {
@@ -181,6 +196,28 @@ tasks.withType<JavaExec>().matching { it.name == "runGametest" }.configureEach {
 		includes = coverageIncludes
 	}
 }
+
+//val targetJar = layout.buildDirectory.file(
+//	"generated/jarJar/META-INF/jarjar/groovy-$groovyVersion.jar"
+//).get().asFile.toPath()
+//
+//tasks.named("jarJar") {
+//	doLast {
+//
+//		FileSystems.newFileSystem(
+//			URI.create("jar:${targetJar.toUri()}"),
+//			emptyMap<String, Any>()
+//		).use { fs ->
+//			val manifest = fs.getPath("/META-INF/MANIFEST.MF")
+//
+//			Files.writeString(
+//				manifest,
+//				"FMLModType: LIBRARY\r\n",
+//				StandardOpenOption.APPEND
+//			)
+//		}
+//	}
+//}
 
 val coverageReport by tasks.registering(JacocoReport::class) {
 	group = "verification"
