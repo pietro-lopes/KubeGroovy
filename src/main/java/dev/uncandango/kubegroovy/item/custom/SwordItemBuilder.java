@@ -22,9 +22,9 @@ public class SwordItemBuilder extends HandheldItemBuilder {
 
 	@Override
 	public Item createObject() {
-		var props = createItemProperties();
 		var material = toolTier.build();
 		itemAttributeModifiers = createToolAttributes(material, attackDamageBaseline, speedBaseline);
+		var props = createItemProperties();
 		return new Item(props
 			.component(DataComponents.WEAPON, new Weapon((int) attackDamageBaseline, disableBlockingForSeconds))
 		);

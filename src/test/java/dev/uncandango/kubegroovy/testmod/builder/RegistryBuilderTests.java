@@ -11,6 +11,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.attributes.RangedAttribute;
 import net.minecraft.world.entity.ai.village.poi.PoiType;
 import net.minecraft.world.entity.decoration.painting.PaintingVariant;
@@ -22,6 +24,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.JukeboxSong;
 import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.item.SmithingTemplateItem;
+import net.minecraft.world.item.component.Weapon;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.CarpetBlock;
@@ -151,8 +154,13 @@ public class RegistryBuilderTests {
 					"wiki_helmet", "wiki_chestplate", "wiki_leggings", "wiki_boots", "wiki_animal_armor", "wiki_smithing_template")) {
 					assertThat(BuiltInRegistries.ITEM.containsKey(id(path))).as(path + " registered").isTrue();
 				}
+				var swordWeaponComp = assertThat(stack("wiki_sword").get(DataComponents.WEAPON));
+				swordWeaponComp.as("sword weapon damage per attack").extracting(Weapon::itemDamagePerAttack).isEqualTo(4);
+				swordWeaponComp.as("sword weapon blocking cooldown").extracting(Weapon::disableBlockingForSeconds).isEqualTo(1f);
 
-				assertThat(stack("wiki_sword").get(DataComponents.WEAPON)).as("sword weapon component").isNotNull();
+				var swordAttributesMod = assertThat(stack("wiki_sword").get(DataComponents.ATTRIBUTE_MODIFIERS));
+				swordAttributesMod.as("sword attack damage").extracting(mod -> mod.compute(Attributes.ATTACK_DAMAGE,0, EquipmentSlot.MAINHAND)).isNotEqualTo(0d);
+				swordAttributesMod.as("sword attack speed").extracting(mod -> mod.compute(Attributes.ATTACK_SPEED,0, EquipmentSlot.MAINHAND)).isNotEqualTo(0d);
 				assertThat(stack("wiki_pickaxe").get(DataComponents.TOOL)).as("pickaxe tool component").isNotNull();
 				assertThat(BuiltInRegistries.ITEM.getValue(id("wiki_shears"))).as("shears runtime type").isInstanceOf(ShearsItem.class);
 				assertThat(stack("wiki_helmet").get(DataComponents.EQUIPPABLE)).as("helmet equipment component").isNotNull();

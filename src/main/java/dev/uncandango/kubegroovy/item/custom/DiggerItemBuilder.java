@@ -21,9 +21,9 @@ public class DiggerItemBuilder extends HandheldItemBuilder {
 
 	@Override
 	public Item createObject() {
-		var props = createItemProperties();
 		var material = toolTier.build();
 		itemAttributeModifiers = createToolAttributes(material, attackDamageBaseline, speedBaseline);
+		var props = createItemProperties();
 		return function.apply(material, props);
 	}
 
