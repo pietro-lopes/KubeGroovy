@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 
+// TODO: check if we can use closures to implement a builder pattern
 @ReturnsSelf
 public abstract class BuilderBase<T> implements Supplier<T> {
 	protected final Identifier id;

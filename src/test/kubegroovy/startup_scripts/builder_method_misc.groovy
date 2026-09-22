@@ -1,6 +1,10 @@
+import dev.uncandango.kubegroovy.fluid.FluidBuilder
 import net.minecraft.core.Holder
+import net.minecraft.core.particles.ParticleType
 import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.particles.SimpleParticleType
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffectInstance
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.ai.attributes.AttributeModifier
@@ -32,10 +36,10 @@ StartupEvents.registry('fluid') { event ->
 				.motionScale(0.01).canPushEntity(false).canSwim(false).canDrown(false)
 				.fallDistanceModifier(0.5f).canExtinguish(true).canConvertToSource(false)
 				.supportsBoating(true).pathType(null).adjacentPathType(null)
-				.sound(SoundActions.BUCKET_FILL, SoundEvents.BUCKET_FILL)
+				.sound("bucket_fill", "item.bucket.fill")
 				.canHydrate(true).lightLevel(2).density(1200).temperature(300).viscosity(1000)
 				.rarity('rare')
-				.addDripstoneDripping(0.25f, ParticleTypes.DRIPPING_WATER, Blocks.CAULDRON, SoundEvents.BUCKET_FILL)
+				.addDripstoneDripping(0.25f, "dripping_water", "cauldron", "item.bucket.fill")
 				.renderType('translucent')
 		}
 	event.create('coverage_no_bucket', 'thin').noBucket()
@@ -70,7 +74,7 @@ StartupEvents.registry('mob_effect') { event ->
 	def effect = event.create('coverage_effect')
 	effect.getTranslationKeyGroup()
 	effect
-		.modifyAttribute('minecraft:generic.movement_speed', 'kubegroovy:coverage_speed', 0.1, AttributeModifier.Operation.ADD_VALUE)
+		.modifyAttribute('minecraft:generic.movement_speed', 'kubegroovy:coverage_speed', 0.1, "add_value")
 		.category('harmful').harmful().beneficial()
 		.effectTick { entity, level -> }
 		.color(0x00FF00).instant(false).instant()
@@ -78,7 +82,7 @@ StartupEvents.registry('mob_effect') { event ->
 
 StartupEvents.registry('potion') { event ->
 	def potion = event.create('coverage_potion')
-	def luck = MobEffects.LUCK
+	def luck = "luck" as Holder<MobEffect>
 	def instance = new MobEffectInstance(luck, 20)
 	potion.addEffect(instance)
 		.effect(luck).effect(luck, 20).effect(luck, 20, 1)
@@ -88,10 +92,11 @@ StartupEvents.registry('potion') { event ->
 }
 
 StartupEvents.registry('particle_type') { event ->
+	def angryVillager = ("angry_villager" as Holder<ParticleType<?>>).value()
 	event.create('coverage_particle')
 		.overrideLimiter(true)
-		.codec(ParticleTypes.ANGRY_VILLAGER.codec())
-		.streamCodec(ParticleTypes.ANGRY_VILLAGER.streamCodec())
+		.codec(angryVillager.codec())
+		.streamCodec(angryVillager.streamCodec())
 		.textures(['kubegroovy:coverage_a', 'kubegroovy:coverage_b'])
 		.texture('kubegroovy:coverage_particle')
 }
@@ -100,7 +105,7 @@ StartupEvents.registry('custom_stat') { event -> event.create('coverage_stat') }
 
 StartupEvents.registry('point_of_interest_type') { event ->
 	def poi = event.create('coverage_poi')
-	poi.blocks([Blocks.STONE.defaultBlockState()] as BlockState[])
+	poi.blocks(["stone"])
 		.block('minecraft:stone').maxTickets(2).validRange(4)
 }
 

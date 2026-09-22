@@ -156,8 +156,11 @@ import dev.uncandango.kubegroovy.script.RecordDefaultsRegistry;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.TypeDescriptionRegistry;
 import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
+import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.RhinoException;
 import dev.uncandango.kubegroovy.server.ScheduledServerEvent;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
+import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.FluidAmounts;
 import dev.uncandango.kubegroovy.util.GlobalUnmodifiableMap;
 import dev.uncandango.kubegroovy.util.ID;
@@ -270,6 +273,7 @@ import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.ItemAbility;
+import net.neoforged.neoforge.common.SoundAction;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
@@ -605,6 +609,12 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 
 		registry.registerAlias(ItemResource.class, ItemStack.class, ItemResource::of, true);
 		registry.registerAlias(FluidResource.class, FluidStack.class, FluidResource::of, true);
+
+		registry.register(SoundAction.class, obj -> switch (obj) {
+			case SoundAction sa -> sa;
+			case CharSequence cs -> SoundAction.get(cs.toString());
+			default -> throw new RhinoException("Cannot convert " + obj + " to SoundAction");
+		}, true);
 	}
 
 	@Override

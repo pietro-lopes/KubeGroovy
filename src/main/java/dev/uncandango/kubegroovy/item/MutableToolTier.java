@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.Block;
 
 import java.util.List;
 
+// TODO: Tier needs some rework
 public class MutableToolTier {
 	public final ToolMaterial parent;
 

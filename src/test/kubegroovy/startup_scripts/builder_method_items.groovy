@@ -1,5 +1,8 @@
+import net.minecraft.core.Holder
+import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
+import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.ToolMaterial
@@ -16,7 +19,7 @@ StartupEvents.registry('item') { event ->
 		.textures([layer0: 'kubegroovy:item/coverage_item', layer1: 'kubegroovy:item/coverage_item_overlay'])
 		.parentModel('minecraft:item/generated')
 		.modelGenerator { model -> model.parent('minecraft:item/generated') }
-		.component(DataComponents.CUSTOM_NAME, Component.literal('Coverage'))
+		.component("custom_name" as DataComponentType<?>, Component.literal('Coverage'))
 		.maxStackSize(32).unstackable().maxDamage(42).burnTime(40)
 		.containerItem('minecraft:bucket')
 		.subtypes { stack -> [stack] }
@@ -29,8 +32,8 @@ StartupEvents.registry('item') { event ->
 				.alwaysEdible(false).alwaysEdible()
 				.eatSeconds(1.2f).fastToEat()
 				.usingConvertsTo(ItemStack.EMPTY)
-				.effect(MobEffects.LUCK, 20, 0, 1.0f)
-				.removeEffect(MobEffects.LUCK)
+				.effect("luck" as Holder<MobEffect>, 20, 0, 1.0f)
+				.removeEffect("luck" as Holder<MobEffect>)
 				.eaten { eaten -> }
 			food.getUsingConvertsTo()
 			food.getEatSeconds()

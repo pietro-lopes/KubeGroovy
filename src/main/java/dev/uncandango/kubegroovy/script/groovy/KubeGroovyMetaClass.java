@@ -37,6 +37,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
+// TODO: evaluate if it is possible to create custom methods with GeneratedMetaMethod
+// should be useful for type wrappers someMethod(Idenfifier) -> someMethod(Object) that internally calls the gyToJava, renames, etc.
 /**
  * Normal Groovy dispatch first, followed by a deliberately small compatibility
  * fallback for KubeGroovy's annotated addon interfaces and context-leading APIs.
@@ -319,6 +321,11 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 			}
 		}
 		return cx;
+	}
+
+	@Override
+	public MetaMethod retrieveConstructor(Object[] arguments) {
+		return super.retrieveConstructor(arguments);
 	}
 
 	@Override

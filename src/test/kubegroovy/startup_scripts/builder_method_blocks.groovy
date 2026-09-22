@@ -36,7 +36,7 @@ StartupEvents.registry('block') { event ->
 		.fallenOn { context -> }
 		.bounciness(0.5f).afterFallenOn { context -> }
 		.exploded { context -> }
-		.property(BlockStateProperties.LIT)
+		.property(BlockProperties.LIT) // using the binding
 		.rotateState { context -> }
 		.mirrorState { context -> }
 		.rightClick { context -> }
