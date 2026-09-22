@@ -82,13 +82,13 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 		@Nullable
 		@Override
 		public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-			return blockBuilder.blockEntityInfo.createBlockEntity(pos, state);
+			return blockBuilder.kgy$getBlockEntityInfo().createBlockEntity(pos, state);
 		}
 
 		@Nullable
 		@Override
 		public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
-			return blockBuilder.blockEntityInfo.getTicker(level);
+			return blockBuilder.kgy$getBlockEntityInfo().getTicker(level);
 		}
 	}
 
@@ -98,13 +98,13 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 	public BasicKubeBlock(BlockBuilder p) {
 		super(p.createProperties());
 		blockBuilder = p;
-		shape = BlockBuilder.createShape(p.customShape);
+		shape = BlockBuilder.createShape(p.kgy$getCustomShape());
 
 		var blockState = stateDefinition.any();
-		if (blockBuilder.defaultStateModification != null) {
+		if (blockBuilder.kgy$getDefaultStateModification() != null) {
 			var callbackGY = new BlockStateModifyCallback(blockState);
 
-			if (safeCallback(ScriptType.STARTUP, blockBuilder.defaultStateModification, callbackGY, "Error while creating default blockState for block " + p.id)) {
+			if (safeCallback(ScriptType.STARTUP, blockBuilder.kgy$getDefaultStateModification(), callbackGY, "Error while creating default blockState for block " + p.getId())) {
 				registerDefaultState(callbackGY.getState());
 			}
 		} else if (blockBuilder.canBeWaterlogged()) {
@@ -126,10 +126,10 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 	@Override
 	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
 		if (properties instanceof KubeGroovyBlockProperties kp) {
-			for (var property : kp.blockBuilder.blockStateProperties) {
+			for (var property : kp.blockBuilder.kgy$getBlockStateProperties()) {
 				builder.add(property);
 			}
-			kp.blockBuilder.blockStateProperties = Collections.unmodifiableSet(kp.blockBuilder.blockStateProperties);
+			kp.blockBuilder.kgy$setBlockStateProperties(Collections.unmodifiableSet(kp.blockBuilder.kgy$getBlockStateProperties()));
 		}
 	}
 
@@ -142,9 +142,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 	@Nullable
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
-		if (blockBuilder.placementStateModification != null) {
+		if (blockBuilder.kgy$getPlacementStateModification() != null) {
 			var callbackGY = new BlockStateModifyPlacementCallback(context, this);
-			if (safeCallback(context.getLevel(), blockBuilder.placementStateModification, callbackGY, "Error while modifying BlockState placement of " + blockBuilder.id)) {
+			if (safeCallback(context.getLevel(), blockBuilder.kgy$getPlacementStateModification(), callbackGY, "Error while modifying BlockState placement of " + blockBuilder.getId())) {
 				return callbackGY.getState();
 			}
 		}
@@ -158,9 +158,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public boolean canBeReplaced(BlockState blockState, BlockPlaceContext context) {
-		if (blockBuilder.canBeReplacedFunction != null) {
+		if (blockBuilder.kgy$getCanBeReplacedFunction() != null) {
 			var callbackGY = new CanBeReplacedCallback(context, blockState);
-			return blockBuilder.canBeReplacedFunction.test(callbackGY);
+			return blockBuilder.kgy$getCanBeReplacedFunction().test(callbackGY);
 		}
 		return super.canBeReplaced(blockState, context);
 	}
@@ -176,39 +176,39 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	protected boolean propagatesSkylightDown(BlockState state) {
-		return blockBuilder.transparent || !(state.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false));
+		return blockBuilder.kgy$isTransparent() || !(state.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false));
 	}
 
 	@Override
 	@Deprecated
 	public void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-		if (blockBuilder.randomTickCallback != null) {
+		if (blockBuilder.kgy$getRandomTickCallback() != null) {
 			var callback = new RandomTickCallback(level.kgy$getBlock(pos), random);
-			safeCallback(level, blockBuilder.randomTickCallback, callback, "Error while random ticking custom block ");
+			safeCallback(level, blockBuilder.kgy$getRandomTickCallback(), callback, "Error while random ticking custom block ");
 		}
 	}
 
 	@Override
 	public boolean isRandomlyTicking(BlockState state) {
-		return blockBuilder.randomTickCallback != null;
+		return blockBuilder.kgy$getRandomTickCallback() != null;
 	}
 
 	@Override
 	@Deprecated
 	public VoxelShape getVisualShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
-		return blockBuilder.transparent ? Shapes.empty() : super.getVisualShape(state, level, pos, ctx);
+		return blockBuilder.kgy$isTransparent() ? Shapes.empty() : super.getVisualShape(state, level, pos, ctx);
 	}
 
 	@Override
 	@Deprecated
 	public float getShadeBrightness(BlockState state, BlockGetter level, BlockPos pos) {
-		return blockBuilder.transparent ? 1F : super.getShadeBrightness(state, level, pos);
+		return blockBuilder.kgy$isTransparent() ? 1F : super.getShadeBrightness(state, level, pos);
 	}
 
 	@Override
 	@Deprecated
 	public boolean skipRendering(BlockState state, BlockState state2, Direction direction) {
-		return blockBuilder.transparent ? (state2.is(this) || super.skipRendering(state, state2, direction)) : super.skipRendering(state, state2, direction);
+		return blockBuilder.kgy$isTransparent() ? (state2.is(this) || super.skipRendering(state, state2, direction)) : super.skipRendering(state, state2, direction);
 	}
 
 	private static <T> boolean safeCallback(ScriptTypeHolder holder, Consumer<T> consumer, T value, String errorMessage) {
@@ -260,9 +260,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
-		if (blockBuilder.insideCallback != null) {
+		if (blockBuilder.kgy$getInsideCallback() != null) {
 			var callbackGY = new EntityBlockCallback(level, entity, pos, state);
-			safeCallback(level, blockBuilder.insideCallback, callbackGY, "Error while an entity was inside a custom block ");
+			safeCallback(level, blockBuilder.kgy$getInsideCallback(), callbackGY, "Error while an entity was inside a custom block ");
 		} else {
 			super.entityInside(state, level, pos, entity, effectApplier, isPrecise);
 		}
@@ -271,9 +271,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public void stepOn(Level level, BlockPos blockPos, BlockState blockState, Entity entity) {
-		if (blockBuilder.stepOnCallback != null) {
+		if (blockBuilder.kgy$getStepOnCallback() != null) {
 			var callbackGY = new EntityBlockCallback(level, entity, blockPos, blockState);
-			safeCallback(level, blockBuilder.stepOnCallback, callbackGY, "Error while an entity stepped on custom block ");
+			safeCallback(level, blockBuilder.kgy$getStepOnCallback(), callbackGY, "Error while an entity stepped on custom block ");
 		} else {
 			super.stepOn(level, blockPos, blockState, entity);
 		}
@@ -281,9 +281,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public void fallOn(Level level, BlockState state, BlockPos pos, Entity entity, double fallDistance) {
-		if (blockBuilder.fallOnCallback != null) {
+		if (blockBuilder.kgy$getFallOnCallback() != null) {
 			var callbackGY = new EntityFallenOnBlockCallback(level, entity, pos, state, fallDistance);
-			safeCallback(level, blockBuilder.fallOnCallback, callbackGY, "Error while an entity fell on custom block ");
+			safeCallback(level, blockBuilder.kgy$getFallOnCallback(), callbackGY, "Error while an entity fell on custom block ");
 		} else {
 			super.fallOn(level, state, pos, entity, fallDistance);
 		}
@@ -291,9 +291,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public void updateEntityMovementAfterFallOn(BlockGetter level, Entity entity) {
-		if (blockBuilder.afterFallenOnCallback != null) {
+		if (blockBuilder.kgy$getAfterFallenOnCallback() != null) {
 			var callbackGY = new AfterEntityFallenOnBlockCallback(level, entity);
-			safeCallback(entity, blockBuilder.afterFallenOnCallback, callbackGY, "Error while bouncing entity from custom block ");
+			safeCallback(entity, blockBuilder.kgy$getAfterFallenOnCallback(), callbackGY, "Error while bouncing entity from custom block ");
 			// if they did not change the entity's velocity, then use the default method to reset the velocity.
 			if (!callbackGY.hasChangedVelocity()) {
 				super.updateEntityMovementAfterFallOn(level, entity);
@@ -305,9 +305,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public void wasExploded(ServerLevel level, BlockPos pos, Explosion explosion) {
-		if (blockBuilder.explodedCallback != null) {
+		if (blockBuilder.kgy$getExplodedCallback() != null) {
 			var callbackGY = new BlockExplodedCallback(level, pos, explosion);
-			safeCallback(level, blockBuilder.explodedCallback, callbackGY, "Error while exploding custom block ");
+			safeCallback(level, blockBuilder.kgy$getExplodedCallback(), callbackGY, "Error while exploding custom block ");
 		} else {
 			super.wasExploded(level, pos, explosion);
 		}
@@ -315,9 +315,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public BlockState rotate(BlockState blockState, Rotation rotation) {
-		if (blockBuilder.rotateStateModification != null) {
+		if (blockBuilder.kgy$getRotateStateModification() != null) {
 			var callbackGY = new BlockStateRotateCallback(blockState, rotation);
-			if (safeCallback(ScriptType.STARTUP, blockBuilder.rotateStateModification, callbackGY, "Error while rotating BlockState of ")) {
+			if (safeCallback(ScriptType.STARTUP, blockBuilder.kgy$getRotateStateModification(), callbackGY, "Error while rotating BlockState of ")) {
 				return callbackGY.getState();
 			}
 		}
@@ -327,9 +327,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public BlockState mirror(BlockState blockState, Mirror mirror) {
-		if (blockBuilder.mirrorStateModification != null) {
+		if (blockBuilder.kgy$getMirrorStateModification() != null) {
 			var callbackGY = new BlockStateMirrorCallback(blockState, mirror);
-			if (safeCallback(ScriptType.STARTUP, blockBuilder.mirrorStateModification, callbackGY, "Error while mirroring BlockState of ")) {
+			if (safeCallback(ScriptType.STARTUP, blockBuilder.kgy$getMirrorStateModification(), callbackGY, "Error while mirroring BlockState of ")) {
 				return callbackGY.getState();
 			}
 		}
@@ -339,9 +339,9 @@ public class BasicKubeBlock extends Block implements SimpleWaterloggedBlock {
 
 	@Override
 	public InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-		if (blockBuilder.rightClick != null) {
+		if (blockBuilder.kgy$getRightClick() != null) {
 			if (!level.isClientSide()) {
-				blockBuilder.rightClick.accept(new BlockRightClickedKubeEvent(stack, player, hand, pos, hit.getDirection(), hit));
+				blockBuilder.kgy$getRightClick().accept(new BlockRightClickedKubeEvent(stack, player, hand, pos, hit.getDirection(), hit));
 			}
 
 			return InteractionResult.SUCCESS;

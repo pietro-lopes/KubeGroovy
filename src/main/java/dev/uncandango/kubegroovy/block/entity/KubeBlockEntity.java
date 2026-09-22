@@ -242,7 +242,7 @@ public class KubeBlockEntity extends BlockEntity {
 
 					BlockEvents.BLOCK_ENTITY_TICK.post(side, blockKey, tickEvent);
 				} catch (Exception ex) {
-					side.console.error("Error while ticking KubeGroovy block entity '" + info.blockBuilder.id + "'", ex);
+					side.console.error("Error while ticking KubeGroovy block entity '" + info.blockBuilder.getId() + "'", ex);
 				}
 
 				cycle++;

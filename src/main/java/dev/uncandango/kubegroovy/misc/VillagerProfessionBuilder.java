@@ -23,11 +23,11 @@ import java.util.function.Predicate;
 
 @ReturnsSelf
 public class VillagerProfessionBuilder extends BuilderBase<VillagerProfession> {
-	public transient Either<ResourceKey<PoiType>, TagKey<PoiType>> poiType;
+	protected Either<ResourceKey<PoiType>, TagKey<PoiType>> poiType;
 
-	public transient ImmutableSet<Item> requestedItems;
-	public transient ImmutableSet<Block> secondaryPoi;
-	public transient @Nullable SoundEvent workSound;
+	protected ImmutableSet<Item> requestedItems;
+	protected ImmutableSet<Block> secondaryPoi;
+	protected @Nullable SoundEvent workSound;
 
 	public VillagerProfessionBuilder(Identifier i) {
 		super(i);

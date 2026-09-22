@@ -842,8 +842,8 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 			}
 
 			for (var builder : RegistryObjectStorage.ITEM) {
-				if (builder instanceof ItemBuilder item && item.burnTime > 0) {
-					callback.accept(item.id, new FurnaceFuel(item.burnTime));
+				if (builder instanceof ItemBuilder item && item.getBurnTime() > 0) {
+					callback.accept(item.getId(), new FurnaceFuel(item.getBurnTime()));
 				}
 			}
 		});

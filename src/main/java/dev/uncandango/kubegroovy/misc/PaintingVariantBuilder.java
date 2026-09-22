@@ -11,11 +11,11 @@ import java.util.Optional;
 
 @ReturnsSelf
 public class PaintingVariantBuilder extends BuilderBase<PaintingVariant> {
-	public transient int width;
-	public transient int height;
-	public transient Identifier assetId;
-	public transient Optional<Component> title;
-	public transient Optional<Component> author;
+	protected int width;
+	protected int height;
+	protected Identifier assetId;
+	protected Optional<Component> title;
+	protected Optional<Component> author;
 
 	public PaintingVariantBuilder(Identifier id) {
 		super(id);

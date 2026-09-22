@@ -35,21 +35,21 @@ import java.util.function.Function;
 @ReturnsSelf
 public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehaviorFunctions {
 
-	public transient @Nullable Map<Object, Object> components;
-	public transient int maxStackSize;
-	public transient int maxDamage;
-	public transient int burnTime;
+	protected @Nullable Map<Object, Object> components;
+	protected int maxStackSize;
+	protected int maxDamage;
+	protected int burnTime;
 	private @Nullable Identifier containerItem;
-	public transient @Nullable Function<ItemStack, Collection<ItemStack>> subtypes;
-	public transient @Nullable Rarity rarity;
-	public transient boolean fireResistant;
-	public transient @Nullable FoodBuilder foodBuilder;
-	public transient @Nullable ResourceKey<JukeboxSong> jukeboxSong;
-	public transient final ItemBehavior behavior = new ItemBehavior();
+	protected @Nullable Function<ItemStack, Collection<ItemStack>> subtypes;
+	protected @Nullable Rarity rarity;
+	protected boolean fireResistant;
+	protected @Nullable FoodBuilder foodBuilder;
+	protected @Nullable ResourceKey<JukeboxSong> jukeboxSong;
+	protected final ItemBehavior behavior = new ItemBehavior();
 
-	public transient @Nullable Tool tool;
-	public transient @Nullable ItemAttributeModifiers itemAttributeModifiers;
-	public transient boolean canRepair;
+	protected @Nullable Tool tool;
+	protected @Nullable ItemAttributeModifiers itemAttributeModifiers;
+	protected boolean canRepair;
 
 	public ItemBuilder(Identifier id) {
 		super(id);
@@ -116,8 +116,8 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 	public int getMaxTintIndex() {
 		int maxTintIndex = behavior.tint == null ? -1 : behavior.tint.getMaxTintIndex();
 
-		if (this instanceof BlockItemBuilder blockItemBuilder && blockItemBuilder.blockBuilder.tint != null) {
-			maxTintIndex = Math.max(maxTintIndex, blockItemBuilder.blockBuilder.tint.getMaxTintIndex());
+		if (this instanceof BlockItemBuilder blockItemBuilder && blockItemBuilder.kgy$getBlockBuilder().kgy$getTint() != null) {
+			maxTintIndex = Math.max(maxTintIndex, blockItemBuilder.kgy$getBlockBuilder().kgy$getTint().getMaxTintIndex());
 		}
 
 		return maxTintIndex;
@@ -179,7 +179,7 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 
 	@Deprecated
 	public ItemBuilder group(@Nullable String g) {
-		ConsoleGY.STARTUP.error("Item builder .group() is no longer supported, use StartupEvents.modifyCreativeTab!");
+		ConsoleGY.STARTUP.warn("Item builder .group() is no longer supported, use StartupEvents.modifyCreativeTab!");
 		return this;
 	}
 
@@ -243,6 +243,11 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 	public ItemBuilder disableRepair() {
 		this.canRepair = false;
 		return this;
+	}
+
+	@HideFromGY
+	public final int getBurnTime() {
+		return burnTime;
 	}
 
 	public Item.Properties createItemProperties() {

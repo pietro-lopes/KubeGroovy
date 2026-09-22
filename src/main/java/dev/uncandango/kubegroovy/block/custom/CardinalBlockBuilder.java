@@ -142,13 +142,13 @@ public class CardinalBlockBuilder extends BlockBuilder {
 		@Nullable
 		@Override
 		public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-			return blockBuilder.blockEntityInfo.createBlockEntity(pos, state);
+			return blockBuilder.kgy$getBlockEntityInfo().createBlockEntity(pos, state);
 		}
 
 		@Nullable
 		@Override
 		public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
-			return blockBuilder.blockEntityInfo.getTicker(level);
+			return blockBuilder.kgy$getBlockEntityInfo().getTicker(level);
 		}
 	}
 }

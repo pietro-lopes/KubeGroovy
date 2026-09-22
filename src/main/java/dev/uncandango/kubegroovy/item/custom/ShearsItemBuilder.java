@@ -24,7 +24,7 @@ public class ShearsItemBuilder extends ItemBuilder {
 		return stack.getItem() instanceof ShearsItemKGY;
 	}
 
-	public transient float speedBaseline;
+	protected float speedBaseline;
 
 	public ShearsItemBuilder(Identifier i) {
 		super(i);

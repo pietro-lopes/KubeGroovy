@@ -31,16 +31,16 @@ public class FluidBuilder extends BuilderBase<FlowingFluid> {
 
 	private static final Identifier GENERATED_BUCKET_MODEL_ID = KubeGroovy.id("item/generated_bucket");
 
-	public transient int slopeFindDistance = 4;
-	public transient int levelDecreasePerBlock = 1;
-	public transient float explosionResistance = 1;
-	public transient int tickRate = 5;
+	protected int slopeFindDistance = 4;
+	protected int levelDecreasePerBlock = 1;
+	protected float explosionResistance = 1;
+	protected int tickRate = 5;
 
-	public FluidTypeBuilder fluidType;
-	public FlowingFluidBuilder flowingFluid;
-	public @Nullable FluidBlockBuilder block;
-	public @Nullable FluidBucketItemBuilder bucketItem;
-	public @Nullable KubeColor bucketColor;
+	protected FluidTypeBuilder fluidType;
+	protected FlowingFluidBuilder flowingFluid;
+	protected @Nullable FluidBlockBuilder block;
+	protected @Nullable FluidBucketItemBuilder bucketItem;
+	protected @Nullable KubeColor bucketColor;
 	private @Nullable Properties properties;
 
 	public FluidBuilder(Identifier i) {
@@ -175,6 +175,21 @@ public class FluidBuilder extends BuilderBase<FlowingFluid> {
 		return this;
 	}
 
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final FluidTypeBuilder kgy$getFluidType() {
+		return fluidType;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final FlowingFluidBuilder kgy$getFlowingFluid() {
+		return flowingFluid;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final @Nullable KubeColor kgy$getBucketColor() {
+		return bucketColor;
+	}
+
 	@Override
 	public void generateAssets(KubeAssetGenerator generator) {
 		var customStill = generator.loadTexture(newID("block/", "_still"));
@@ -205,12 +220,12 @@ public class FluidBuilder extends BuilderBase<FlowingFluid> {
 			}
 		});
 
-		if (bucketItem != null && bucketItem.modelGenerator == null && bucketItem.parentModel == null && bucketItem.textures.isEmpty()) {
+		if (bucketItem != null && !bucketItem.hasCustomModel()) {
 			var fluidPath = newID("item/generated/", "_bucket_fluid");
 
 			generator.mask(fluidPath, KubeGroovy.id("item/bucket_mask"), fluidType.actualStillTexture);
 
-			generator.itemModel(bucketItem.id, m -> {
+			generator.itemModel(bucketItem.getId(), m -> {
 				m.parent(GENERATED_BUCKET_MODEL_ID);
 				m.texture("bucket_fluid", fluidPath.toString());
 			});
@@ -233,7 +248,7 @@ public class FluidBuilder extends BuilderBase<FlowingFluid> {
 			fluidTint.addProperty("value", tintColor != null ? tintColor.kgy$getARGB() : -1);
 			tints.add(fluidTint);
 
-			generator.itemDefinition(bucketItem.id, bucketItem.id.withPath(ID.ITEM), tints);
+			generator.itemDefinition(bucketItem.getId(), bucketItem.getId().withPath(ID.ITEM), tints);
 		}
 	}
 }

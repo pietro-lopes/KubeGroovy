@@ -25,7 +25,7 @@ public class DetectorBlock extends Block {
 		private static final Identifier OFF_MODEL = KubeGroovy.id("block/detector");
 		private static final Identifier ON_MODEL = KubeGroovy.id("block/detector_on");
 
-		public transient String detectorId;
+		protected String detectorId;
 
 		public Builder(Identifier i) {
 			super(i);
@@ -68,7 +68,7 @@ public class DetectorBlock extends Block {
 	private final Builder builder;
 
 	public DetectorBlock(Builder b) {
-		super(Properties.ofFullCopy(Blocks.BEDROCK).setId(ResourceKey.create(BuiltInRegistries.BLOCK.key(), b.id)));
+		super(Properties.ofFullCopy(Blocks.BEDROCK).setId(ResourceKey.create(BuiltInRegistries.BLOCK.key(), b.getId())));
 		builder = b;
 		registerDefaultState(stateDefinition.any().setValue(BlockStateProperties.POWERED, false));
 	}

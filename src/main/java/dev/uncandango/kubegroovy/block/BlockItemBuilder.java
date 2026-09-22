@@ -8,11 +8,16 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 
 public class BlockItemBuilder extends ItemBuilder {
-	public final BlockBuilder blockBuilder;
+	protected final BlockBuilder blockBuilder;
 
 	public BlockItemBuilder(BlockBuilder b, Identifier i) {
 		super(i);
 		this.blockBuilder = b;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final BlockBuilder kgy$getBlockBuilder() {
+		return blockBuilder;
 	}
 
 	@Override

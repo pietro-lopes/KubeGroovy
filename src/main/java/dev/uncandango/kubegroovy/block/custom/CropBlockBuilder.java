@@ -119,14 +119,14 @@ public class CropBlockBuilder extends BlockBuilder {
 		}
 	}
 
-	public transient int age;
-	protected transient List<VoxelShape> shapeByAge;
-	public transient @Nullable ToDoubleFunction<RandomTickCallback> growSpeedCallback;
-	public transient @Nullable ToIntFunction<RandomTickCallback> fertilizerCallback;
-	public transient @Nullable SurviveCallback surviveCallback;
+	protected int age;
+	protected List<VoxelShape> shapeByAge;
+	protected @Nullable ToDoubleFunction<RandomTickCallback> growSpeedCallback;
+	protected @Nullable ToIntFunction<RandomTickCallback> fertilizerCallback;
+	protected @Nullable SurviveCallback surviveCallback;
 
-	public transient List<Pair<Holder<Item>, NumberProvider>> outputs;
-	public transient boolean noSeeds;
+	protected List<Pair<Holder<Item>, NumberProvider>> outputs;
+	protected boolean noSeeds;
 
 	public CropBlockBuilder(Identifier id) {
 		super(id);
@@ -281,7 +281,7 @@ public class CropBlockBuilder extends BlockBuilder {
 	@Override
 	protected void generateItemModel(ModelGenerator m) {
 		m.parent(KubeAssetGenerator.GENERATED_ITEM_MODEL);
-		m.texture("layer0", Objects.requireNonNull(itemBuilder).baseTexture);
+		m.texture("layer0", Objects.requireNonNull(itemBuilder).kgy$getBaseTexture());
 	}
 
 	@Override

@@ -71,7 +71,7 @@ public abstract class TagLoaderMixin<T> implements TagLoaderKGY<T> {
 			var objStorage = RegistryObjectStorage.of(reg.key());
 
 			for (var builder : objStorage.objects.values()) {
-				if (!builder.defaultTags.isEmpty()) {
+				if (!builder.kgy$getDefaultTags().isEmpty()) {
 					needsCustomTags = true;
 					break;
 				}

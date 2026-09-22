@@ -14,10 +14,10 @@ import org.jspecify.annotations.Nullable;
 import java.util.function.Consumer;
 
 public class FluidBlockBuilder extends BlockBuilder {
-	public final FluidBuilder fluidBuilder;
+	protected final FluidBuilder fluidBuilder;
 
 	public FluidBlockBuilder(FluidBuilder b) {
-		super(b.id);
+		super(b.getId());
 		fluidBuilder = b;
 		defaultTranslucent();
 		noItem();

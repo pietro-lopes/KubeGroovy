@@ -34,8 +34,8 @@ public class PressurePlateBlockBuilder extends ShapedBlockBuilder implements But
 		}
 	}
 
-	public transient BlockSetType behaviour;
-	public transient int ticksToStayPressed;
+	protected BlockSetType behaviour;
+	protected int ticksToStayPressed;
 
 	public PressurePlateBlockBuilder(Identifier i) {
 		super(i, "_pressure_plate");

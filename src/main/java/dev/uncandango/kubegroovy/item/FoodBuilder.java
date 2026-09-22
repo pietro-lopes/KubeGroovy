@@ -33,7 +33,7 @@ public class FoodBuilder {
 	private float eatSeconds;
 	private @Nullable ItemStackTemplate usingConvertsTo;
 	private final List<ApplyStatusEffectsConsumeEffect> effects;
-	public @Nullable Consumer<FoodEatenKubeEvent> eaten;
+	protected @Nullable Consumer<FoodEatenKubeEvent> eaten;
 
 	public FoodBuilder() {
 		this.nutrition = 0;

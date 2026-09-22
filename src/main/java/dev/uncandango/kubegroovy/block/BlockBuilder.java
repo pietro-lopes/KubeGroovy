@@ -72,45 +72,45 @@ public abstract class BlockBuilder extends ModelledBuilderBase<Block> {
 	private static final BlockBehaviour.StatePredicate ALWAYS_FALSE_STATE_PREDICATE = (blockState, blockGetter, blockPos) -> false;
 	private static final BlockBehaviour.StateArgumentPredicate<?> ALWAYS_FALSE_STATE_ARG_PREDICATE = (blockState, blockGetter, blockPos, type) -> false;
 
-	public transient @Nullable Block copyPropertiesFrom;
-	public transient @Nullable SoundType soundType;
-	public transient @Nullable Function<BlockState, MapColor> mapColorFn;
-	public transient float hardness;
-	public transient float resistance;
-	public transient float lightLevel;
-	public transient boolean opaque;
-	public transient boolean fullBlock;
-	public transient boolean requiresTool;
-	public transient BlockRenderType renderType;
-	public transient @Nullable BlockTintFunction tint;
-	public transient @Nullable ItemBuilder itemBuilder;
-	public transient List<AABB> customShape;
-	public transient boolean noCollision;
-	public transient boolean notSolid;
-	public transient float slipperiness = Float.NaN;
-	public transient float speedFactor = Float.NaN;
-	public transient float jumpFactor = Float.NaN;
-	public @Nullable Consumer<RandomTickCallback> randomTickCallback;
-	public @Nullable BlockDropSupplier drops;
-	public transient boolean noValidSpawns;
-	public transient boolean suffocating;
-	public transient boolean viewBlocking;
-	public transient boolean redstoneConductor;
-	public transient boolean transparent;
-	public transient @Nullable NoteBlockInstrument instrument;
-	public transient Set<Property<?>> blockStateProperties;
-	public transient @Nullable Consumer<BlockStateModifyCallback> defaultStateModification;
-	public transient @Nullable Consumer<BlockStateModifyPlacementCallback> placementStateModification;
-	public transient @Nullable Predicate<CanBeReplacedCallback> canBeReplacedFunction;
-	public transient @Nullable Consumer<EntityBlockCallback> insideCallback;
-	public transient @Nullable Consumer<EntityBlockCallback> stepOnCallback;
-	public transient @Nullable Consumer<EntityFallenOnBlockCallback> fallOnCallback;
-	public transient @Nullable Consumer<AfterEntityFallenOnBlockCallback> afterFallenOnCallback;
-	public transient @Nullable Consumer<BlockExplodedCallback> explodedCallback;
-	public transient @Nullable Consumer<BlockStateRotateCallback> rotateStateModification;
-	public transient @Nullable Consumer<BlockStateMirrorCallback> mirrorStateModification;
-	public transient @Nullable Consumer<BlockRightClickedKubeEvent> rightClick;
-	public transient @Nullable BlockEntityInfo blockEntityInfo;
+	protected @Nullable Block copyPropertiesFrom;
+	protected @Nullable SoundType soundType;
+	protected @Nullable Function<BlockState, MapColor> mapColorFn;
+	protected float hardness;
+	protected float resistance;
+	protected float lightLevel;
+	protected boolean opaque;
+	protected boolean fullBlock;
+	protected boolean requiresTool;
+	protected BlockRenderType renderType;
+	protected @Nullable BlockTintFunction tint;
+	protected @Nullable ItemBuilder itemBuilder;
+	protected List<AABB> customShape;
+	protected boolean noCollision;
+	protected boolean notSolid;
+	protected float slipperiness = Float.NaN;
+	protected float speedFactor = Float.NaN;
+	protected float jumpFactor = Float.NaN;
+	protected @Nullable Consumer<RandomTickCallback> randomTickCallback;
+	protected @Nullable BlockDropSupplier drops;
+	protected boolean noValidSpawns;
+	protected boolean suffocating;
+	protected boolean viewBlocking;
+	protected boolean redstoneConductor;
+	protected boolean transparent;
+	protected @Nullable NoteBlockInstrument instrument;
+	protected Set<Property<?>> blockStateProperties;
+	protected @Nullable Consumer<BlockStateModifyCallback> defaultStateModification;
+	protected @Nullable Consumer<BlockStateModifyPlacementCallback> placementStateModification;
+	protected @Nullable Predicate<CanBeReplacedCallback> canBeReplacedFunction;
+	protected @Nullable Consumer<EntityBlockCallback> insideCallback;
+	protected @Nullable Consumer<EntityBlockCallback> stepOnCallback;
+	protected @Nullable Consumer<EntityFallenOnBlockCallback> fallOnCallback;
+	protected @Nullable Consumer<AfterEntityFallenOnBlockCallback> afterFallenOnCallback;
+	protected @Nullable Consumer<BlockExplodedCallback> explodedCallback;
+	protected @Nullable Consumer<BlockStateRotateCallback> rotateStateModification;
+	protected @Nullable Consumer<BlockStateMirrorCallback> mirrorStateModification;
+	protected @Nullable Consumer<BlockRightClickedKubeEvent> rightClick;
+	protected @Nullable BlockEntityInfo blockEntityInfo;
 
 	public BlockBuilder(Identifier id) {
 		super(id);
@@ -238,7 +238,7 @@ public abstract class BlockBuilder extends ModelledBuilderBase<Block> {
 			if (itemBuilder.hasCustomModel()) {
 				itemBuilder.generateItemModels(generator);
 			} else {
-				generator.itemModel(itemBuilder.id, this::generateItemModel, KubeAssetGenerator.createItemTintSources(itemBuilder.getMaxTintIndex()));
+				generator.itemModel(itemBuilder.getId(), this::generateItemModel, KubeAssetGenerator.createItemTintSources(itemBuilder.getMaxTintIndex()));
 			}
 		}
 	}
@@ -751,6 +751,101 @@ public abstract class BlockBuilder extends ModelledBuilderBase<Block> {
 		blockEntityInfo = new BlockEntityInfo(this);
 		callback.accept(blockEntityInfo);
 		return this;
+	}
+
+	@HideFromGY
+	public final @Nullable BlockEntityInfo kgy$getBlockEntityInfo() {
+		return blockEntityInfo;
+	}
+
+	@HideFromGY
+	public final @Nullable BlockTintFunction kgy$getTint() {
+		return tint;
+	}
+
+	@HideFromGY
+	public final @Nullable ItemBuilder kgy$getItemBuilder() {
+		return itemBuilder;
+	}
+
+	@HideFromGY
+	public final Set<Property<?>> kgy$getBlockStateProperties() {
+		return blockStateProperties;
+	}
+
+	@HideFromGY
+	public final List<AABB> kgy$getCustomShape() {
+		return customShape;
+	}
+
+	@HideFromGY
+	public final void kgy$setBlockStateProperties(Set<Property<?>> properties) {
+		blockStateProperties = properties;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockStateModifyCallback> kgy$getDefaultStateModification() {
+		return defaultStateModification;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockStateModifyPlacementCallback> kgy$getPlacementStateModification() {
+		return placementStateModification;
+	}
+
+	@HideFromGY
+	public final @Nullable Predicate<CanBeReplacedCallback> kgy$getCanBeReplacedFunction() {
+		return canBeReplacedFunction;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<RandomTickCallback> kgy$getRandomTickCallback() {
+		return randomTickCallback;
+	}
+
+	@HideFromGY
+	public final boolean kgy$isTransparent() {
+		return transparent;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<EntityBlockCallback> kgy$getInsideCallback() {
+		return insideCallback;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<EntityBlockCallback> kgy$getStepOnCallback() {
+		return stepOnCallback;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<EntityFallenOnBlockCallback> kgy$getFallOnCallback() {
+		return fallOnCallback;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<AfterEntityFallenOnBlockCallback> kgy$getAfterFallenOnCallback() {
+		return afterFallenOnCallback;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockExplodedCallback> kgy$getExplodedCallback() {
+		return explodedCallback;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockStateRotateCallback> kgy$getRotateStateModification() {
+		return rotateStateModification;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockStateMirrorCallback> kgy$getMirrorStateModification() {
+		return mirrorStateModification;
+	}
+
+	@HideFromGY
+	public final @Nullable Consumer<BlockRightClickedKubeEvent> kgy$getRightClick() {
+		return rightClick;
 	}
 
 	public Block.Properties createProperties() {

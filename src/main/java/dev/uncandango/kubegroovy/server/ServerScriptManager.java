@@ -132,8 +132,8 @@ public class ServerScriptManager extends ScriptManager {
 	private record AdditionalServerRegistryHandler(SourceLine sourceLine, List<BuilderBase<?>> builders) implements AdditionalObjectRegistry {
 		@Override
 		public <T> void add(ResourceKey<Registry<T>> registry, BuilderBase<? extends T> builder) {
-			builder.sourceLine = sourceLine;
-			builder.registryKey = (ResourceKey) registry;
+			builder.kgy$setSourceLine(sourceLine);
+			builder.kgy$setRegistryKey((ResourceKey) registry);
 			builders.add(builder);
 		}
 	}
@@ -158,12 +158,12 @@ public class ServerScriptManager extends ScriptManager {
 
 		for (var builder : RegistryObjectStorage.ITEM) {
 			if (builder instanceof ItemBuilder item) {
-				int b = item.burnTime;
+				int b = item.getBurnTime();
 
 				if (b > 0) {
 					var json = new JsonObject();
 					json.addProperty("burn_time", b);
-					furnaceFuelsJson.add(builder.id.toString(), json);
+					furnaceFuelsJson.add(builder.getId().toString(), json);
 				}
 			}
 		}
@@ -217,41 +217,41 @@ public class ServerScriptManager extends ScriptManager {
 				}
 
 				for (var b : List.copyOf(builders)) {
-					b.createAdditionalObjects(new AdditionalServerRegistryHandler(b.sourceLine, builders));
+					b.createAdditionalObjects(new AdditionalServerRegistryHandler(b.kgy$getSourceLine(), builders));
 				}
 
 				for (var b : builders) {
 					b.generateData(registriesDataPack);
 
-					if (!b.defaultTags.isEmpty()) {
-						serverRegistryTags.put(b.id, b.defaultTags);
+					if (!b.kgy$getDefaultTags().isEmpty()) {
+						serverRegistryTags.put(b.getId(), b.kgy$getDefaultTags());
 					}
 				}
 
 				for (var b : builders) {
-					if (b.registryKey == null) {
-						ConsoleGY.SERVER.error("", new KubeRuntimeException("Failed to register object '" + b.id + "' - unknown registry").source(b.sourceLine));
+					if (b.kgy$getRegistryKey() == null) {
+						ConsoleGY.SERVER.error("", new KubeRuntimeException("Failed to register object '" + b.getId() + "' - unknown registry").source(b.kgy$getSourceLine()));
 						continue;
 					}
 
 					try {
-						var codec = codecs.get(b.registryKey);
+						var codec = codecs.get(b.kgy$getRegistryKey());
 
 						if (codec == null) {
-							throw new KubeRuntimeException("Don't know how to encode '" + b.id + "' of '" + b.registryKey.identifier() + "'!").source(b.sourceLine);
+							throw new KubeRuntimeException("Don't know how to encode '" + b.getId() + "' of '" + b.kgy$getRegistryKey().identifier() + "'!").source(b.kgy$getSourceLine());
 						}
 
 						var obj = b.createTransformedObject();
 						var json = codec.encodeStart(ops, Cast.to(obj)).getOrThrow();
-						var k = b.registryKey.identifier();
+						var k = b.kgy$getRegistryKey().identifier();
 
 						if (k.getNamespace().equals("minecraft")) {
-							registriesDataPack.json(Identifier.fromNamespaceAndPath(b.id.getNamespace(), k.getPath() + "/" + b.id.getPath()), json);
+							registriesDataPack.json(Identifier.fromNamespaceAndPath(b.getId().getNamespace(), k.getPath() + "/" + b.getId().getPath()), json);
 						} else {
-							registriesDataPack.json(Identifier.fromNamespaceAndPath(b.id.getNamespace(), k.getNamespace() + "/" + k.getPath() + "/" + b.id.getPath()), json);
+							registriesDataPack.json(Identifier.fromNamespaceAndPath(b.getId().getNamespace(), k.getNamespace() + "/" + k.getPath() + "/" + b.getId().getPath()), json);
 						}
 					} catch (Exception ex) {
-						ConsoleGY.SERVER.error("", new KubeRuntimeException("Failed to register object '" + b.id + "' of registry '" + b.registryKey.identifier() + "'!", ex).source(b.sourceLine));
+						ConsoleGY.SERVER.error("", new KubeRuntimeException("Failed to register object '" + b.getId() + "' of registry '" + b.kgy$getRegistryKey().identifier() + "'!", ex).source(b.kgy$getSourceLine()));
 					}
 				}
 

@@ -59,8 +59,8 @@ public abstract class BlockMixin implements BlockKGY {
 
 	@Inject(method = "getName", at = @At("HEAD"), cancellable = true)
 	private void kgy$getName(CallbackInfoReturnable<MutableComponent> cir) {
-		if (kgy$blockBuilder != null && kgy$blockBuilder.displayName != null && kgy$blockBuilder.formattedDisplayName) {
-			cir.setReturnValue(Component.literal("").append(kgy$blockBuilder.displayName));
+		if (kgy$blockBuilder != null && kgy$blockBuilder.kgy$getDisplayName() != null && kgy$blockBuilder.kgy$isFormattedDisplayName()) {
+			cir.setReturnValue(Component.literal("").append(kgy$blockBuilder.kgy$getDisplayName()));
 		}
 	}
 }

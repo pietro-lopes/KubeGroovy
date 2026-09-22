@@ -28,16 +28,16 @@ public class FluidTypeBuilder extends BuilderBase<FluidType> {
 		}
 	}
 
-	public transient FluidType.Properties properties;
-	public transient Identifier stillTexture;
-	public transient Identifier flowingTexture;
-	public transient Identifier actualStillTexture;
-	public transient Identifier actualFlowingTexture;
-	public transient @Nullable Identifier screenOverlayTexture;
-	public transient @Nullable Identifier blockOverlayTexture;
-	public transient @Nullable KubeColor textureTint;
-	public transient @Nullable BlockTintFunction tint;
-	public transient BlockRenderType renderType;
+	protected FluidType.Properties properties;
+	protected Identifier stillTexture;
+	protected Identifier flowingTexture;
+	protected Identifier actualStillTexture;
+	protected Identifier actualFlowingTexture;
+	protected @Nullable Identifier screenOverlayTexture;
+	protected @Nullable Identifier blockOverlayTexture;
+	protected @Nullable KubeColor textureTint;
+	protected @Nullable BlockTintFunction tint;
+	protected BlockRenderType renderType;
 
 	public FluidTypeBuilder(Identifier id) {
 		super(id);
@@ -67,6 +67,24 @@ public class FluidTypeBuilder extends BuilderBase<FluidType> {
 
 	public FluidTypeBuilder flowingTexture(Identifier flowingTexture) {
 		this.flowingTexture = flowingTexture;
+		return this;
+	}
+
+	/** Sets the generated texture location used for the still-fluid asset. */
+	public FluidTypeBuilder actualStillTexture(Identifier actualStillTexture) {
+		this.actualStillTexture = actualStillTexture;
+		return this;
+	}
+
+	/** Sets the generated texture location used for the flowing-fluid asset. */
+	public FluidTypeBuilder actualFlowingTexture(Identifier actualFlowingTexture) {
+		this.actualFlowingTexture = actualFlowingTexture;
+		return this;
+	}
+
+	/** Applies a tint while the source fluid textures are copied into generated assets. */
+	public FluidTypeBuilder textureTint(KubeColor textureTint) {
+		this.textureTint = textureTint;
 		return this;
 	}
 
@@ -188,5 +206,30 @@ public class FluidTypeBuilder extends BuilderBase<FluidType> {
 	public FluidTypeBuilder renderType(BlockRenderType renderType) {
 		this.renderType = renderType;
 		return this;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final Identifier kgy$getActualStillTexture() {
+		return actualStillTexture;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final Identifier kgy$getActualFlowingTexture() {
+		return actualFlowingTexture;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final @Nullable Identifier kgy$getBlockOverlayTexture() {
+		return blockOverlayTexture;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final @Nullable Identifier kgy$getScreenOverlayTexture() {
+		return screenOverlayTexture;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final @Nullable BlockTintFunction kgy$getTint() {
+		return tint;
 	}
 }

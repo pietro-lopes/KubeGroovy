@@ -10,10 +10,16 @@ ServerEvents.registry('painting_variant') { event ->
 	event.create('wiki_painting')
 		.size(2, 3).assetId('minecraft:painting')
 		.title('Wiki Painting').author('KubeGroovy')
+	event.create('coverage_painting')
+		.size(2, 2).assetId('minecraft:painting')
+		.title('Coverage Painting').author('KubeGroovy')
 }
 
 ServerEvents.registry('jukebox_song') { event ->
 	event.create('wiki_song')
 		.song('minecraft:music_disc.13', 120)
 		.description('Wiki Song').comparatorOutput(7)
+	event.create('coverage_song')
+		.song('minecraft:music_disc.13', 120)
+		.description('Coverage Song').comparatorOutput(7)
 }

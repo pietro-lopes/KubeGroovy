@@ -64,8 +64,8 @@ public class ArmorItemBuilder extends ItemBuilder {
 
 	@ReturnsSelf
 	public static class AnimalArmor extends ItemBuilder {
-		public ArmorMaterial material;
-		public AnimalArmorKind kind;
+		protected ArmorMaterial material;
+		protected AnimalArmorKind kind;
 
 		public AnimalArmor(Identifier id) {
 			super(id);
@@ -102,8 +102,8 @@ public class ArmorItemBuilder extends ItemBuilder {
 		}
 	}
 
-	public final ArmorType armorType;
-	public ArmorMaterial material;
+	protected final ArmorType armorType;
+	protected ArmorMaterial material;
 
 	protected ArmorItemBuilder(Identifier id, ArmorType t) {
 		super(id);

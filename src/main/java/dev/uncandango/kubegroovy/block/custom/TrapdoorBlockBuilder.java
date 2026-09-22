@@ -25,7 +25,7 @@ public class TrapdoorBlockBuilder extends ShapedBlockBuilder {
 	private static final Identifier TOP_MODEL = Identifier.withDefaultNamespace("block/template_trapdoor_top");
 	private static final Identifier OPEN_MODEL = Identifier.withDefaultNamespace("block/template_trapdoor_open");
 
-	public transient BlockSetType behaviour;
+	protected BlockSetType behaviour;
 
 	public TrapdoorBlockBuilder(Identifier i) {
 		super(i);

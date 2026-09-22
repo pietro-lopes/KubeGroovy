@@ -17,10 +17,10 @@ import java.util.function.Consumer;
 
 @ReturnsSelf
 public class ParticleTypeBuilder extends BuilderBase<ParticleType<?>> {
-	public transient boolean overrideLimiter;
-	public transient @Nullable MapCodec<ParticleOptions> codec;
-	public transient @Nullable StreamCodec<? super RegistryFriendlyByteBuf, ParticleOptions> streamCodec;
-	public transient Consumer<ParticleGenerator> assetGen;
+	protected boolean overrideLimiter;
+	protected @Nullable MapCodec<ParticleOptions> codec;
+	protected @Nullable StreamCodec<? super RegistryFriendlyByteBuf, ParticleOptions> streamCodec;
+	protected Consumer<ParticleGenerator> assetGen;
 
 	public ParticleTypeBuilder(Identifier i) {
 		super(i);

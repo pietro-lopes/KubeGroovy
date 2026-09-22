@@ -53,7 +53,7 @@ public class DoorBlockBuilder extends ShapedBlockBuilder {
 		"bottom_left_open", Identifier.withDefaultNamespace("block/door_bottom_left_open")
 	);
 
-	public transient BlockSetType behaviour;
+	protected BlockSetType behaviour;
 
 	public DoorBlockBuilder(Identifier i) {
 		super(i);

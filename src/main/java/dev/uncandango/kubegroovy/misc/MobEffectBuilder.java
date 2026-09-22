@@ -20,11 +20,11 @@ public class MobEffectBuilder extends BuilderBase<MobEffect> {
 		void applyEffectTick(LivingEntity entity, int level);
 	}
 
-	public transient MobEffectCategory category;
-	public transient @Nullable EffectEntityCallback effectTick;
-	public transient Map<Identifier, MobEffect.AttributeTemplate> attributeModifiers;
-	public transient int color;
-	public transient boolean instant;
+	protected MobEffectCategory category;
+	protected @Nullable EffectEntityCallback effectTick;
+	protected Map<Identifier, MobEffect.AttributeTemplate> attributeModifiers;
+	protected int color;
+	protected boolean instant;
 
 	public MobEffectBuilder(Identifier i) {
 		super(i);

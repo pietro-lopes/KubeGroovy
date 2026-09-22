@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
 
 @ReturnsSelf
 public class CreativeTabBuilder extends BuilderBase<CreativeModeTab> {
-	public transient CreativeTabIconSupplier icon;
-	public transient @Nullable CreativeTabContentSupplier content;
+	protected CreativeTabIconSupplier icon;
+	protected @Nullable CreativeTabContentSupplier content;
 
 	public CreativeTabBuilder(Identifier i) {
 		super(i);

@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.registry.BuilderBase;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -430,6 +431,9 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 
 	@Override
 	public void setProperty(Class sender, Object object, String property, Object newValue, boolean useSuper, boolean fromInsideClass) {
+		if (object instanceof BuilderBase<?> && isBuilderStateField(object.getClass(), property)) {
+			throw new MissingPropertyException(property, object.getClass());
+		}
 		try {
 			super.setProperty(sender, object, property, newValue, useSuper, fromInsideClass);
 		} catch (MissingPropertyException missing) {
@@ -444,6 +448,18 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 	@Override
 	public void setProperty(Object object, String property, Object newValue) {
 		setProperty(object == null ? null : object.getClass(), object, property, newValue, false, false);
+	}
+
+	private static boolean isBuilderStateField(Class<?> type, String property) {
+		for (var current = type; current != null && BuilderBase.class.isAssignableFrom(current); current = current.getSuperclass()) {
+			try {
+				var field = current.getDeclaredField(property);
+				return !Modifier.isStatic(field.getModifiers());
+			} catch (NoSuchFieldException ignored) {
+				// Continue through the builder hierarchy.
+			}
+		}
+		return false;
 	}
 
 	private static Object invokeFallback(Object receiver, String requested, Object[] args) {

@@ -25,8 +25,8 @@ public interface TagLoaderKGY<T> {
 
 		var objStorage = RegistryObjectStorage.of(reg.key());
 		for (var builder : objStorage.objects.values()) {
-			for (var s : builder.defaultTags) {
-				event.add(s, builder.id);
+			for (var s : builder.kgy$getDefaultTags()) {
+				event.add(s, builder.getId());
 			}
 		}
 

@@ -21,7 +21,7 @@ public class BasicMobEffect extends MobEffect {
 	public BasicMobEffect(MobEffectBuilder builder) {
 		super(builder.category, builder.color);
 		this.builder = builder;
-		this.id = builder.id;
+		this.id = builder.getId();
 		this.instant = builder.instant;
 	}
 

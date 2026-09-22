@@ -23,15 +23,15 @@ import java.util.function.Supplier;
 
 @ReturnsSelf
 public abstract class BuilderBase<T> implements Supplier<T> {
-	public final Identifier id;
-	public SourceLine sourceLine;
-	public ResourceKey<Registry<T>> registryKey;
+	protected final Identifier id;
+	protected SourceLine sourceLine;
+	protected ResourceKey<Registry<T>> registryKey;
 	protected @Nullable T object;
-	public String translationKey;
-	public @Nullable Component displayName;
-	public boolean formattedDisplayName;
-	public transient boolean dummyBuilder;
-	public transient Set<Identifier> defaultTags;
+	protected String translationKey;
+	protected @Nullable Component displayName;
+	protected boolean formattedDisplayName;
+	protected boolean dummyBuilder;
+	protected Set<Identifier> defaultTags;
 
 	public BuilderBase(Identifier id) {
 		this.id = id;
@@ -42,6 +42,53 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		this.formattedDisplayName = false;
 		this.dummyBuilder = false;
 		this.defaultTags = new HashSet<>();
+	}
+
+	/**
+	 * Returns the stable identifier assigned to this builder.
+	 */
+	public final Identifier getId() {
+		return id;
+	}
+
+	@HideFromGY
+	public final @Nullable Component kgy$getDisplayName() {
+		return displayName;
+	}
+
+	@HideFromGY
+	public final boolean kgy$isFormattedDisplayName() {
+		return formattedDisplayName;
+	}
+
+	@HideFromGY
+	public final SourceLine kgy$getSourceLine() {
+		return sourceLine;
+	}
+
+	@HideFromGY
+	public final void kgy$setSourceLine(SourceLine sourceLine) {
+		this.sourceLine = sourceLine;
+	}
+
+	@HideFromGY
+	public final ResourceKey<Registry<T>> kgy$getRegistryKey() {
+		return registryKey;
+	}
+
+	@HideFromGY
+	public final void kgy$setRegistryKey(ResourceKey<Registry<T>> registryKey) {
+		this.registryKey = registryKey;
+	}
+
+	@HideFromGY
+	public final boolean kgy$isDummyBuilder() {
+		return dummyBuilder;
+	}
+
+	@HideFromGY
+	public final Set<Identifier> kgy$getDefaultTags() {
+		return defaultTags;
 	}
 
 	@HideFromGY

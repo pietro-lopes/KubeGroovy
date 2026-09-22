@@ -26,10 +26,10 @@ public class AttributeBuilder extends BuilderBase<Attribute> {
 	public record Range(double defaultValue, double min, double max) {
 	}
 
-	public final List<Predicate<EntityType<?>>> predicateList = new ArrayList<>();
-	public @Nullable Either<Range, Boolean> defaultValue;
-	public boolean syncable = true;
-	public @Nullable Sentiment sentiment;
+	protected final List<Predicate<EntityType<?>>> predicateList = new ArrayList<>();
+	protected @Nullable Either<Range, Boolean> defaultValue;
+	protected boolean syncable = true;
+	protected @Nullable Sentiment sentiment;
 
 	public AttributeBuilder(Identifier id) {
 		super(id);

@@ -45,7 +45,7 @@ public class BasicCropBlockGY extends CropBlock {
 
 	@Override
 	protected ItemLike getBaseSeedId() {
-		return builder.itemBuilder != null ? builder.itemBuilder.get() : Items.AIR;
+		return builder.kgy$getItemBuilder() != null ? builder.kgy$getItemBuilder().get() : Items.AIR;
 	}
 
 	@Override

@@ -5,7 +5,7 @@ import net.minecraft.world.level.material.FlowingFluid;
 import net.neoforged.neoforge.fluids.BaseFlowingFluid;
 
 public class FlowingFluidBuilder extends BuilderBase<FlowingFluid> {
-	public final FluidBuilder fluidBuilder;
+	protected final FluidBuilder fluidBuilder;
 
 	public FlowingFluidBuilder(FluidBuilder b) {
 		super(b.newID("flowing_", ""));

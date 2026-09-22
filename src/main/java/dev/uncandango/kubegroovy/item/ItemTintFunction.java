@@ -61,8 +61,8 @@ public interface ItemTintFunction {
 			var s = block.getBlock().defaultBlockState();
 			var internal = s.getBlock().kgy$getBlockBuilder();
 
-			if (internal != null && internal.tint != null) {
-				return internal.tint.getColor(s, null, null, index);
+			if (internal != null && internal.kgy$getTint() != null) {
+				return internal.kgy$getTint().getColor(s, null, null, index);
 			}
 		}
 

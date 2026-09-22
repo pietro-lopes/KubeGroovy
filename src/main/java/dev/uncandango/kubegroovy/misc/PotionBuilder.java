@@ -14,7 +14,7 @@ import java.util.List;
 
 @ReturnsSelf
 public class PotionBuilder extends BuilderBase<Potion> {
-	public transient List<MobEffectInstance> mobEffects;
+	protected List<MobEffectInstance> mobEffects;
 
 	public PotionBuilder(Identifier i) {
 		super(i);

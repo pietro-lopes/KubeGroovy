@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 @ReturnsSelf
 public class SoundEventBuilder extends BuilderBase<SoundEvent> {
 
-	public transient Consumer<SoundsGenerator.SoundGen> assetGen;
+	protected Consumer<SoundsGenerator.SoundGen> assetGen;
 
 	public SoundEventBuilder(Identifier i) {
 		super(i);

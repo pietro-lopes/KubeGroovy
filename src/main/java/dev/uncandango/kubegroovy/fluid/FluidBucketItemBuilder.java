@@ -5,7 +5,7 @@ import dev.uncandango.kubegroovy.item.ItemBuilder;
 import net.minecraft.world.item.BucketItem;
 
 public class FluidBucketItemBuilder extends ItemBuilder {
-	public final FluidBuilder fluidBuilder;
+	protected final FluidBuilder fluidBuilder;
 
 	public FluidBucketItemBuilder(FluidBuilder b) {
 		super(b.newID("", "_bucket"));

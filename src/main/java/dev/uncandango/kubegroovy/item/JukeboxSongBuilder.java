@@ -12,10 +12,10 @@ import net.minecraft.world.item.JukeboxSong;
 
 @ReturnsSelf
 public class JukeboxSongBuilder extends BuilderBase<JukeboxSong> {
-	public transient Holder<SoundEvent> sound;
-	public transient float lengthInSeconds;
-	public transient Component description;
-	public transient int comparatorOutput;
+	protected Holder<SoundEvent> sound;
+	protected float lengthInSeconds;
+	protected Component description;
+	protected int comparatorOutput;
 
 	public JukeboxSongBuilder(Identifier id) {
 		super(id);

@@ -123,21 +123,21 @@ public class BlockEntityInfo implements BlockEntityAttachmentHandler {
 	}
 
 	public void rightClickOpensInventory(String id) {
-		blockBuilder.rightClick = e -> {
+		blockBuilder.rightClick(e -> {
 			if (e.getPlayer() instanceof ServerPlayerKGY p && e.getBlock().getEntity() instanceof KubeBlockEntity entity && entity.attachments.get(id) instanceof InventoryKGY inv) {
 				p.kgy$openInventoryGUI(inv, blockBuilder.get().getName());
 			}
-		};
+		});
 	}
 
 	public void rightClickFillsTank(String id) {
-		blockBuilder.rightClick = e -> {
+		blockBuilder.rightClick(e -> {
 			if (e.getPlayer() instanceof ServerPlayerKGY && e.getBlock().getEntity() instanceof KubeBlockEntity entity && entity.attachments.get(id) instanceof ResourceHandler<?> tank) {
 				@SuppressWarnings("unchecked")
 				var fluidTank = (ResourceHandler<FluidResource>) tank;
 				FluidUtil.interactWithFluidHandler(e.getPlayer(), e.getHand(), e.getBlock().getPos(), fluidTank);
 			}
-		};
+		});
 	}
 
 	@HideFromGY
@@ -157,6 +157,6 @@ public class BlockEntityInfo implements BlockEntityAttachmentHandler {
 
 	@Override
 	public String toString() {
-		return "BlockEntityInfo[" + blockBuilder.id + "]";
+		return "BlockEntityInfo[" + blockBuilder.getId() + "]";
 	}
 }

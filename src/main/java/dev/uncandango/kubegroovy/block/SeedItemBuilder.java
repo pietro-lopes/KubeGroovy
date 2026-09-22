@@ -40,7 +40,7 @@ public class SeedItemBuilder extends BlockItemBuilder {
 		}
 	}
 
-	public transient boolean villagerCanPlant;
+	protected boolean villagerCanPlant;
 
 	public SeedItemBuilder(CropBlockBuilder b, Identifier i) {
 		super(b, i);

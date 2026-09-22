@@ -251,4 +251,61 @@ public class RegistryBuilderTests {
 			test.pass();
 		}
 	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "coverage_item_builder_methods", description = "Every item builder method fixture registers usable runtime items")
+	static void coverageItemBuilderMethods(final DynamicTest test) {
+		test.onGameTest(helper -> {
+			assertj(helper, () -> {
+				var item = stack("coverage_item");
+				assertThat(item.getMaxStackSize()).as("configured max stack size").isEqualTo(1);
+				assertThat(item.get(DataComponents.CUSTOM_NAME)).as("custom name component").isNotNull();
+				assertThat(stack("coverage_sword").get(DataComponents.WEAPON)).as("sword weapon component").isNotNull();
+				assertThat(stack("coverage_pickaxe").get(DataComponents.TOOL)).as("pickaxe tool component").isNotNull();
+				assertThat(BuiltInRegistries.ITEM.getValue(id("coverage_shears"))).isInstanceOf(ShearsItem.class);
+				assertThat(BuiltInRegistries.ITEM.getValue(id("coverage_smithing"))).isInstanceOf(SmithingTemplateItem.class);
+			});
+			helper.succeed();
+		});
+	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "coverage_block_builder_methods", description = "Every block builder method fixture registers usable runtime blocks")
+	static void coverageBlockBuilderMethods(final DynamicTest test) {
+		test.onGameTest(helper -> {
+			assertj(helper, () -> {
+				var block = BuiltInRegistries.BLOCK.getValue(id("coverage_block"));
+				assertThat(block).as("coverage block").isNotNull();
+				assertThat(block.defaultBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT))
+					.as("custom block property").isTrue();
+				assertThat(BuiltInRegistries.BLOCK.getValue(id("coverage_crop"))).isInstanceOf(CropBlock.class);
+				assertThat(BuiltInRegistries.BLOCK.getValue(id("coverage_door"))).isInstanceOf(DoorBlock.class);
+				assertThat(BuiltInRegistries.BLOCK.getValue(id("coverage_pillar"))).isNotNull();
+				assertThat(BuiltInRegistries.ITEM.containsKey(id("coverage_crop_seeds"))).as("crop seed item").isTrue();
+			});
+			helper.succeed();
+		});
+	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "coverage_misc_builder_methods", description = "Every fluid and miscellaneous builder method fixture reaches public registries")
+	static void coverageMiscBuilderMethods(final DynamicTest test) {
+		test.onGameTest(helper -> {
+			assertj(helper, () -> {
+				assertThat(BuiltInRegistries.FLUID.containsKey(id("coverage_fluid"))).isTrue();
+				assertThat(NeoForgeRegistries.FLUID_TYPES.containsKey(id("coverage_fluid"))).isTrue();
+				assertThat(registryValue(helper, Registries.SOUND_EVENT, id("coverage_sound"))).isNotNull();
+				assertThat(registryValue(helper, Registries.POTION, id("coverage_potion"))).isNotNull();
+				assertThat(registryValue(helper, Registries.PARTICLE_TYPE, id("coverage_particle"))).isNotNull();
+				assertThat(registryValue(helper, Registries.POINT_OF_INTEREST_TYPE, id("coverage_poi"))).isNotNull();
+				assertThat(registryValue(helper, Registries.PAINTING_VARIANT, id("coverage_painting"))).isNotNull();
+				assertThat(registryValue(helper, Registries.JUKEBOX_SONG, id("coverage_song"))).isNotNull();
+				assertThat(registryValue(helper, Registries.ATTRIBUTE, id("coverage_range_attribute"))).isInstanceOf(RangedAttribute.class);
+			});
+			helper.succeed();
+		});
+	}
 }

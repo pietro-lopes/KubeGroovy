@@ -111,16 +111,16 @@ public class KubeGroovyClientEventHandler {
 	@SubscribeEvent
 	public static void blockTintSources(RegisterColorHandlersEvent.BlockTintSources event) {
 		for (var builder : RegistryObjectStorage.BLOCK) {
-			if (builder instanceof BlockBuilder b && b.tint != null) {
+			if (builder instanceof BlockBuilder b && b.kgy$getTint() != null) {
 				var tintSources = new ArrayList<@Nullable BlockTintSource>();
 
-				if (b.tint instanceof BlockTintFunction.Mapped mapped) {
+				if (b.kgy$getTint() instanceof BlockTintFunction.Mapped mapped) {
 					for (int i = 0; i <= mapped.getMaxTintIndex(); i++) {
 						var func = mapped.map.get(i);
 						tintSources.add(func == null ? null : new BlockTintFunctionWrapper(func, i));
 					}
 				} else {
-					tintSources.add(new BlockTintFunctionWrapper(b.tint, 0));
+					tintSources.add(new BlockTintFunctionWrapper(b.kgy$getTint(), 0));
 				}
 
 				event.register(tintSources, b.get());
@@ -186,14 +186,14 @@ public class KubeGroovyClientEventHandler {
 	public static void onRegisterFluidModels(RegisterFluidModelsEvent event) {
 		for (var builder : RegistryObjectStorage.FLUID) {
 			if (builder instanceof FluidBuilder b) {
-				var type = b.fluidType;
+				var type = b.kgy$getFluidType();
 				event.register(new FluidModel.Unbaked(
-					new Material(type.actualStillTexture),
-					new Material(type.actualFlowingTexture),
-					type.blockOverlayTexture != null ? new Material(type.blockOverlayTexture) : null,
-					type.tint != null ? new FluidTintFunctionWrapper(type.tint, 0, b.bucketColor) : null,
+					new Material(type.kgy$getActualStillTexture()),
+					new Material(type.kgy$getActualFlowingTexture()),
+					type.kgy$getBlockOverlayTexture() != null ? new Material(type.kgy$getBlockOverlayTexture()) : null,
+					type.kgy$getTint() != null ? new FluidTintFunctionWrapper(type.kgy$getTint(), 0, b.kgy$getBucketColor()) : null,
 					null
-				), b.get(), b.flowingFluid.get());
+				), b.get(), b.kgy$getFlowingFluid().get());
 			}
 		}
 	}
@@ -206,7 +206,7 @@ public class KubeGroovyClientEventHandler {
 					@Override
 					@Nullable
 					public Identifier getRenderOverlayTexture(Minecraft mc) {
-						return b.screenOverlayTexture;
+						return b.kgy$getScreenOverlayTexture();
 					}
 				}, b.get());
 			}

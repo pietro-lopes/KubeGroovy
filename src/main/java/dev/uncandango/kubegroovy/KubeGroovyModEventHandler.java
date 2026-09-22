@@ -129,7 +129,7 @@ public class KubeGroovyModEventHandler {
 	public static void registerCapabilities(RegisterCapabilitiesEvent event) {
 		for (var info : RegistryObjectStorage.BLOCK_ENTITY.objects.values().stream()
 			.filter(BlockEntityBuilder.class::isInstance)
-			.map(b -> ((BlockEntityBuilder) b).info).toList()) {
+			.map(b -> ((BlockEntityBuilder) b).kgy$getInfo()).toList()) {
 			var beType = (BlockEntityType<KubeBlockEntity>) info.entityType;
 			for (var config : info.energyConfigs) {
 				registerDirectional(event, Capabilities.Energy.BLOCK, beType, config.directions(),

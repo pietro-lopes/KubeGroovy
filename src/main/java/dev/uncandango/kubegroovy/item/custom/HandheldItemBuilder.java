@@ -18,10 +18,10 @@ import java.util.function.Consumer;
 
 @ReturnsSelf
 public abstract class HandheldItemBuilder extends ItemBuilder {
-	public transient MutableToolTier toolTier;
-	public transient float attackDamageBaseline;
-	public transient float disableBlockingForSeconds;
-	public transient float speedBaseline;
+	protected MutableToolTier toolTier;
+	protected float attackDamageBaseline;
+	protected float disableBlockingForSeconds;
+	protected float speedBaseline;
 
 	public HandheldItemBuilder(Identifier i, float d, float s) {
 		super(i);

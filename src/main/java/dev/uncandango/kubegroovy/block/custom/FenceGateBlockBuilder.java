@@ -23,7 +23,7 @@ public class FenceGateBlockBuilder extends ShapedBlockBuilder {
 	private static final Identifier WALL_MODEL = Identifier.withDefaultNamespace("block/template_fence_gate_wall");
 	private static final Identifier OPEN_WALL_MODEL = Identifier.withDefaultNamespace("block/template_fence_gate_wall_open");
 
-	public transient WoodType behaviour;
+	protected WoodType behaviour;
 
 	public FenceGateBlockBuilder(Identifier i) {
 		super(i, "_fence_gate");

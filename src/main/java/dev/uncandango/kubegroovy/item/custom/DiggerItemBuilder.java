@@ -12,7 +12,7 @@ import net.neoforged.neoforge.common.Tags;
 import java.util.function.BiFunction;
 
 public class DiggerItemBuilder extends HandheldItemBuilder {
-	public final BiFunction<ToolMaterial, Item.Properties, Item> function;
+	protected final BiFunction<ToolMaterial, Item.Properties, Item> function;
 
 	public DiggerItemBuilder(Identifier i, float d, float s, BiFunction<ToolMaterial, Item.Properties, Item> f) {
 		super(i, d, s);

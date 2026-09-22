@@ -11,9 +11,9 @@ import java.util.Set;
 
 @ReturnsSelf
 public class PoiTypeBuilder extends BuilderBase<PoiType> {
-	public transient Set<BlockState> blockStates;
-	public transient int maxTickets;
-	public transient int validRange;
+	protected Set<BlockState> blockStates;
+	protected int maxTickets;
+	protected int validRange;
 
 	public PoiTypeBuilder(Identifier i) {
 		super(i);

@@ -21,8 +21,8 @@ public class ButtonBlockBuilder extends ShapedBlockBuilder implements ButtonOrPr
 	private static final Identifier PRESSED_MODEL = Identifier.withDefaultNamespace("block/button_pressed");
 	private static final Identifier INVENTORY_MODEL = Identifier.withDefaultNamespace("block/button_inventory");
 
-	public transient BlockSetType behaviour;
-	public transient int ticksToStayPressed;
+	protected BlockSetType behaviour;
+	protected int ticksToStayPressed;
 
 	public ButtonBlockBuilder(Identifier i) {
 		super(i, "_button");

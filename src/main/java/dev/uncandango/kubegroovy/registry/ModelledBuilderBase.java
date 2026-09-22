@@ -12,10 +12,10 @@ import java.util.function.Consumer;
 
 @ReturnsSelf
 public abstract class ModelledBuilderBase<T> extends BuilderBase<T> {
-	public transient @Nullable Identifier parentModel;
-	public transient Map<String, String> textures;
-	public transient String baseTexture;
-	public transient @Nullable Consumer<ModelGenerator> modelGenerator;
+	protected @Nullable Identifier parentModel;
+	protected Map<String, String> textures;
+	protected String baseTexture;
+	protected @Nullable Consumer<ModelGenerator> modelGenerator;
 
 	public ModelledBuilderBase(Identifier id) {
 		super(id);
@@ -56,5 +56,10 @@ public abstract class ModelledBuilderBase<T> extends BuilderBase<T> {
 	public ModelledBuilderBase<T> modelGenerator(Consumer<ModelGenerator> generator) {
 		modelGenerator = generator;
 		return this;
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	public final String kgy$getBaseTexture() {
+		return baseTexture;
 	}
 }
