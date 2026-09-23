@@ -12,7 +12,6 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.WrappedGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -40,14 +39,13 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 		this.schemaType = schemaType;
 	}
 
-	@HideFromGY
 	@Override
-	public KubeRecipe call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args0) {
-		var sourceLine = SourceLine.of(cx);
+	public Object call(Object[] args0) {
+		var sourceLine = SourceLine.of(Context.getCurrent());
 		var stack = new ErrorStack();
 
 		try {
-			return createRecipe(cx, sourceLine, stack, args0);
+			return createRecipe(Context.getCurrent(), sourceLine, stack, args0);
 		} catch (Throwable cause) {
 			var r = schemaType.schema.recipeFactory.create(this, sourceLine, true);
 			r.creationError = true;

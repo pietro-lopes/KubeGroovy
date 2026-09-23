@@ -4,7 +4,6 @@ import com.google.gson.JsonPrimitive;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
@@ -55,7 +54,7 @@ public class SoundTypeWrapper implements TypeWrapperFactory<SoundType> {
 			case SoundType t -> t;
 			case null -> throw new KubeRuntimeException("SoundType cannot be null!").source(SourceLine.of(cx));
 			case Undefined u -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of(cx));
-			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of(cx));
+//			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of(cx));
 			case JsonPrimitive j -> wrap(cx, j.getAsString(), target);
 			case Identifier id -> wrap(cx, id.toString(), target);
 			case CharSequence cs -> {

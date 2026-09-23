@@ -3,7 +3,6 @@ package dev.uncandango.kubegroovy.util;
 import dev.uncandango.kubegroovy.error.LegacyError;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Symbol;
 
 public class LegacyCodeHandler extends BaseFunction {
@@ -20,42 +19,42 @@ public class LegacyCodeHandler extends BaseFunction {
 	}
 
 	@Override
-	public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-		throw makeError(cx);
+	public Object call(Object[] args) {
+		throw makeError(Context.getCurrent());
 	}
-
-	@Override
-	public Scriptable construct(Context cx, Scriptable scope, Object[] args) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public void put(Context cx, String name, Scriptable start, Object value) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public void put(Context cx, int index, Scriptable start, Object value) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public void put(Context cx, Symbol key, Scriptable start, Object value) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public Object get(Context cx, String name, Scriptable start) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public Object get(Context cx, int index, Scriptable start) {
-		throw makeError(cx);
-	}
-
-	@Override
-	public Object get(Context cx, Symbol key, Scriptable start) {
-		throw makeError(cx);
-	}
+//
+//	@Override
+//	public Scriptable construct(Context cx, Scriptable scope, Object[] args) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public void put(Context cx, String name, Scriptable start, Object value) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public void put(Context cx, int index, Scriptable start, Object value) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public void put(Context cx, Symbol key, Scriptable start, Object value) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public Object get(Context cx, String name, Scriptable start) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public Object get(Context cx, int index, Scriptable start) {
+//		throw makeError(cx);
+//	}
+//
+//	@Override
+//	public Object get(Context cx, Symbol key, Scriptable start) {
+//		throw makeError(cx);
+//	}
 }

@@ -5,7 +5,6 @@ import dev.uncandango.kubegroovy.recipe.RecipeScriptContext;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 
 public class RecipeComponentValueFunction extends BaseFunction {
@@ -18,7 +17,7 @@ public class RecipeComponentValueFunction extends BaseFunction {
 	}
 
 	@Override
-	public KubeRecipe call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-		return recipe.setValue(componentValue.key, Cast.to(componentValue.key.component.wrap(new RecipeScriptContext.Impl(cx, recipe), Wrapper.unwrapped(args[0]))));
+	public Object call(Object... args) {
+		return recipe.setValue(componentValue.key, Cast.to(componentValue.key.component.wrap(new RecipeScriptContext.Impl(Context.getCurrent(), recipe), Wrapper.unwrapped(args[0]))));
 	}
 }

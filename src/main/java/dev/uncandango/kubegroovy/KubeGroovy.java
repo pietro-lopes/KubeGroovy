@@ -35,6 +35,7 @@ import org.jspecify.annotations.NullUnmarked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -51,6 +52,9 @@ public class KubeGroovy {
 	public static String QUERY;
 	public static String VERSION = "0";
 	public static String DISPLAY_NAME = "KubeGroovy";
+	// TODO: REMOVE ME
+	public static MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
+
 
 	public static Identifier id(String path) {
 		return Identifier.fromNamespaceAndPath(MOD_ID, path);

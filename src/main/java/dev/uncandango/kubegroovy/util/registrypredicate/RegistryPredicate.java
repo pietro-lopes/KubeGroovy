@@ -6,7 +6,6 @@ import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeRegExp;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -28,7 +27,6 @@ public interface RegistryPredicate<T> extends Predicate<Holder<T>> {
 			case null -> EntireRegistryPredicate.FALSE;
 			case RegistryPredicate<?> p -> p;
 			case Pattern pattern -> new RegistryRegExpPredicate<>(pattern);
-			case NativeRegExp pattern -> new RegistryRegExpPredicate<>(RegExpKGY.wrap(pattern));
 			case CharSequence cs -> ofString(target, cs.toString());
 			case JsonPrimitive p -> ofString(target, p.getAsString());
 			case BaseFunction fn -> {

@@ -3,9 +3,7 @@ package dev.uncandango.kubegroovy.util;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
-import dev.uncandango.kubegroovy.script.annotations.CustomJavaToGyWrapper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,7 +17,7 @@ import java.util.Set;
  * It delegates its operations to the underlying unmodifiable map.
  * Its exceptions will contain a message explaining what went wrong.
  */
-public class GlobalUnmodifiableMap<K, V> implements Map<K, V>, CustomJavaToGyWrapper {
+public class GlobalUnmodifiableMap<K, V> implements Map<K, V> { // CustomJavaToGyWrapper
 	private static final String MESSAGE = "'global' cannot be assigned to in client or server scripts";
 	private final Map<K, V> unmodifiableMap;
 
@@ -116,9 +114,9 @@ public class GlobalUnmodifiableMap<K, V> implements Map<K, V>, CustomJavaToGyWra
 	public String toString() {
 		return unmodifiableMap.toString();
 	}
-
-	@Override
-	public Scriptable convertJavaToGy(Context cx, Scriptable scope, TypeInfo staticType) {
-		return new NativeJavaReadonlyMap(cx, scope, this, this, staticType, MESSAGE);
-	}
+//
+//	@Override
+//	public Scriptable convertJavaToGy(Context cx, Scriptable scope, TypeInfo staticType) {
+//		return new NativeJavaReadonlyMap(cx, scope, this, this, staticType, MESSAGE);
+//	}
 }

@@ -1,5 +1,10 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.registry.RegistryType;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
@@ -7,6 +12,8 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -55,6 +62,35 @@ public class TypeWrappers {
 
 	public <T> void registerDirect(Class<T> target, DirectTypeWrapperFactory<T> factory, List<TypeInfo> explicitCoercions) {
 		wrappers.put(target, new Entry(TypeWrapperValidator.ALWAYS_VALID, factory, explicitCoercions));
+	}
+
+	private static final Set<TypeInfo> INTERNAL_WRAPPERS = Set.of(
+			TypeInfo.of(Optional.class),
+			TypeInfo.of(ResourceKey.class),
+			TypeInfo.of(Holder.class),
+			TypeInfo.of(Holder.Reference.class),
+			TypeInfo.of(HolderSet.class),
+			TypeInfo.of(TagKey.class)
+	);
+
+	public boolean hasAnyWrapper(TypeInfo target) {
+		if (target instanceof TypeWrapperFactory<?>) {
+			return true;
+		}
+
+		var reg = RegistryType.ofType(target);
+		if (reg != null) {
+			return true;
+		}
+
+		for (var wrapper : INTERNAL_WRAPPERS) {
+			if (wrapper.asClass() == target.asClass()) {
+				return true;
+			}
+		}
+
+		var wrapper = wrappers.get(target.asClass());
+		return wrapper != null;
 	}
 
 	public boolean hasWrapper(Object from, TypeInfo target) {

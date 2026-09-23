@@ -4,7 +4,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.uncandango.kubegroovy.event.KubeEvent;
-import dev.uncandango.kubegroovy.util.ClassWrapper;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -37,19 +36,19 @@ public class CommandRegistryKubeEvent implements KubeEvent {
 		return dispatcher.register(command);
 	}
 
-	public ClassWrapper<Commands> getCommands() {
-		return new ClassWrapper<>(Commands.class);
-	}
+//	public ClassWrapper<Commands> getCommands() {
+//		return new ClassWrapper<>(Commands.class);
+//	}
 
-	public ClassWrapper<ArgumentTypeWrappers> getArguments() {
-		return new ClassWrapper<>(ArgumentTypeWrappers.class);
-	}
+//	public ClassWrapper<ArgumentTypeWrappers> getArguments() {
+//		return new ClassWrapper<>(ArgumentTypeWrappers.class);
+//	}
 
 	// Used to access the static members of SharedSuggestionProvider
 	// can be used within commands like so:
 	// [cmd] .suggests((ctx, builder) => event.builtinSuggestions.suggest(["123", "456"], builder))
-	public ClassWrapper<SharedSuggestionProvider> getBuiltinSuggestions() {
-		return new ClassWrapper<>(SharedSuggestionProvider.class);
-	}
+//	public ClassWrapper<SharedSuggestionProvider> getBuiltinSuggestions() {
+//		return new ClassWrapper<>(SharedSuggestionProvider.class);
+//	}
 
 }

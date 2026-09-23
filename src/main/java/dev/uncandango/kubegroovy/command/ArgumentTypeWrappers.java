@@ -10,7 +10,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
-import dev.uncandango.kubegroovy.util.ClassWrapper;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.AngleArgument;
@@ -118,15 +117,15 @@ public enum ArgumentTypeWrappers implements ArgumentTypeWrapper {
 	private final Function<CommandBuildContext, ? extends ArgumentType<?>> factory;
 	private final ArgumentFunction<?> getter;
 
-	private static @Nullable Map<Identifier, ClassWrapper<?>> byNameCache;
+//	private static @Nullable Map<Identifier, ClassWrapper<?>> byNameCache;
 
-	public static ClassWrapper<?> byName(Identifier name) {
-		var wrapper = getOrCacheByName().get(name);
-		if (wrapper == null) {
-			throw new IllegalStateException("No argument type found for " + name);
-		}
-		return wrapper;
-	}
+//	public static ClassWrapper<?> byName(Identifier name) {
+//		var wrapper = getOrCacheByName().get(name);
+//		if (wrapper == null) {
+//			throw new IllegalStateException("No argument type found for " + name);
+//		}
+//		return wrapper;
+//	}
 
 	public static <T> ArgumentTypeWrapper registry(CommandRegistryKubeEvent event, Identifier reg) {
 		return new ArgumentTypeWrapper() {
@@ -158,24 +157,24 @@ public enum ArgumentTypeWrappers implements ArgumentTypeWrapper {
 		};
 	}
 
-	public static void printAll() {
-		for (var argType : getOrCacheByName().entrySet()) {
-			ConsoleGY.SERVER.info("Argument type: " + argType.getKey() + " -> " + argType.getValue());
-		}
-	}
+//	public static void printAll() {
+//		for (var argType : getOrCacheByName().entrySet()) {
+//			ConsoleGY.SERVER.info("Argument type: " + argType.getKey() + " -> " + argType.getValue());
+//		}
+//	}
 
-	private static Map<Identifier, ClassWrapper<?>> getOrCacheByName() {
-		if (byNameCache == null) {
-			return byNameCache = Util.make(new HashMap<>(), map -> {
-				for (var entry : ArgumentTypeInfos.BY_CLASS.entrySet()) {
-					var id = BuiltInRegistries.COMMAND_ARGUMENT_TYPE.getKey(entry.getValue());
-					assert id != null;
-					byNameCache.put(id, new ClassWrapper<>(entry.getKey()));
-				}
-			});
-		}
-		return byNameCache;
-	}
+//	private static Map<Identifier, ClassWrapper<?>> getOrCacheByName() {
+//		if (byNameCache == null) {
+//			return byNameCache = Util.make(new HashMap<>(), map -> {
+//				for (var entry : ArgumentTypeInfos.BY_CLASS.entrySet()) {
+//					var id = BuiltInRegistries.COMMAND_ARGUMENT_TYPE.getKey(entry.getValue());
+//					assert id != null;
+//					byNameCache.put(id, new ClassWrapper<>(entry.getKey()));
+//				}
+//			});
+//		}
+//		return byNameCache;
+//	}
 
 	ArgumentTypeWrappers(Supplier<? extends ArgumentType<?>> factory, ArgumentFunction<?> getter) {
 		this.factory = (ctx) -> factory.get();

@@ -59,8 +59,8 @@ public class TypeUtils {
 			TypeInfo.GSTRING_ARRAY,
 			TypeInfo.CLASS,
 			TypeInfo.DATE,
-			TypeInfo.CONTEXT,
-			TypeInfo.SCRIPTABLE
+			TypeInfo.CONTEXT
+			//TypeInfo.SCRIPTABLE
 		);
 
 		cacheType(

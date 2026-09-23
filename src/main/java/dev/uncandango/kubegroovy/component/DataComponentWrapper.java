@@ -22,7 +22,6 @@ import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.EvaluatorException;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.component.DataComponentMap;
@@ -278,7 +277,7 @@ public interface DataComponentWrapper {
 
 
 	static boolean filter(Object from, TypeInfo target) {
-		return from == null || from instanceof DataComponentMap || from instanceof DataComponentPatch || from instanceof Map || from instanceof NativeJavaMap || from instanceof String s && (s.isEmpty() || s.charAt(0) == '[');
+		return from == null || from instanceof DataComponentMap || from instanceof DataComponentPatch || from instanceof Map || from instanceof String s && (s.isEmpty() || s.charAt(0) == '[');
 	}
 
 	static DataComponentMap mapOf(Context cx, Object from) {

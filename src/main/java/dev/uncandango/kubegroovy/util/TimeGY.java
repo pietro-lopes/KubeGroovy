@@ -6,7 +6,6 @@ import com.mojang.serialization.DataResult;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 
 import java.time.Duration;
@@ -22,7 +21,7 @@ public interface TimeGY {
 			case Number n -> Duration.ofMillis(n.longValue());
 			case null -> throw new KubeRuntimeException("Cannot convert null to temporal amount!").source(SourceLine.of(cx));
 			case Undefined undefined -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of(cx));
-			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of(cx));
+			//case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of(cx));
 			case CharSequence cs -> {
 				try {
 					yield readTemporalAmount(new StringReader(cs.toString()));

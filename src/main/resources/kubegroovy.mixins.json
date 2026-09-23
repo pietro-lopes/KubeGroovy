@@ -73,7 +73,9 @@
 		"WorldLoaderMixin",
 		"WorldLoaderPackConfigMixin",
 		"groovy.ConvertedClosureMixin",
-		"groovy.DefaultTypeTransformationMixin"
+		"groovy.DefaultTypeTransformationMixin",
+		"groovy.MetaClassImplMixin",
+		"groovy.SelectorMixin"
 	],
 	"client": [
 		"AbstractClientPlayerMixin",

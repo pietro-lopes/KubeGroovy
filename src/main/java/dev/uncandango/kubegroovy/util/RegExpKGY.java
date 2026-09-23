@@ -4,7 +4,6 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.uncandango.kubegroovy.codec.KubeGroovyCodecs;
-import dev.uncandango.kubegroovy.script.bridge.NativeRegExp;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -18,7 +17,7 @@ public interface RegExpKGY {
 
 	@Nullable
 	static Pattern wrap(Object o) {
-		if (o instanceof CharSequence || o instanceof NativeRegExp) {
+		if (o instanceof CharSequence) {
 			return ofString(o.toString());
 		} else if (o instanceof Pattern pattern) {
 			return pattern;

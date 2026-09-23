@@ -1,3 +1,5 @@
+import dev.uncandango.kubegroovy.util.KubeIdentifier
+
 StartupEvents.registry('item') { event ->
 	event.create('wiki_item')
 	event.create('wiki_item_glow')
@@ -125,8 +127,8 @@ StartupEvents.registry('jukebox_song') { event ->
 }
 
 StartupEvents.registry('attribute') { event ->
-	event.create('wiki_range_attribute')
+	event.create('wiki_range_attribute' as KubeIdentifier)
 		.range(4.0, 0.0, 10.0).syncable(false).neutralSentiment().attachToPlayers()
-	event.create('wiki_boolean_attribute')
+	event.create('wiki_boolean_attribute' as KubeIdentifier)
 		.bool(true).negativeSentiment().attachToMonsters()
 }

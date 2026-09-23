@@ -40,17 +40,33 @@ public class Context {
 		this.factory = factory;
 	}
 
+	public static Context fromObjAndArgs(Object obj, Object[] array) {
+		var objResult = from(obj);
+		if (objResult == null) {
+			objResult = fromArray(array);
+		}
+		if (objResult == null) {
+			throw new MissingContextException();
+		}
+		return objResult;
+	}
+
+	public static Context fromArray(Object[] array) {
+		for (Object o : array) {
+			return from(o);
+		}
+		return Context.getCurrent();
+	}
+
 	@Nullable
 	public static Context from(Object obj) {
 		var result = switch (obj) {
 			case Closure<?> cl -> from(cl.getDelegate());
 			case ConversionHandler ch -> from(ch.getDelegate());
 			case WithScriptContext script -> script.cx();
+			case Object[] array -> fromArray(array);
 			default -> Context.getCurrent();
 		};
-		if (result == null) {
-			throw new MissingContextException();
-		}
 		return result;
 	}
 
@@ -167,11 +183,11 @@ public class Context {
 		return internalGyToJavaLast(from, target);
 	}
 
-	public Object javaToGY(Object value, Scriptable scope) {
+	public Object javaToGY(Object value) {
 		return GroovyConversions.toScript(value);
 	}
 
-	public Object javaToGY(Object value, Scriptable scope, TypeInfo target) {
+	public Object javaToGY(Object value, TypeInfo target) {
 		return GroovyConversions.toScript(value);
 	}
 
@@ -329,34 +345,32 @@ public class Context {
 		return m;
 	}
 
-	public Object evaluateString(Scriptable scope, String source, String location, int line, Object security) {
+	public Object evaluateString(String source, String location, int line, Object security) {
 		// Overridden by KubeGroovyContext with real GroovyShell. Base is noop.
 		return null;
 	}
 
-	public void addToScope(Scriptable scope, String name, Object value) {
-		if (scope instanceof ScriptableObject so) {
-			so.put(name, value);
-		} else if (scope instanceof Map<?, ?>) {
-			@SuppressWarnings("unchecked")
-			var m = (Map<String, Object>) scope;
-			m.put(name, value);
-		}
-	}
+//	public void addToScope(Scriptable scope, String name, Object value) {
+//		if (scope instanceof ScriptableObject so) {
+//			so.put(name, value);
+//		} else if (scope instanceof Map<?, ?>) {
+//			@SuppressWarnings("unchecked")
+//			var m = (Map<String, Object>) scope;
+//			m.put(name, value);
+//		}
+//	}
 
-	public Scriptable initStandardObjects() {
-		return new ScriptableObject();
-	}
+//	public Scriptable initStandardObjects() {
+//		return new ScriptableObject();
+//	}
 
 	public void setApplicationClassLoader(ClassLoader cl) {
 	}
 
-	public Scriptable wrapAsJavaObject(Scriptable scope, Object javaObject, TypeInfo target) {
-		if (javaObject instanceof Scriptable s) {
-			return s;
-		}
-		return new NativeJavaObject(javaObject);
-	}
+//	public Scriptable wrapAsJavaObject(Object javaObject, TypeInfo target) {
+//
+//		return new NativeJavaObject(javaObject);
+//	}
 
 	public int internalConversionWeightLast(Object fromObj, TypeInfo target) {
 		return 0;
@@ -438,6 +452,14 @@ public class Context {
 	}
 
 	public Object arrayOf(@Nullable Object from, TypeInfo target) {
+		if (from instanceof Object[] arr) {
+			if (arr.length ==1) {
+				from = arr[0];
+			} else if (arr.length == 0) {
+				from = null;
+			}
+		}
+
 		return arrayValueProviderOf(from).createArray(this, target);
 //		if (from instanceof Object[] arr) {
 //			if (target == null) {

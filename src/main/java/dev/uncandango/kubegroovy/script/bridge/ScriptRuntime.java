@@ -47,10 +47,10 @@ public final class ScriptRuntime {
 		return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";
 	}
 
-	public static Object doTopCall(Object callable, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-		if (callable instanceof BaseFunction fn) {
-			return fn.call(cx, scope, thisObj, args);
-		}
-		return null;
-	}
+//	public static Object doTopCall(Object callable, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+//		if (callable instanceof BaseFunction fn) {
+//			return fn.call(cx, scope, thisObj, args);
+//		}
+//		return null;
+//	}
 }

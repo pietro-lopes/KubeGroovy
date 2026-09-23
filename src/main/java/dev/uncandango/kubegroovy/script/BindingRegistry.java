@@ -1,13 +1,12 @@
 package dev.uncandango.kubegroovy.script;
 
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import groovy.lang.Binding;
 
 import java.util.function.Supplier;
 
-public record BindingRegistry(KubeGroovyContext context, Binding binding, Scriptable scope) {
-	public BindingRegistry(KubeGroovyContext context, Scriptable scope) {
-		this(context, context == null ? new Binding() : context.binding, scope);
+public record BindingRegistry(KubeGroovyContext context, Binding binding) {
+	public BindingRegistry(KubeGroovyContext context) {
+		this(context, context == null ? new Binding() : context.binding);
 	}
 
 	public ScriptType type() {
@@ -18,11 +17,10 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding, Script
 	public void add(String name, Object value) {
 		if (value != null) {
 			try {
-				binding.setVariable(name, context.javaToGY(value, scope));
+				binding.setVariable(name, value);
 			} catch (Exception e) {
 				binding.setVariable(name, value);
 			}
-			context.addToScope(scope, name, value);
 		}
 	}
 
@@ -31,7 +29,7 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding, Script
 		try {
 			var value = supplier.get();
 			if (value != null) {
-				add(name, value instanceof Class<?> c ? context.loadJavaClass(c.getName(), false) : value);
+				add(name, value);
 			}
 			// Nulls are skipped for the minimal Groovy binding bridge (no getter traps).
 		} catch (Exception ignored) {

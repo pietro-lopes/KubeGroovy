@@ -101,11 +101,13 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 						}
 					} else {
 						for (var alias : aliases) {
-							var key = new ContextMethodKey(alias.name(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()));
-							var metaMethod = metaMethod(method);
-							var replaced = methodsIndex.put(key, metaMethod);
-							if (replaced != null) {
-								//KubeGroovy.LOGGER.warn("Duplicate method: {} replaced {} with key {}",replaced, metaMethod, key);
+							if (hasContextPrefix(method)) {
+								var key = new ContextMethodKey(alias.name(), logicalParameterCount(method), Modifier.isStatic(method.getModifiers()));
+								var metaMethod = metaMethod(method);
+								var replaced = methodsIndex.put(key, metaMethod);
+								if (replaced != null) {
+									//KubeGroovy.LOGGER.warn("Duplicate method: {} replaced {} with key {}",replaced, metaMethod, key);
+								}
 							}
 						}
 					}

@@ -7,7 +7,6 @@ import dev.uncandango.kubegroovy.script.ScriptTypePredicate;
 import dev.uncandango.kubegroovy.util.ListGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;

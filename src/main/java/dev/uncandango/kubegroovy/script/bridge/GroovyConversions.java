@@ -197,11 +197,11 @@ public final class GroovyConversions {
 		return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, new InvocationHandler() {
 			@Override
 			public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-				if (args != null) {
-					for (Object argument : args) {
-						KubeGroovyMetaClassCreationHandle.refreshIfNeeded(argument);
-					}
-				}
+//				if (args != null) {
+//					for (Object argument : args) {
+//						KubeGroovyMetaClassCreationHandle.refreshIfNeeded(argument);
+//					}
+//				}
 				if (method.getDeclaringClass() == Object.class) {
 					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> method.invoke(target, args));
 				}

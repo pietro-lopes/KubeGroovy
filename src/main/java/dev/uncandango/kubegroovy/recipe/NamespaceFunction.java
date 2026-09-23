@@ -4,7 +4,6 @@ import dev.uncandango.kubegroovy.recipe.schema.RecipeNamespace;
 import dev.uncandango.kubegroovy.util.WrappedGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 
 import java.util.Map;
 
@@ -18,13 +17,14 @@ public class NamespaceFunction extends BaseFunction implements WrappedGY {
 	}
 
 	@Override
-	public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args0) {
-		return namespace.keySet();
-	}
-
-	@Override
-	public Object get(Context cx, String name, Scriptable start) {
-		return map.get(name);
+	public Object call(Object[] args0) {
+		if (args0.length == 0) {
+			return namespace.keySet();
+		}
+		if (args0.length == 1) {
+			return map.get(args0[0]);
+		}
+		throw  new IllegalArgumentException("Namespace function has to be passed as arguments");
 	}
 
 	@Override

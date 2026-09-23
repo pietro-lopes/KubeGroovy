@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.item;
 
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.minecraft.core.Holder;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -15,7 +14,7 @@ public class ItemEnchantmentsWrapper {
 	public static ItemEnchantments wrap(Context cx, Object from) {
 		if (from instanceof ItemEnchantments e) {
 			return e;
-		} else if (from instanceof Map<?, ?> || from instanceof NativeJavaMap) {
+		} else if (from instanceof Map<?, ?> ) {
 			var map = (Map<Holder<Enchantment>, Integer>) cx.gyToJava(from, MAP_TYPE);
 			var mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
 

@@ -2,7 +2,6 @@ package dev.uncandango.kubegroovy.recipe.match;
 
 import dev.uncandango.kubegroovy.recipe.component.RecipeComponent;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaMap;
 import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
@@ -19,7 +18,7 @@ public record ReplacementMatchInfo(ReplacementMatch match, boolean exact, Option
 			return NONE;
 		} else if (o instanceof ReplacementMatchInfo h) {
 			return h;
-		} else if (o instanceof Map || o instanceof NativeJavaMap) {
+		} else if (o instanceof Map) {
 			return (ReplacementMatchInfo) TYPE_INFO.wrap(cx, o, target);
 		} else {
 			var m = ReplacementMatch.wrap(cx, o);

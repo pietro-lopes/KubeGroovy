@@ -5,15 +5,13 @@ import dev.uncandango.kubegroovy.recipe.component.RecipeComponentValueFunction;
 import dev.uncandango.kubegroovy.recipe.schema.function.RecipeSchemaJSFunction;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaObject;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.codehaus.groovy.runtime.InvokerHelper;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class RecipeFunction extends NativeJavaObject {
+public class RecipeFunction extends HashMap<String, BaseFunction> { // NativeJavaObject
 	public final KubeRecipe recipe;
 	public final Map<String, BaseFunction> builderFunctions;
 
@@ -31,8 +29,7 @@ public class RecipeFunction extends NativeJavaObject {
 		return true;
 	}
 
-	public RecipeFunction(Context cx, Scriptable scope, TypeInfo staticType, KubeRecipe recipe) {
-		super(scope, recipe, staticType, cx);
+	public RecipeFunction(TypeInfo staticType, KubeRecipe recipe) {
 		this.recipe = recipe;
 		this.builderFunctions = new HashMap<>();
 
@@ -56,36 +53,41 @@ public class RecipeFunction extends NativeJavaObject {
 	}
 
 	@Override
-	public Object get(Context cx, String name, Scriptable start) {
-		var s = super.get(cx, name, start);
-
-		if (s == Scriptable.NOT_FOUND) {
-			var r = builderFunctions.get(name);
-
-			if (r != null) {
-				return r;
-			}
-		}
-
-		return s;
+	public BaseFunction get(Object key) {
+		return builderFunctions.get(key);
 	}
 
-	@Override
-	public Object getProperty(String property) {
-		var value = get(Context.getCurrent(), property, this);
-		if (value != Scriptable.NOT_FOUND) {
-			return value;
-		}
-		return InvokerHelper.getProperty(recipe, property);
-	}
+	//	@Override
+//	public BaseFunction get(String name) {
+//		var s = super.get(cx, name, start);
+//
+//		if (s == Scriptable.NOT_FOUND) {
+//			var r = builderFunctions.get(name);
+//
+//			if (r != null) {
+//				return r;
+//			}
+//		}
+//
+//		return s;
+//	}
 
-	@Override
-	public Object invokeMethod(String name, Object args) {
-		var function = builderFunctions.get(name);
-		if (function != null) {
-			Object[] values = args instanceof Object[] array ? array : new Object[]{args};
-			return function.call(values);
-		}
-		return InvokerHelper.invokeMethod(recipe, name, args instanceof Object[] array ? array : new Object[]{args});
-	}
+//	@Override
+//	public Object getProperty(String property) {
+//		var value = get(Context.getCurrent(), property, this);
+//		if (value != Scriptable.NOT_FOUND) {
+//			return value;
+//		}
+//		return InvokerHelper.getProperty(recipe, property);
+//	}
+
+//	@Override
+//	public Object invokeMethod(String name, Object args) {
+//		var function = builderFunctions.get(name);
+//		if (function != null) {
+//			Object[] values = args instanceof Object[] array ? array : new Object[]{args};
+//			return function.call(values);
+//		}
+//		return InvokerHelper.invokeMethod(recipe, name, args instanceof Object[] array ? array : new Object[]{args});
+//	}
 }

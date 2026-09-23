@@ -33,10 +33,8 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.util.SlotFilter;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
-import dev.uncandango.kubegroovy.script.annotations.CustomJavaToGyWrapper;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -56,7 +54,7 @@ import java.util.List;
 import java.util.Optional;
 
 @NullUnmarked
-public class KubeRecipe implements RecipeLikeKGY, CustomJavaToGyWrapper {
+public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 	public static final String CHANGED_MARKER = "_KubeGroovy_changed_marker";
 	public static final TypeInfo TYPE_INFO = TypeInfo.of(KubeRecipe.class);
 
@@ -78,11 +76,6 @@ public class KubeRecipe implements RecipeLikeKGY, CustomJavaToGyWrapper {
 	public boolean creationError = false;
 
 	protected List<IngredientActionHolder> recipeIngredientActions;
-
-	@Override
-	public final Scriptable convertJavaToGy(Context cx, Scriptable scope, TypeInfo staticType) {
-		return new RecipeFunction(cx, scope, staticType, this);
-	}
 
 	public void deserialize(boolean merge) {
 		for (var v : valueMap.holders) {

@@ -5,8 +5,6 @@ import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.RhinoException;
 import dev.uncandango.kubegroovy.script.bridge.ScriptRuntime;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.ScriptableObject;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.jspecify.annotations.NullUnmarked;
@@ -90,13 +88,13 @@ public class ScheduledEvents {
 		}
 
 		@Override
-		public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		public Object call(Object[] args) {
 			if (clear) {
-				scheduledEvents.clear(ScriptRuntime.toInt32(cx, args[0]));
+				scheduledEvents.clear(ScriptRuntime.toInt32(Context.getCurrent(), args[0]));
 				return Undefined.INSTANCE;
 			} else {
-				var timer = (TemporalAmount) cx.gyToJava(args[1], TEMPORAL_AMOUNT_TYPE_INFO);
-				var callback = (Callback) cx.createInterfaceAdapter(Callback.TYPE_INFO, args[0]);
+				var timer = (TemporalAmount) Context.getCurrent().gyToJava(args[1], TEMPORAL_AMOUNT_TYPE_INFO);
+				var callback = (Callback) Context.getCurrent().createInterfaceAdapter(Callback.TYPE_INFO, args[0]);
 				return scheduledEvents.schedule(timer, interval, callback).id;
 			}
 		}

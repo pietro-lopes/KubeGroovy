@@ -50,7 +50,7 @@ public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.M
 	}
 
 	public static synchronized void install() {
-		if (installed) {
+		if (true) { // installed
 			return;
 		}
 		MetaClassRegistry registry = GroovySystem.getMetaClassRegistry();
@@ -89,11 +89,11 @@ public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.M
 
 	/** Rebind an already-resolved application class to the bridge meta class. */
 	public static void refresh(Class<?> type) {
-		MetaClassRegistry registry = GroovySystem.getMetaClassRegistry();
-		registry.removeMetaClass(type);
-		var metaClass = new KubeGroovyMetaClass(registry, type);
-		metaClass.initialize();
-		registry.setMetaClass(type, metaClass);
+//		MetaClassRegistry registry = GroovySystem.getMetaClassRegistry();
+//		registry.removeMetaClass(type);
+//		var metaClass = new KubeGroovyMetaClass(registry, type);
+//		metaClass.initialize();
+//		registry.setMetaClass(type, metaClass);
 	}
 
 	/**

@@ -4,7 +4,6 @@ import dev.uncandango.kubegroovy.recipe.KubeRecipe;
 import dev.uncandango.kubegroovy.recipe.RecipeScriptContext;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.ArrayList;
@@ -22,7 +21,8 @@ public class RecipeSchemaJSFunction extends BaseFunction {
 	}
 
 	@Override
-	public KubeRecipe call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+	public KubeRecipe call(Object[] args) {
+		var cx = Context.getCurrent();
 		if (argTypes.length == 0) {
 			func.execute(new RecipeScriptContext.Impl(cx, recipe), List.of());
 			return recipe;

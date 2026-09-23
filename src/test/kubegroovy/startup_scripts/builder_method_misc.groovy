@@ -1,4 +1,5 @@
 import dev.uncandango.kubegroovy.fluid.FluidBuilder
+import dev.uncandango.kubegroovy.util.KubeIdentifier
 import net.minecraft.core.Holder
 import net.minecraft.core.particles.ParticleType
 import net.minecraft.core.particles.ParticleTypes
@@ -130,7 +131,7 @@ StartupEvents.registry('jukebox_song') { event ->
 }
 
 StartupEvents.registry('attribute') { event ->
-	event.create('coverage_range_attribute').range(4.0, 0.0, 10.0).syncable(false)
+	event.create('coverage_range_attribute' as KubeIdentifier).range(4.0, 0.0, 10.0).syncable(false)
 		.sentiment('positive').negativeSentiment().neutralSentiment()
 		.attachTo { entityType -> true }.attachToPlayers().attachToMonsters().attachToCategory('monster')
 	event.create('coverage_boolean_attribute').bool(true)

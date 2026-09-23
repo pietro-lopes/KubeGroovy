@@ -9,9 +9,6 @@ import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.script.bridge.ClassVisibilityContext;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaClass;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
-import dev.uncandango.kubegroovy.script.bridge.ScriptableObject;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyClassLoader;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
@@ -44,10 +41,10 @@ import java.util.Optional;
 /// Groovy script context: owns a GroovyShell + Binding with Minecraft coercions and class filtering.
 public class KubeGroovyContext extends Context {
 	public final KubeGroovyContextFactory kgyFactory;
-	public final Scriptable topLevelScope;
+//	public final Scriptable topLevelScope;
 	public final Binding binding;
 	public final GroovyScriptEngine engine;
-	private @Nullable Map<String, Either<NativeJavaClass, Boolean>> javaClassCache;
+	//private @Nullable Map<String, Either<NativeJavaClass, Boolean>> javaClassCache;
 
 	public KubeGroovyContext(KubeGroovyContextFactory factory) {
 		super(factory);
@@ -65,9 +62,9 @@ public class KubeGroovyContext extends Context {
 			throw new RuntimeException(e);
 		}
 
-		this.topLevelScope = new ScriptableObject();
+//		this.topLevelScope = new ScriptableObject();
 
-		var bindingsEvent = new BindingRegistry(this, binding, topLevelScope);
+		var bindingsEvent = new BindingRegistry(this, binding);
 
 		for (var plugin : KubeGroovyPlugins.getAll()) {
 			try {
@@ -84,9 +81,9 @@ public class KubeGroovyContext extends Context {
 		}
 
 		// Mirror bindings into legacy scope map for compat
-		for (Map.Entry<String, Object> e : ((Map<String, Object>) binding.getVariables()).entrySet()) {
-			addToScope(topLevelScope, e.getKey(), e.getValue());
-		}
+//		for (Map.Entry<String, Object> e : ((Map<String, Object>) binding.getVariables()).entrySet()) {
+//			addToScope(topLevelScope, e.getKey(), e.getValue());
+//		}
 	}
 
 	public boolean visibleToScripts(String fullClassName, ClassVisibilityContext type) {
@@ -106,18 +103,6 @@ public class KubeGroovyContext extends Context {
 
 	public RegistryAccessContainer getRegistries() {
 		return kgyFactory.manager.getRegistries();
-	}
-
-	@Override
-	public Scriptable wrapAsJavaObject(Scriptable scope, Object javaObject, TypeInfo target) {
-		if (javaObject instanceof AccessibleObject) {
-			getConsole().error("Reflection access denied");
-			return new ScriptableObject();
-		} else if (javaObject instanceof ClassLoader) {
-			getConsole().error("ClassLoader access denied");
-			return new ScriptableObject();
-		}
-		return super.wrapAsJavaObject(scope, javaObject, target);
 	}
 
 	@Override
@@ -199,59 +184,59 @@ public class KubeGroovyContext extends Context {
 		return GroovyConversions.toJava(from, c);
 	}
 
-	@Contract("null, false -> null; null, true -> fail")
-	@NullUnmarked
-	public NativeJavaClass loadJavaClass(@Nullable String name, boolean error) {
-		if (name == null || name.equals("null") || name.isEmpty()) {
-			if (error) {
-				throw reportRuntimeError("Class name can't be empty!", this);
-			} else {
-				return null;
-			}
-		}
-		if (javaClassCache == null) {
-			javaClassCache = new HashMap<>();
-		}
-		var either = javaClassCache.get(name);
-		if (either == null) {
-			either = Either.right(false);
-			if (!kgyFactory.manager.isClassAllowed(name)) {
-				either = Either.right(true);
-			} else {
-				try {
-					var clazz = Class.forName(name, false, KubeGroovy.class.getClassLoader());
-					either = Either.left(new NativeJavaClass(this, topLevelScope, clazz));
-					getConsole().info("Loaded Java class '%s'".formatted(name));
-				} catch (Exception ignored) {
-				}
-			}
-			javaClassCache.put(name, either);
-		}
-		var l = either.left().orElse(null);
-		if (l != null) {
-			return l;
-		} else if (error) {
-			var found = either.right().orElse(false);
-			throw reportRuntimeError((found ? "Failed to load Java class '%s': Class is not allowed by class filter!" : "Failed to load Java class '%s': Class could not be found!").formatted(name), this);
-		} else {
-			return null;
-		}
-	}
+//	@Contract("null, false -> null; null, true -> fail")
+//	@NullUnmarked
+//	public NativeJavaClass loadJavaClass(@Nullable String name, boolean error) {
+//		if (name == null || name.equals("null") || name.isEmpty()) {
+//			if (error) {
+//				throw reportRuntimeError("Class name can't be empty!", this);
+//			} else {
+//				return null;
+//			}
+//		}
+//		if (javaClassCache == null) {
+//			javaClassCache = new HashMap<>();
+//		}
+//		var either = javaClassCache.get(name);
+//		if (either == null) {
+//			either = Either.right(false);
+//			if (!kgyFactory.manager.isClassAllowed(name)) {
+//				either = Either.right(true);
+//			} else {
+//				try {
+//					var clazz = Class.forName(name, false, KubeGroovy.class.getClassLoader());
+//					either = Either.left(new NativeJavaClass(this, clazz));
+//					getConsole().info("Loaded Java class '%s'".formatted(name));
+//				} catch (Exception ignored) {
+//				}
+//			}
+//			javaClassCache.put(name, either);
+//		}
+//		var l = either.left().orElse(null);
+//		if (l != null) {
+//			return l;
+//		} else if (error) {
+//			var found = either.right().orElse(false);
+//			throw reportRuntimeError((found ? "Failed to load Java class '%s': Class is not allowed by class filter!" : "Failed to load Java class '%s': Class could not be found!").formatted(name), this);
+//		} else {
+//			return null;
+//		}
+//	}
 
-	@Override
-	public Object classOf(Object from) {
-		if (from instanceof Class<?> c) {
-			return c;
-		} else if (from instanceof NativeJavaClass c) {
-			return c.getClassObject();
-		} else {
-			return loadJavaClass(String.valueOf(from), true).getClassObject();
-		}
-	}
+//	@Override
+//	public Object classOf(Object from) {
+//		if (from instanceof Class<?> c) {
+//			return c;
+//		} else if (from instanceof NativeJavaClass c) {
+//			return c.getClassObject();
+//		} else {
+//			return loadJavaClass(String.valueOf(from), true).getClassObject();
+//		}
+//	}
 
-	public Map<String, Either<NativeJavaClass, Boolean>> getJavaClassCache() {
-		return javaClassCache == null ? Map.of() : Collections.unmodifiableMap(javaClassCache);
-	}
+//	public Map<String, Either<NativeJavaClass, Boolean>> getJavaClassCache() {
+//		return javaClassCache == null ? Map.of() : Collections.unmodifiableMap(javaClassCache);
+//	}
 
 	@Override
 	public boolean isMapLike(Object from) {

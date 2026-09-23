@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.block;
 
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
-import dev.uncandango.kubegroovy.script.bridge.Scriptable;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.state.BlockState;
@@ -96,7 +95,7 @@ public record MapColorHelper(int id, String name, MapColor color, Vector3f rgb) 
 	public static MapColor wrap(Object o) {
 		return switch (o) {
 			case Undefined undefined -> throw new KubeRuntimeException("MapColor cannot be undefined!");
-			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("MapColor cannot be undefined!");
+//			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("MapColor cannot be undefined!");
 			case MapColor c -> c;
 			case CharSequence s when s.toString().isBlank() -> throw new KubeRuntimeException("MapColor string cannot be blank!");
 			case CharSequence s when s.toString().charAt(0) == '#' -> {

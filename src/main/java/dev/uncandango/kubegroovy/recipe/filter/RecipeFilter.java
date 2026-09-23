@@ -9,7 +9,6 @@ import dev.uncandango.kubegroovy.util.ListGY;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeRegExp;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +26,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 			return ConstantFilter.TRUE;
 		} else if (o == ConstantFilter.FALSE) {
 			return ConstantFilter.FALSE;
-		} else if (o instanceof CharSequence || o instanceof NativeRegExp || o instanceof Pattern) {
+		} else if (o instanceof CharSequence || o instanceof Pattern) {
 			String s = o.toString();
 
 			if (s.equals("*")) {
