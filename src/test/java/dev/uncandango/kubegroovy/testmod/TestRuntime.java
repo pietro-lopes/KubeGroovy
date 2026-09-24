@@ -17,6 +17,7 @@ import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.Vec3;
 import org.assertj.core.api.AbstractBooleanAssert;
 import org.assertj.core.api.AbstractDoubleAssert;
+import org.assertj.core.api.AbstractIntegerAssert;
 import org.assertj.core.api.AbstractStringAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.IterableAssert;
@@ -129,6 +130,10 @@ public class TestRuntime {
 	}
 
 	public static AbstractDoubleAssert<?> assertThat(double actual) {
+		return Assertions.assertThat(actual);
+	}
+
+	public static AbstractIntegerAssert<?> assertThat(int actual) {
 		return Assertions.assertThat(actual);
 	}
 

@@ -14,7 +14,7 @@ $ServerEvents.basicPublicCommand('coverage_inventory') { event ->
 		def inventory = event.player.inventory
 		event.player.addTag('kubegroovy_coverage_inventory_target')
 		$TestRuntime.pass('coverage.core.inventory.started')
-		$TestRuntime.assertThat(inventory.getSlots()).isGreaterThan(0d)
+		$TestRuntime.assertThat(inventory.getSlots()).isGreaterThan(0)
 		$TestRuntime.assertThat(inventory.isEmpty()).isTrue()
 
 		def offered = '3x minecraft:diamond' as ItemStack
