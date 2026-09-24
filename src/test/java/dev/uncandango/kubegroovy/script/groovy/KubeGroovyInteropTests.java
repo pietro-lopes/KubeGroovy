@@ -203,6 +203,23 @@ class KubeGroovyInteropTests {
 		assertSame(builder, shell.evaluate("builder.maxStackSize(7)"));
 	}
 
+	@Test
+	void constructorsUseRegisteredTypeWrappers() {
+		var wrappers = new TypeWrappers();
+		wrappers.register(WrappedValue.class, (cx, value, target) -> new WrappedValue(String.valueOf(value)), true);
+		var context = new Context(new ContextFactory() {
+			@Override
+			public TypeWrappers getTypeWrappers() {
+				return wrappers;
+			}
+		});
+
+		var constructed = (ConstructorTarget) ScopedValue.where(Context.CURRENT, context).call(() ->
+			InvokerHelper.invokeConstructorOf(ConstructorTarget.class, new Object[]{"wrapped"}));
+
+		assertEquals("wrapped", constructed.value.value());
+	}
+
 	private static boolean hasCause(Throwable error, Class<? extends Throwable> type) {
 		for (var current = error; current != null; current = current.getCause()) {
 			if (type.isInstance(current)) {
@@ -216,6 +233,14 @@ class KubeGroovyInteropTests {
 	}
 
 	record DirectValue(String value) {
+	}
+
+	static class ConstructorTarget {
+		final WrappedValue value;
+
+		ConstructorTarget(WrappedValue value) {
+			this.value = value;
+		}
 	}
 
 	@RemapPrefixForGY("bridge$")

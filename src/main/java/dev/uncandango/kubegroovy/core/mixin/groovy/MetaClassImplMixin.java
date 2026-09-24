@@ -1,6 +1,8 @@
 package dev.uncandango.kubegroovy.core.mixin.groovy;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
@@ -9,15 +11,18 @@ import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.groovy.AliasGeneratedMethod;
 import dev.uncandango.kubegroovy.script.groovy.ContextGeneratedMethod;
+import dev.uncandango.kubegroovy.script.groovy.TypeWrapperGeneratedConstructor;
 import dev.uncandango.kubegroovy.script.groovy.TypeWrapperGeneratedMethod;
-import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.type.WithTypeInfo;
 import groovy.lang.MetaClassImpl;
+import groovy.lang.MetaClassRegistry;
 import groovy.lang.MetaMethod;
 import groovy.lang.MissingPropertyException;
 import org.codehaus.groovy.reflection.CachedClass;
+import org.codehaus.groovy.reflection.CachedConstructor;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.runtime.metaclass.MetaMethodIndex;
+import org.codehaus.groovy.util.FastArray;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -26,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,6 +54,8 @@ public abstract class MetaClassImplMixin {
 	@Shadow
 	protected abstract void addToAllMethodsIfPublic(MetaMethod metaMethod);
 
+	@Shadow
+	private FastArray constructors;
 	@Unique
 	private final Map<Method, AliasGeneratedMethod> kgy$aliasMethods = new HashMap<>();
 	@Unique
@@ -155,7 +163,78 @@ public abstract class MetaClassImplMixin {
 		}
 	}
 
+//	@WrapOperation(method = "invokeConstructor(Ljava/lang/Class;[Ljava/lang/Object;)Ljava/lang/Object;", at = @At(value = "INVOKE", target = "Lgroovy/lang/MetaClassImpl;chooseMethod(Ljava/lang/String;Ljava/lang/Object;[Ljava/lang/Class;)Ljava/lang/Object;"))
+//	private Object kgy$chooseTypeWrappedConstructorForInvocation(MetaClassImpl instance, String methodName, Object methods, Class<?>[] argumentTypes, Operation<Object> original) {
+//		return kgy$chooseTypeWrappedConstructor(instance, methodName, methods, argumentTypes, original);
+//	}
+//
+//	@WrapOperation(method = "retrieveConstructor([Ljava/lang/Object;)Lgroovy/lang/MetaMethod;", at = @At(value = "INVOKE", target = "Lgroovy/lang/MetaClassImpl;chooseMethod(Ljava/lang/String;Ljava/lang/Object;[Ljava/lang/Class;)Ljava/lang/Object;"))
+//	private Object kgy$chooseTypeWrappedConstructorForIndy(MetaClassImpl instance, String methodName, Object methods, Class<?>[] argumentTypes, Operation<Object> original) {
+//		return kgy$chooseTypeWrappedConstructor(instance, methodName, methods, argumentTypes, original);
+//	}
+
+	@Inject(method = "<init>(Lgroovy/lang/MetaClassRegistry;Ljava/lang/Class;)V", at = @At("TAIL"))
+	private void kgy$injectConstructor(MetaClassRegistry registry, Class<?> theClass, CallbackInfo ci){
+		List<MetaMethod> candidates = new ArrayList<>();;
+		for (var constructor : this.constructors.getArray()) {
+			if (kgy$shouldTypeWrap(((CachedConstructor)constructor).getCachedConstructor(), theClass) && Context.getCurrent() != null){
+				MetaMethod wrapped = new TypeWrapperGeneratedConstructor((CachedConstructor)constructor);
+				candidates.add(wrapped);
+			}
+		}
+		candidates.forEach(this.constructors::add);
+	}
+
 	// ----------------- Helper methods ----------------
+
+//	@Unique
+//	private Object kgy$chooseTypeWrappedConstructor(MetaClassImpl instance, String methodName, Object methods, Class<?>[] argumentTypes, Operation<Object> original) {
+//		var selected = original.call(instance, methodName, methods, argumentTypes);
+//		if (selected != null) {
+//			return selected;
+//		}
+//
+//		var context = Context.getCurrent();
+//		if (context == null) {
+//			return null;
+//		}
+//
+//		var wrappedConstructors = new FastArray();
+//		if (methods instanceof FastArray constructors) {
+//			for (var candidate : constructors.toList()) {
+//				kgy$addTypeWrappedConstructor(wrappedConstructors, candidate, context);
+//			}
+//		} else {
+//			kgy$addTypeWrappedConstructor(wrappedConstructors, methods, context);
+//		}
+//
+//		return wrappedConstructors.isEmpty() ? null : original.call(instance, methodName, wrappedConstructors, argumentTypes);
+//	}
+
+//	@Unique
+//	private static void kgy$addTypeWrappedConstructor(FastArray constructors, Object candidate, Context context) {
+//		if (candidate instanceof CachedConstructor constructor) {
+//			var wrapped = TypeWrapperGeneratedConstructor.create(constructor, context);
+//			if (wrapped != null) {
+//				constructors.add(wrapped);
+//			}
+//		}
+//	}
+
+	@Unique
+	private static boolean kgy$shouldTypeWrap(Constructor<?> method, Class<?> concreteClass) {
+		var context = Context.getCurrent();
+		var typeWrappers = context == null ? null : context.factory.getTypeWrappers();
+		for (var param : WithTypeInfo.generateParamsTypeInfo(method, concreteClass, false)) {
+			if (param.asClass().isArray()) {
+				return true;
+			}
+			if (typeWrappers != null && typeWrappers.hasAnyWrapper(param)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	@Unique
 	private static boolean kgy$shouldTypeWrap(Method method, Class<?> concreteClass) {

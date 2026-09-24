@@ -3,6 +3,7 @@ package dev.uncandango.kubegroovy.script.type;
 import groovy.lang.MetaMethod;
 import org.codehaus.groovy.reflection.CachedMethod;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
 public interface WithTypeInfo {
@@ -41,6 +42,16 @@ public interface WithTypeInfo {
 		} else {
 			return TypeConsolidator.consolidateAll(params, TypeConsolidator.getMapping(declaringClass));
 		}
+	}
 
+	static TypeInfo[] generateParamsTypeInfo(Constructor<?> method, Class<?> declaringClass, boolean removeContext) {
+		var params = TypeInfo.safeOfArray(method::getGenericParameterTypes);
+		if (removeContext) {
+			var noContextArray = new TypeInfo[params.length - 1];
+			System.arraycopy(params, 1, noContextArray, 0, noContextArray.length);
+			return TypeConsolidator.consolidateAll(noContextArray, TypeConsolidator.getMapping(declaringClass));
+		} else {
+			return TypeConsolidator.consolidateAll(params, TypeConsolidator.getMapping(declaringClass));
+		}
 	}
 }

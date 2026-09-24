@@ -142,7 +142,7 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 		return MethodHandles.filterArguments(methodHandle, offset, filters);
 	}
 
-	private static Object gyToJava(Object value, TypeInfo type) {
+	static Object gyToJava(Object value, TypeInfo type) {
 		var context = Context.getCurrent();
 		if (context == null) {
 			context = Context.from(value);
