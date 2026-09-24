@@ -80,10 +80,9 @@ public class KubeGroovyContext extends Context {
 			getConsole().error("Failed to register sided bindings", t);
 		}
 
-		// Mirror bindings into legacy scope map for compat
-//		for (Map.Entry<String, Object> e : ((Map<String, Object>) binding.getVariables()).entrySet()) {
-//			addToScope(topLevelScope, e.getKey(), e.getValue());
-//		}
+		// Publish a value-only snapshot. Typing generation consumes this snapshot
+		// and never replays plugin binding hooks.
+		factory.manager.captureTypingBindings((Map<String, Object>) binding.getVariables());
 	}
 
 	public boolean visibleToScripts(String fullClassName, ClassVisibilityContext type) {

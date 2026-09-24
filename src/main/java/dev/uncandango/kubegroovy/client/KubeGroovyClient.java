@@ -14,6 +14,7 @@ import dev.uncandango.kubegroovy.script.data.ExportablePackResources;
 import dev.uncandango.kubegroovy.script.data.GeneratedDataStage;
 import dev.uncandango.kubegroovy.script.data.VirtualAssetPack;
 import dev.uncandango.kubegroovy.text.tooltip.ItemTooltipData;
+import dev.uncandango.kubegroovy.typing.KubeGroovyTypingGenerator;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
@@ -93,7 +94,7 @@ public class KubeGroovyClient extends KubeGroovyCommon {
 
 	@Override
 	public void generateTypings(CommandSourceStack source) {
-		source.sendSuccess(() -> Component.literal("WIP!"), false);
+		KubeGroovyTypingGenerator.request(source);
 	}
 
 	@Override

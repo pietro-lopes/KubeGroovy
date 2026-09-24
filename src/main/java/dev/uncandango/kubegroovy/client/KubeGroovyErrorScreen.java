@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import static dev.uncandango.kubegroovy.script.ScriptManager.isScriptSource;
+
 @SuppressWarnings("NotNullFieldNotInitialized") // lateinit fields
 public class KubeGroovyErrorScreen extends Screen {
 	public final @Nullable Screen lastScreen;
@@ -337,7 +339,7 @@ public class KubeGroovyErrorScreen extends Screen {
 					int ln = 0;
 
 					for (var sl : line.sourceLines) {
-						if (sl.line() > 0 && sl.source().endsWith(".js")) {
+						if (sl.line() > 0 && isScriptSource(sl.source())) {
 							ln = sl.line();
 							break;
 						}
@@ -415,14 +417,14 @@ public class KubeGroovyErrorScreen extends Screen {
 						throw new IllegalStateException("Error");
 					}
 				} catch (Exception ignored) {
-					if (Files.isRegularFile(path) && !path.getFileName().toString().endsWith(".js")) {
+					if (Files.isRegularFile(path) && !isScriptSource(path.getFileName().toString())) {
 						path = path.getParent();
 					}
 
 					int ln = 1;
 
 					for (var line : line.sourceLines) {
-						if (line.line() > 0 && line.source().endsWith(".js")) {
+						if (line.line() > 0 && isScriptSource(line.source())) {
 							ln = line.line();
 							break;
 						}

@@ -6,6 +6,7 @@ import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
+import dev.uncandango.kubegroovy.typing.TypingBinding;
 import dev.uncandango.kubegroovy.util.LogType;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.web.local.KubeGroovyWeb;
@@ -20,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /// Loads and owns all [script packs][ScriptPack] for one [ScriptType].
@@ -38,16 +40,34 @@ import java.util.Map;
 /// started after load to trigger hot-reloads on file changes.
 @NullUnmarked
 public class ScriptManager {
+	public static final List<String> SUPPORTED_EXTENSIONS = List.of(".groovy", ".gy", ".gvy");
 	public final ScriptType scriptType;
 	public final Map<String, ScriptPack> packs;
 	private final ClassFilter classFilter;
 	public KubeGroovyContextFactory contextFactory;
 	public boolean canListenEvents;
+	private volatile Map<String, TypingBinding> typingBindings = Map.of();
 
 	public ScriptManager(ScriptType t) {
 		scriptType = t;
 		packs = new LinkedHashMap<>();
 		classFilter = KubeGroovyPlugins.createClassFilter(scriptType);
+	}
+
+	/** Immutable descriptors captured during normal binding initialization. */
+	public List<TypingBinding> getTypingBindings() {
+		return List.copyOf(typingBindings.values());
+	}
+
+	public void captureTypingBindings(Map<String, Object> variables) {
+		var snapshot = new LinkedHashMap<String, TypingBinding>();
+		for (var entry : variables.entrySet()) {
+			var descriptor = TypingBinding.describe(entry.getKey(), entry.getValue(), scriptType);
+			if (descriptor != null) {
+				snapshot.put(entry.getKey(), descriptor);
+			}
+		}
+		typingBindings = Map.copyOf(snapshot);
 	}
 
 	public RegistryAccessContainer getRegistries() {
@@ -248,5 +268,9 @@ public class ScriptManager {
 
 	protected void fullReload() {
 		KubeGroovy.PROXY.runInMainThread(this::reload);
+	}
+
+	public static boolean isScriptSource(String name) {
+		return SUPPORTED_EXTENSIONS.stream().anyMatch(name::endsWith);
 	}
 }

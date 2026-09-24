@@ -17,12 +17,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.Predicate;
-
+// TODO: REMOVE THIS CLASS, THIS IS OUTDATED, WE ARE NOT USING CUSTOM METACLASS ANYMORE
 /** Installs the narrow KubeGroovy dispatch bridge used by script call sites. */
 public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.MetaClassCreationHandle {
 	public static final KubeGroovyMetaClassCreationHandle INSTANCE = new KubeGroovyMetaClassCreationHandle();
 
-	private static final Lazy<String[]> INJECTED_TYPES_LAZY = Lazy.of(() -> {
+	public static final Lazy<String[]> INJECTED_TYPES_LAZY = Lazy.of(() -> {
 		var types = List.of(RemapForGY.class.getName(), RemapPrefixForGY.class.getName(), HideFromGY.class.getName());
 		var predicate = Predicates.in(types);
 		var injectedTypes = new HashSet<String>();
@@ -50,6 +50,7 @@ public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.M
 	}
 
 	public static synchronized void install() {
+		// TODO: KEEP THIS HARDCODED UNTIL WE REMOVE THIS CLASS, THIS IS OUTDATED, WE ARE NOT USING CUSTOM METACLASS ANYMORE
 		if (true) { // installed
 			return;
 		}
