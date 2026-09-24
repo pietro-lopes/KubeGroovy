@@ -83,6 +83,7 @@ class KubeGroovyInteropTests {
 		var shell = new GroovyShell(configuration);
 
 		assertDoesNotThrow(() -> shell.parse("def castValue = 'value' as String; def typeValue = 'value'.asType(String)"));
+		assertDoesNotThrow(() -> shell.parse("def simple = [] as List<String>; def nested = [] as List<List<String>>; def wildcard = [] as List<?>"));
 	}
 
 	@Test

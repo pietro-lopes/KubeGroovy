@@ -10,7 +10,7 @@ scripting with sandboxed Apache Groovy scripts.
 - Minecraft: 26.1.2
 - NeoForge: 26.1.2.84
 - Java: toolchain 25
-- Groovy: 6.0.0-beta-3, bundled into the mod jar
+- Groovy: version in `gradle.properties`, bundled into the mod jar
 - Package root: `dev.uncandango.kubegroovy`
 - License: LGPL-3.0
 

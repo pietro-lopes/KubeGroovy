@@ -227,7 +227,9 @@ public final class KubeGroovySandbox {
 	}
 
 	private static void collectClassList(ClassNode type, ListExpression listExpression) {
-		listExpression.addExpression(new ClassExpression(type));
+		// Class literals use the erased type; Groovy 6 rejects List<String>.class.
+		// Keep the generic arguments in the following list for TypeInfo.ofList.
+		listExpression.addExpression(new ClassExpression(type.getPlainNodeReference()));
 		if (type.isUsingGenerics()) {
 			var genericsList = new ListExpression();
 			listExpression.addExpression(genericsList);

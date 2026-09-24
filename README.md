@@ -58,7 +58,7 @@ To add a Gradle dependency on KubeGroovy, add the following to your `build.gradl
 
 ```groovy
 repositories {
-    mavenCentral() // Groovy: org.apache.groovy:groovy:6.0.0-beta-3
+    mavenCentral() // Apache Groovy: org.apache.groovy:groovy
 }
 
 dependencies {

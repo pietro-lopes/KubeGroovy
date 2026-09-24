@@ -75,8 +75,7 @@
 		"groovy.ClosureMixin",
 		"groovy.ConvertedClosureMixin",
 		"groovy.DefaultTypeTransformationMixin",
-		"groovy.MetaClassImplMixin",
-		"groovy.SelectorMixin"
+		"groovy.MetaClassImplMixin"
 	],
 	"client": [
 		"AbstractClientPlayerMixin",
