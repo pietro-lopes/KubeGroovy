@@ -1,1 +1,1 @@
-PlayerEvents.tick { TestRuntime.pass('player.tick') }
+$PlayerEvents.tick { $TestRuntime.pass('player.tick') }

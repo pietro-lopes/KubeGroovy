@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.common.SoundActions
 
 // Fluids, fluid types, sounds, effects, potions, particles, POIs and remaining registries.
-StartupEvents.registry('fluid') { event ->
+$StartupEvents.registry('fluid') { event ->
 	def fluid = event.create('coverage_fluid')
 	fluid.translationKey('fluid.kubegroovy.coverage_fluid').displayName('Coverage Fluid')
 		.tag(['minecraft:water']).tint(0x3366FF)
@@ -47,7 +47,7 @@ StartupEvents.registry('fluid') { event ->
 	event.create('coverage_no_block', 'thick').noBlock()
 }
 
-StartupEvents.registry('neoforge:fluid_type') { event ->
+$StartupEvents.registry('neoforge:fluid_type') { event ->
 	event.create('coverage_standalone_fluid_type')
 		.descriptionId('fluid.kubegroovy.coverage_standalone')
 		.actualStillTexture('kubegroovy:block/generated/standalone_still')
@@ -60,7 +60,7 @@ StartupEvents.registry('neoforge:fluid_type') { event ->
 		.renderType('solid')
 }
 
-StartupEvents.registry('sound_event') { event ->
+$StartupEvents.registry('sound_event') { event ->
 	event.create('coverage_sound').sounds { sound ->
 		sound.replace(false).replace().subtitle('sound.kubegroovy.coverage')
 			.sound('kubegroovy:coverage').sounds('kubegroovy:coverage_a', 'kubegroovy:coverage_b')
@@ -71,7 +71,7 @@ StartupEvents.registry('sound_event') { event ->
 	}
 }
 
-StartupEvents.registry('mob_effect') { event ->
+$StartupEvents.registry('mob_effect') { event ->
 	def effect = event.create('coverage_effect')
 	effect.getTranslationKeyGroup()
 	effect
@@ -81,7 +81,7 @@ StartupEvents.registry('mob_effect') { event ->
 		.color(0x00FF00).instant(false).instant()
 }
 
-StartupEvents.registry('potion') { event ->
+$StartupEvents.registry('potion') { event ->
 	def potion = event.create('coverage_potion')
 	def luck = "luck" as Holder<MobEffect>
 	def instance = new MobEffectInstance("luck", 20)
@@ -92,7 +92,7 @@ StartupEvents.registry('potion') { event ->
 		.effect(luck, 20, 1, true, true, true, null)
 }
 
-StartupEvents.registry('particle_type') { event ->
+$StartupEvents.registry('particle_type') { event ->
 	def angryVillager = ("angry_villager" as Holder<ParticleType<?>>).value()
 	event.create('coverage_particle')
 		.overrideLimiter(true)
@@ -102,35 +102,35 @@ StartupEvents.registry('particle_type') { event ->
 		.texture('kubegroovy:coverage_particle')
 }
 
-StartupEvents.registry('custom_stat') { event -> event.create('coverage_stat') }
+$StartupEvents.registry('custom_stat') { event -> event.create('coverage_stat') }
 
-StartupEvents.registry('point_of_interest_type') { event ->
+$StartupEvents.registry('point_of_interest_type') { event ->
 	def poi = event.create('coverage_poi')
 	poi.blocks(["stone"])
 		.block('minecraft:stone').maxTickets(2).validRange(4)
 }
 
-StartupEvents.registry('villager_type') { event -> event.create('coverage_villager_type') }
+$StartupEvents.registry('villager_type') { event -> event.create('coverage_villager_type') }
 
-StartupEvents.registry('villager_profession') { event ->
+$StartupEvents.registry('villager_profession') { event ->
 	event.create('coverage_profession')
 		.poiType('kubegroovy:coverage_poi').poiTypeTag('minecraft:acquirable_job_site')
 		.requestedItems(['minecraft:emerald']).secondaryPoi(['minecraft:composter'])
 		.workSound('minecraft:block.bell.use')
 }
 
-StartupEvents.registry('creative_mode_tab') { event ->
+$StartupEvents.registry('creative_mode_tab') { event ->
 	event.create('coverage_tab').displayName('Coverage Tab')
 		.icon { 'minecraft:carrot' }
 		.content { showRestrictedItems -> ['minecraft:dirt', 'minecraft:stone'] }
 }
 
-StartupEvents.registry('jukebox_song') { event ->
+$StartupEvents.registry('jukebox_song') { event ->
 	event.create('coverage_song').song('minecraft:music_disc.13', 120)
 		.description('Coverage Song').comparatorOutput(7)
 }
 
-StartupEvents.registry('attribute') { event ->
+$StartupEvents.registry('attribute') { event ->
 	event.create('coverage_range_attribute' as KubeIdentifier).range(4.0, 0.0, 10.0).syncable(false)
 		.sentiment('positive').negativeSentiment().neutralSentiment()
 		.attachTo { entityType -> true }.attachToPlayers().attachToMonsters().attachToCategory('monster')

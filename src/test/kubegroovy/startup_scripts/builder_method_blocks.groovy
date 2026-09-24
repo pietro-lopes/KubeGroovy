@@ -2,7 +2,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.WoodType
 
 // Base block methods, callback setters, crop shape helpers, and subtype methods.
-StartupEvents.registry('block') { event ->
+$StartupEvents.registry('block') { event ->
 	def base = event.create('coverage_block')
 	base.translationKey('block.kubegroovy.coverage_block')
 		.displayName('Coverage Block').formattedDisplayName('Coverage Formatted Block').formattedDisplayName()
@@ -36,7 +36,7 @@ StartupEvents.registry('block') { event ->
 		.fallenOn { context -> }
 		.bounciness(0.5f).afterFallenOn { context -> }
 		.exploded { context -> }
-		.property(BlockProperties.LIT) // using the binding
+		.property($BlockProperties.LIT) // using the binding
 		.rotateState { context -> }
 		.mirrorState { context -> }
 		.rightClick { context -> }

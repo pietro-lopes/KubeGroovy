@@ -30,8 +30,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-/// Bound into scripts as {@code TestRuntime} so a script can report a passing condition back to
-/// the game test that drives it, e.g. {@code TestRuntime.pass('block.break.dirt')}.
+/// Bound into scripts as {@code $TestRuntime} so a script can report a passing condition back to
+/// the game test that drives it, e.g. {@code $TestRuntime.pass('block.break.dirt')}.
 ///
 /// Markers are counted (so a test can assert an event fired once or repeatedly) and stored in
 /// concurrent collections because {@link #pass} runs on the server thread as events fire while the
@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 /// (e.g. {@code BlockEvents.modification}) use {@link #passStartup} so they survive other tests' clears.
 ///
 /// A script can also assert on the event object with AssertJ via {@link #assertThat}, wrapped in a
-/// {@link #check} block, e.g. {@code TestRuntime.check('block.broken', () => assertThat(event.block).hasId('minecraft:dirt'))}.
+/// {@link #check} block, e.g. {@code $TestRuntime.check('block.broken', () => assertThat(event.block).hasId('minecraft:dirt'))}.
 /// The event dispatcher swallows exceptions thrown by a handler, so {@link #check} captures any failure
 /// under the marker and {@link #verify} re-throws it on the game-test thread with AssertJ's message.
 public class TestRuntime {

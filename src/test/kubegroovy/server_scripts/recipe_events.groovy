@@ -12,8 +12,8 @@ def stackOf = { value, count = 1 ->
 def ingredientOf = { value -> value as net.minecraft.world.item.crafting.Ingredient }
 def sizedIngredientOf = { value -> value as SizedIngredient }
 
-ServerEvents.recipes { event ->
-	TestRuntime.check('recipes.wiki') {
+$ServerEvents.recipes { event ->
+	$TestRuntime.check('recipes.wiki') {
 		event.shaped(stackOf('minecraft:stone', 3), ['A B', ' C ', 'B A'], [A: ingredientOf('minecraft:andesite'), B: ingredientOf('minecraft:diorite'), C: ingredientOf('minecraft:granite')])
 			.id('kubegroovy:wiki_shaped' as KubeIdentifier)
 		event.shapeless(stackOf('minecraft:dandelion', 3), [sizedIngredientOf('minecraft:bone_meal'), sizedIngredientOf('minecraft:yellow_dye'), sizedIngredientOf('3x minecraft:ender_pearl')])

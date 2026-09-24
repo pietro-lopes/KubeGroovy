@@ -16,8 +16,11 @@ Scripts live in the `kubegroovy/` game directory:
 
 Events are posted to Groovy closures, e.g.:
 
+KubeGroovy script bindings use a `$` prefix, so imported classes keep their
+unprefixed names.
+
 ```groovy
-ServerEvents.recipes { event ->
+$ServerEvents.recipes { event ->
     event.shaped('minecraft:diamond', ['AAA', 'AAA', 'AAA']) {
         key('A', 'minecraft:dirt')
     }
@@ -31,7 +34,7 @@ an explicit cast, so the conversion is visible at the call site:
 ```groovy
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
 
-ItemEvents.modification { event ->
+$ItemEvents.modification { event ->
     event.modify('minecraft:ender_pearl' as RegistryPredicate) { item ->
         item.maxStackSize = 64
     }

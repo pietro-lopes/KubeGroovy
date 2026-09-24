@@ -17,9 +17,9 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding) {
 	public void add(String name, Object value) {
 		if (value != null) {
 			try {
-				binding.setVariable(name, value);
+				binding.setVariable("$" + name, value);
 			} catch (Exception e) {
-				binding.setVariable(name, value);
+				binding.setVariable("$" + name, value);
 			}
 		}
 	}

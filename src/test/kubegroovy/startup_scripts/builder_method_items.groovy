@@ -10,7 +10,7 @@ import dev.uncandango.kubegroovy.item.MutableToolTier
 import dev.uncandango.kubegroovy.item.custom.ShearsItemBuilder
 
 // Every public item/food/behavior method has a direct DSL call in this fixture.
-StartupEvents.registry('item') { event ->
+$StartupEvents.registry('item') { event ->
 	def item = event.create('coverage_item')
 	item.translationKey('item.kubegroovy.coverage_item')
 		.displayName('Coverage Item').formattedDisplayName('Coverage Formatted').formattedDisplayName()
