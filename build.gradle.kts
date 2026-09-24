@@ -64,6 +64,8 @@ val batVersion: String by project
 
 println("Building version: ${project.version}")
 
+val gametestClientRunDir = layout.buildDirectory.dir("tmp/gametestRuns/gametestClient")
+
 neoForge {
 	interfaceInjectionData {
 		from(file("interfaces.json"))
@@ -73,6 +75,17 @@ neoForge {
 		configureEach {
 			jvmArgument("-XX:+IgnoreUnrecognizedVMOptions")
 			jvmArgument("-XX:+AllowEnhancedClassRedefinition")
+		}
+
+		// Interactive client runner; start the test mod's GameTests from an integrated world with /test run testmod:*.
+		create("gametestClient") {
+			client()
+			ideName = "GameTest Client"
+			gameDirectory = gametestClientRunDir.get().asFile
+			sourceSet = sourceSets["test"]
+			programArguments.addAll("--width", "1920", "--height", "1080")
+			systemProperty("neoforge.enableGameTest", "true")
+			systemProperty("neoforge.enabledGameTestNamespaces", "testmod")
 		}
 	}
 }
@@ -174,9 +187,22 @@ val copyGameTestScripts by tasks.registering(Sync::class) {
 	into(layout.buildDirectory.dir("tmp/gametestRuns/gametest/kubegroovy"))
 }
 
+val copyGameTestClientScripts by tasks.registering(Sync::class) {
+	mustRunAfter("prepareGametestClientRun")
+	from(layout.projectDirectory.dir("src/test/kubegroovy"))
+	into(gametestClientRunDir.map { it.dir("kubegroovy") })
+}
+
 tasks.matching { it.name == "runGametest" }.configureEach {
 	outputs.upToDateWhen { false }
 	dependsOn(copyGameTestScripts)
+}
+
+tasks.matching { it.name == "runGametestClient" }.configureEach {
+	group = "mod development"
+	description = "Launches a GameTest-enabled client with the test mod; run /test run testmod:* in an integrated world."
+	outputs.upToDateWhen { false }
+	dependsOn(copyGameTestClientScripts)
 }
 
 // Keep one merged local coverage report for the unit-test and game-test JVMs.
@@ -187,7 +213,9 @@ val coverageExcludes = listOf(
 
 jacoco {
 	toolVersion = "0.8.15"
-	applyTo(tasks.withType<JavaExec>().matching { it.name == "runGametest" })
+	applyTo(tasks.withType<JavaExec>().matching {
+		it.name == "runGametest" || it.name == "runGametestClient"
+	})
 }
 
 val coverageRequested = gradle.startParameter.taskNames.any {
@@ -204,7 +232,9 @@ tasks.named<Test>("test") {
 	}
 }
 
-tasks.withType<JavaExec>().matching { it.name == "runGametest" }.configureEach {
+tasks.withType<JavaExec>().matching {
+	it.name == "runGametest" || it.name == "runGametestClient"
+}.configureEach {
 	mustRunAfter("test")
 	if (coverageRequested) {
 		outputs.upToDateWhen { false }
@@ -224,7 +254,7 @@ val coverageReport by tasks.registering(JacocoReport::class) {
 		exclude(coverageExcludes)
 	})
 	executionData(fileTree(layout.buildDirectory) {
-		include("jacoco/test.exec", "jacoco/runGametest.exec")
+		include("jacoco/test.exec", "jacoco/runGametest.exec", "jacoco/runGametestClient.exec")
 	})
 	reports {
 		html.required = true
