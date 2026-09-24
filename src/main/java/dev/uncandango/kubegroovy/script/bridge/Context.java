@@ -122,6 +122,9 @@ public class Context {
 		}
 
 		Object unwrappedValue = Wrapper.unwrapped(from);
+		if (unwrappedValue == null) {
+			return null;
+		}
 
 		if (target.asClass().isInterface()){
 			if (target.asClass().isAssignableFrom(unwrappedValue.getClass())) {

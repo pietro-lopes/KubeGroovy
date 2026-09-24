@@ -49,6 +49,10 @@ public interface BlockStateKGY extends RegistryObjectKGY<Block>, Replaceable {
 		return ((BlockBehaviour.BlockStateBase) this).getBlock().kgy$getId();
 	}
 
+	default boolean kgy$is(Block block) {
+		return ((BlockBehaviour.BlockStateBase) this).getBlock() == block;
+	}
+
 	default void kgy$setDestroySpeed(float v) {
 		throw new NoMixinException();
 	}

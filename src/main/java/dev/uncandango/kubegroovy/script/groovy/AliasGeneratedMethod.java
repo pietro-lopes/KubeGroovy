@@ -18,6 +18,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 // TODO: try to implement class generation like DMG does
 public class AliasGeneratedMethod extends GeneratedMetaMethod implements WithTypeInfo {
@@ -36,6 +37,9 @@ public class AliasGeneratedMethod extends GeneratedMetaMethod implements WithTyp
 		this.mhSupplier = Lazy.of(() -> {
 			try {
 				var lookup = MethodHandles.privateLookupIn(cachedClass.getTheClass(), KubeGroovy.LOOKUP);
+				if (Modifier.isStatic(cachedMethod.getModifiers())) {
+					return MethodHandles.dropArguments(lookup.unreflect(cachedMethod), 0, Object.class);
+				}
 				if (!lookup.hasFullPrivilegeAccess()) {
 					return lookup.unreflect(cachedMethod);
 				}

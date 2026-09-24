@@ -1,50 +1,51 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
 
-import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.error.MissingContextException;
-import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.type.TypeConsolidator;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.type.WithTypeInfo;
 import groovy.lang.MetaMethod;
-import groovy.lang.MissingMethodException;
 import net.neoforged.neoforge.common.util.Lazy;
 import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.reflection.GeneratedMetaMethod;
-import org.codehaus.groovy.reflection.ReflectionUtils;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.MetaClassHelper;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.function.Predicate;
 
 // TODO: try to implement class generation like DMG does
 public class ContextGeneratedMethod extends GeneratedMetaMethod implements WithTypeInfo {
 	private final MetaMethod delegate;
 	private final TypeInfo[] paramsTypeInfo;
 	private final TypeInfo returnTypeInfo;
-	private final Context cx;
+	private static final MethodHandle CURRENT_CONTEXT;
 	// TODO: NOT OPTIMAL, NEED TO BE AT STATIC FINAL, CONSIDERING CLASS GEN
 	private final Lazy<MethodHandle> mhSupplier;
 
-	public ContextGeneratedMethod(MetaMethod delegate) {
+	static {
+		try {
+			CURRENT_CONTEXT = MethodHandles.lookup().findStatic(ContextGeneratedMethod.class, "requireContext", MethodType.methodType(Context.class));
+		} catch (ReflectiveOperationException e) {
+			throw new ExceptionInInitializerError(e);
+		}
+	}
+
+	public ContextGeneratedMethod(MetaMethod delegate, Class<?> concreteClass) {
 		super(delegate.getName(), delegate.getDeclaringClass(), delegate.getReturnType(), removeContext(Arrays.stream(delegate.getParameterTypes()).map(CachedClass::getTheClass).toArray(Class[]::new)));
-		this.cx = Context.getCurrent();
-		if (cx == null) throw new MissingContextException();
-		this.paramsTypeInfo = delegate instanceof WithTypeInfo wti ? wti.getParamsTypeInfo() : WithTypeInfo.generateParamsTypeInfo(delegate, delegate.getDeclaringClass().getTheClass());
-		this.returnTypeInfo = delegate instanceof WithTypeInfo wti ? wti.getReturnTypeInfo() : WithTypeInfo.generateReturnTypeInfo(delegate, delegate.getDeclaringClass().getTheClass());
+		this.paramsTypeInfo = delegate instanceof WithTypeInfo wti ? removeContext(wti.getParamsTypeInfo()) : WithTypeInfo.generateParamsTypeInfo(delegate, concreteClass);
+		this.returnTypeInfo = delegate instanceof WithTypeInfo wti ? wti.getReturnTypeInfo() : WithTypeInfo.generateReturnTypeInfo(delegate, concreteClass);
 		this.delegate = delegate;
 		this.mhSupplier = Lazy.of(() -> {
 			MethodHandle mh = null;
 			if (delegate instanceof CachedMethod cm) {
-				mh = getMethodHandle(getDeclaringClass().getTheClass(), cm.getCachedMethod());
+				mh = getMethodHandle(concreteClass, cm.getCachedMethod());
 			}
 			if (delegate instanceof GeneratedMetaMethod gmm) {
 				mh = gmm.getTargetMethodHandle();
@@ -56,7 +57,9 @@ public class ContextGeneratedMethod extends GeneratedMetaMethod implements WithT
 			var count = mh.type().parameterCount();
 			for (int i = 0; i < count; i++) {
 				if (Context.class.isAssignableFrom(params[i])) {
-					mh = MethodHandles.insertArguments(mh, i, (KubeGroovyContext) this.cx);
+					var contextSupplier = CURRENT_CONTEXT.asType(MethodType.methodType(params[i]));
+					mh = MethodHandles.collectArguments(mh, i, contextSupplier);
+					break;
 				}
 			}
 			return mh;
@@ -76,6 +79,9 @@ public class ContextGeneratedMethod extends GeneratedMetaMethod implements WithT
 	private MethodHandle getMethodHandle(Class<?> clazz, Method method) {
 		try {
 			var lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
+			if (Modifier.isStatic(method.getModifiers())) {
+				return MethodHandles.dropArguments(lookup.unreflect(method), 0, Object.class);
+			}
 			if (!lookup.hasFullPrivilegeAccess()) {
 				return lookup.unreflect(method);
 			}
@@ -110,9 +116,24 @@ public class ContextGeneratedMethod extends GeneratedMetaMethod implements WithT
 
 	private Object[] injectContext(Object[] arguments) {
 		var newArray = new Object[arguments.length + 1];
-		newArray[0] = cx;
+		newArray[0] = requireContext();
 		System.arraycopy(arguments, 0, newArray, 1, arguments.length);
 		return newArray;
+	}
+
+	private static TypeInfo[] removeContext(TypeInfo[] arguments) {
+		if (arguments.length == 0 || !Context.class.isAssignableFrom(arguments[0].asClass())) {
+			return arguments;
+		}
+		return Arrays.copyOfRange(arguments, 1, arguments.length);
+	}
+
+	private static Context requireContext() {
+		var context = Context.getCurrent();
+		if (context == null) {
+			throw new MissingContextException();
+		}
+		return context;
 	}
 
 	private Object normalizeBoxedReturn(final Object value) {

@@ -84,7 +84,7 @@ StartupEvents.registry('mob_effect') { event ->
 StartupEvents.registry('potion') { event ->
 	def potion = event.create('coverage_potion')
 	def luck = "luck" as Holder<MobEffect>
-	def instance = new MobEffectInstance(luck, 20)
+	def instance = new MobEffectInstance("luck", 20)
 	potion.addEffect(instance)
 		.effect(luck).effect(luck, 20).effect(luck, 20, 1)
 		.effect(luck, 20, 1, true, false)

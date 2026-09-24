@@ -2,6 +2,7 @@ package dev.uncandango.kubegroovy.core.mixin.groovy;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
+import dev.uncandango.kubegroovy.registry.BuilderBase;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
@@ -10,8 +11,10 @@ import dev.uncandango.kubegroovy.script.groovy.AliasGeneratedMethod;
 import dev.uncandango.kubegroovy.script.groovy.ContextGeneratedMethod;
 import dev.uncandango.kubegroovy.script.groovy.TypeWrapperGeneratedMethod;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import dev.uncandango.kubegroovy.script.type.WithTypeInfo;
 import groovy.lang.MetaClassImpl;
 import groovy.lang.MetaMethod;
+import groovy.lang.MissingPropertyException;
 import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.runtime.metaclass.MetaMethodIndex;
@@ -25,7 +28,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,32 +72,32 @@ public abstract class MetaClassImplMixin {
 	@Inject(method = "addMetaMethodToIndex", at = @At(value = "HEAD"))
 	private void addAliasMethodToIndex(MetaMethod method, Map<String, MetaMethodIndex.Cache> cacheIndex, CallbackInfo ci) {
 		if (method instanceof CachedMethod cm) {
-			var shouldWrap = kgy$shouldWrap.computeIfAbsent(cm.getCachedMethod(), MetaClassImplMixin::kgy$shouldTypeWrap);
+			var shouldWrap = kgy$shouldWrap.computeIfAbsent(cm.getCachedMethod(), reflectedMethod -> kgy$shouldTypeWrap(reflectedMethod, theCachedClass.getTheClass()));
 			var alias = kgy$aliasRemapping.computeIfAbsent(cm.getCachedMethod(), MetaClassImplMixin::kgy$remappedAliases) ;
 			alias.forEach(entry -> {
 				var aliasMethod = kgy$aliasMethods.computeIfAbsent(cm.getCachedMethod(), key -> new AliasGeneratedMethod(entry.name(), cm.getCachedMethod(), theCachedClass));
 				if (kgy$hasContextPrefix(cm.getCachedMethod())) {
-					var contextMethod = new ContextGeneratedMethod(aliasMethod);
+					var contextMethod = new ContextGeneratedMethod(aliasMethod, theCachedClass.getTheClass());
 					if (shouldWrap) {
-						var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod);
+						var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod, theCachedClass.getTheClass());
 						metaMethodIndex.addMetaMethod(typeWrapperMethod, cacheIndex);
 					}
 					metaMethodIndex.addMetaMethod(contextMethod, cacheIndex);
 				} else if (shouldWrap) {
-					var typeWrapperMethod = new TypeWrapperGeneratedMethod(aliasMethod);
+					var typeWrapperMethod = new TypeWrapperGeneratedMethod(aliasMethod, theCachedClass.getTheClass());
 					metaMethodIndex.addMetaMethod(typeWrapperMethod, cacheIndex);
 				}
 				metaMethodIndex.addMetaMethod(aliasMethod, cacheIndex);
 			});
 			if (kgy$hasContextPrefix(cm.getCachedMethod())) {
-				var contextMethod = new ContextGeneratedMethod(cm);
+				var contextMethod = new ContextGeneratedMethod(cm, theCachedClass.getTheClass());
 				if (shouldWrap) {
-					var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod);
+					var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod, theCachedClass.getTheClass());
 					metaMethodIndex.addMetaMethod(typeWrapperMethod, cacheIndex);
 				}
 				metaMethodIndex.addMetaMethod(contextMethod, cacheIndex);
 			} else if (shouldWrap) {
-				var typeWrapperMethod = new TypeWrapperGeneratedMethod(cm);
+				var typeWrapperMethod = new TypeWrapperGeneratedMethod(cm, theCachedClass.getTheClass());
 				metaMethodIndex.addMetaMethod(typeWrapperMethod, cacheIndex);
 			}
 		}
@@ -106,18 +108,18 @@ public abstract class MetaClassImplMixin {
 		var alias = kgy$aliasRemapping.computeIfAbsent(m.getCachedMethod(), MetaClassImplMixin::kgy$remappedAliases);
 		alias.forEach(entry -> {
 			if (isValidAccessorName(entry.name())) {
-				var shouldWrap = kgy$shouldWrap.computeIfAbsent(m.getCachedMethod(), MetaClassImplMixin::kgy$shouldTypeWrap);
+				var shouldWrap = kgy$shouldWrap.computeIfAbsent(m.getCachedMethod(), method -> kgy$shouldTypeWrap(method, theCachedClass.getTheClass()));
 				var aliasMethod = kgy$aliasMethods.computeIfAbsent(m.getCachedMethod(), key -> new AliasGeneratedMethod(entry.name(), m.getCachedMethod(), theCachedClass));
 				if (kgy$hasContextPrefix(m.getCachedMethod())) {
-					var contextMethod = new ContextGeneratedMethod(aliasMethod);
+					var contextMethod = new ContextGeneratedMethod(aliasMethod, theCachedClass.getTheClass());
 					if (shouldWrap) {
-						var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod);
+						var typeWrapperMethod = new TypeWrapperGeneratedMethod(contextMethod, theCachedClass.getTheClass());
 						metaMethodIndex.addMetaMethod(typeWrapperMethod, metaMethodIndex.indexMap.computeIfAbsent(c.getTheClass(), k -> new HashMap<>()));
 					}
 					metaMethodIndex.addMetaMethod(contextMethod, metaMethodIndex.indexMap.computeIfAbsent(c.getTheClass(), k -> new HashMap<>()));
 				} else {
 					if (shouldWrap) {
-						var typeWrapperMethod = new TypeWrapperGeneratedMethod(aliasMethod);
+						var typeWrapperMethod = new TypeWrapperGeneratedMethod(aliasMethod, theCachedClass.getTheClass());
 						metaMethodIndex.addMetaMethod(typeWrapperMethod, metaMethodIndex.indexMap.computeIfAbsent(c.getTheClass(), k -> new HashMap<>()));
 					}
 				}
@@ -143,35 +145,49 @@ public abstract class MetaClassImplMixin {
 	private void clearUpMethods(CallbackInfo ci) {
 		kgy$aliasMethods.clear();
 		kgy$aliasRemapping.clear();
+		kgy$shouldWrap.clear();
+	}
+
+	@Inject(method = "setProperty(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;ZZ)V", at = @At("HEAD"))
+	private void preventBuilderFieldAssignment(Class<?> sender, Object object, String property, Object newValue, boolean useSuper, boolean fromInsideClass, CallbackInfo ci) {
+		if (object instanceof BuilderBase<?> && kgy$isBuilderStateField(object.getClass(), property)) {
+			throw new MissingPropertyException(property, object.getClass());
+		}
 	}
 
 	// ----------------- Helper methods ----------------
 
 	@Unique
-	private static boolean kgy$shouldTypeWrap(Method method) {
-		var params = method.getParameterTypes();
-		try {
-			var typeWrapper = Context.getCurrent().factory.getTypeWrappers();
-			for (var param : params) {
-				if (param.isArray()){
-					return true; // TODO: remove me, was just testing some shit
-//					if (typeWrapper.hasAnyWrapper(TypeInfo.of(param.getComponentType()))) {
-//						return true;
-//					}
-				}
-				if (typeWrapper.hasAnyWrapper(TypeInfo.of(param))) {
-					return true;
-				}
+	private static boolean kgy$shouldTypeWrap(Method method, Class<?> concreteClass) {
+		var context = Context.getCurrent();
+		var typeWrappers = context == null ? null : context.factory.getTypeWrappers();
+		for (var param : WithTypeInfo.generateParamsTypeInfo(method, concreteClass, false)) {
+			if (param.asClass().isArray()) {
+				return true;
 			}
-			return false;
-		} catch (NullPointerException e) {
-			return false;
+			if (typeWrappers != null && typeWrappers.hasAnyWrapper(param)) {
+				return true;
+			}
 		}
+		return false;
 	}
 
 	@Unique
 	private static boolean kgy$hasContextPrefix(Method method) {
 		return method.getParameterCount() > 0 && Context.class.isAssignableFrom(method.getParameterTypes()[0]);
+	}
+
+	@Unique
+	private static boolean kgy$isBuilderStateField(Class<?> type, String property) {
+		for (var current = type; current != null && BuilderBase.class.isAssignableFrom(current); current = current.getSuperclass()) {
+			try {
+				var field = current.getDeclaredField(property);
+				return !java.lang.reflect.Modifier.isStatic(field.getModifiers());
+			} catch (NoSuchFieldException ignored) {
+				// Continue through the builder hierarchy.
+			}
+		}
+		return false;
 	}
 
 	@Unique

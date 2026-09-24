@@ -146,6 +146,11 @@ public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 			}
 		}
 
+		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(key);
+		if (builderFunction != null) {
+			return builderFunction;
+		}
+
 		throw new MissingComponentException(key, null, valueMap.keySet()).source(sourceLine);
 	}
 

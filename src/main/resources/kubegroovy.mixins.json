@@ -72,6 +72,7 @@
 		"UtilMixin",
 		"WorldLoaderMixin",
 		"WorldLoaderPackConfigMixin",
+		"groovy.ClosureMixin",
 		"groovy.ConvertedClosureMixin",
 		"groovy.DefaultTypeTransformationMixin",
 		"groovy.MetaClassImplMixin",
