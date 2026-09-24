@@ -181,6 +181,9 @@ tasks.matching { it.name == "runGametest" }.configureEach {
 
 // Keep one merged local coverage report for the unit-test and game-test JVMs.
 val coverageIncludes = listOf("dev.uncandango.kubegroovy.*")
+val coverageExcludes = listOf(
+	"dev/uncandango/kubegroovy/core/mixin/**",
+)
 
 jacoco {
 	toolVersion = "0.8.15"
@@ -217,6 +220,9 @@ val coverageReport by tasks.registering(JacocoReport::class) {
 	description = "Merges coverage from the JUnit and game-test JVMs."
 	dependsOn("test", "runGametest")
 	sourceSets(sourceSets["main"])
+	classDirectories.setFrom(sourceSets["main"].output.asFileTree.matching {
+		exclude(coverageExcludes)
+	})
 	executionData(fileTree(layout.buildDirectory) {
 		include("jacoco/test.exec", "jacoco/runGametest.exec")
 	})
