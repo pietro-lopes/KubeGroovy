@@ -32,7 +32,8 @@ public interface AABBWrapper {
 		return AABB.ofSize(vec3, x, y, z);
 	}
 
-	static AABB wrap(Context cx, @Nullable Object o) {
+	static AABB wrap(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> EMPTY;
 			case AABB aabb -> aabb;
@@ -41,9 +42,9 @@ public interface AABBWrapper {
 				case 0 -> EMPTY;
 				case 3 -> ofSize(d[0], d[1], d[2]);
 				case 6 -> of(d[0], d[1], d[2], d[3], d[4], d[5]);
-				default -> throw new KubeRuntimeException("AABB list needs to either have 3 (size) or 6 (from -> to) elements, got %d!".formatted(d.length)).source(SourceLine.of(cx));
+				default -> throw new KubeRuntimeException("AABB list needs to either have 3 (size) or 6 (from -> to) elements, got %d!".formatted(d.length)).source(SourceLine.of());
 			};
-			default -> throw new KubeRuntimeException("Cannot convert %s to AABB!".formatted(o)).source(SourceLine.of(cx));
+			default -> throw new KubeRuntimeException("Cannot convert %s to AABB!".formatted(o)).source(SourceLine.of());
 		};
 	}
 }

@@ -31,13 +31,15 @@ public interface SizedIngredientWrapper {
 	@DoNotCall
 	@Deprecated(forRemoval = true)
 	@Info("Empty ingredients are no longer supported. Do not call!")
-	static Object getEmpty(Context cx) {
-		return EMPTY_INGREDIENT.getOrThrow(str -> new KubeRuntimeException(str).source(SourceLine.of(cx)));
+	static Object getEmpty() {
+		var cx = Context.getCurrent();
+		return EMPTY_INGREDIENT.getOrThrow(str -> new KubeRuntimeException(str).source(SourceLine.of()));
 	}
 
 	@Info("An ingredient that matches everything")
-	static SizedIngredient getAll(Context cx) {
-		return new SizedIngredient(IngredientWrapper.getAll(cx), 1);
+	static SizedIngredient getAll() {
+		var cx = Context.getCurrent();
+		return new SizedIngredient(IngredientWrapper.getAll(), 1);
 	}
 
 	@Info("Returns a sized ingredient of the input")
@@ -50,8 +52,9 @@ public interface SizedIngredientWrapper {
 		return new SizedIngredient(ingredient, count);
 	}
 
-	static SizedIngredient ofTag(Context cx, TagKey<Item> tag, int count) {
-		HolderSet<Item> set = RegistryAccessContainer.of(cx).getOrThrow(tag);
+	static SizedIngredient ofTag(TagKey<Item> tag, int count) {
+		var cx = Context.getCurrent();
+		HolderSet<Item> set = RegistryAccessContainer.of().getOrThrow(tag);
 		return new SizedIngredient(Ingredient.of(set), count);
 	}
 
@@ -68,7 +71,8 @@ public interface SizedIngredientWrapper {
 	}
 
 	@HideFromGY
-	static DataResult<SizedIngredient> wrapResult(Context cx, Object from) {
+	static DataResult<SizedIngredient> wrapResult(Object from) {
+		var cx = Context.getCurrent();
 		var trivial = wrapTrivial(cx, from);
 		if (trivial != null) {
 			return DataResult.success(trivial);
@@ -76,29 +80,31 @@ public interface SizedIngredientWrapper {
 
 		if (from instanceof CharSequence) {
 			try {
-				return read(cx, new StringReader(from.toString()));
+				return read(new StringReader(from.toString()));
 			} catch (Exception ex) {
 				return DataResult.error(() -> "Error parsing sized ingredient: " + ex);
 			}
 		}
 
-		return IngredientWrapper.wrapResult(cx, from).map(IngredientKGY::kgy$asStack);
+		return IngredientWrapper.wrapResult(from).map(IngredientKGY::kgy$asStack);
 	}
 
 	@HideFromGY
-	static SizedIngredient wrap(Context cx, Object from) {
+	static SizedIngredient wrap(Object from) {
+		var cx = Context.getCurrent();
 		var trivial = wrapTrivial(cx, from);
 		if (trivial != null) {
 			return trivial;
 		}
 
-		return wrapResult(cx, from)
+		return wrapResult(from)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read ingredient from %s: %s".formatted(from, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	@HideFromGY
-	static DataResult<SizedIngredient> read(Context cx, StringReader reader) throws CommandSyntaxException {
+	static DataResult<SizedIngredient> read(StringReader reader) throws CommandSyntaxException {
+		var cx = Context.getCurrent();
 		int count;
 
 		if (StringReader.isAllowedNumber(reader.peek())) {
@@ -115,6 +121,6 @@ public interface SizedIngredientWrapper {
 			count = 1;
 		}
 
-		return IngredientWrapper.read(cx, reader).map(ingredient -> ingredient.kgy$withCount(count));
+		return IngredientWrapper.read(reader).map(ingredient -> ingredient.kgy$withCount(count));
 	}
 }

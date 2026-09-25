@@ -31,7 +31,8 @@ public interface UUIDWrapper {
 	}
 
 	@Nullable
-	static UUID fromString(Context cx, @Nullable Object o) {
+	static UUID fromString(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		if (o instanceof UUID) {
 			return (UUID) o;
 		} else if (o == null) {
@@ -41,7 +42,7 @@ public interface UUIDWrapper {
 		String s = String.valueOf(o);
 
 		if (!(s.length() == 32 || s.length() == 36)) {
-			throw new KubeRuntimeException("UUID string must be 32 or 36 characters long, got '%s'".formatted(s)).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("UUID string must be 32 or 36 characters long, got '%s'".formatted(s)).source(SourceLine.of());
 		}
 
 		try {
@@ -60,7 +61,7 @@ public interface UUIDWrapper {
 
 			return UUID.fromString(sb.toString());
 		} catch (Exception e) {
-			throw new KubeRuntimeException("Invalid UUID string '%s'".formatted(s), e).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("Invalid UUID string '%s'".formatted(s), e).source(SourceLine.of());
 		}
 	}
 }

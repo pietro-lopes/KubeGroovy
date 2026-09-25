@@ -49,23 +49,24 @@ public class SoundTypeWrapper implements TypeWrapperFactory<SoundType> {
 	}
 
 	@Override
-	public SoundType wrap(Context cx, Object o, TypeInfo target) {
+	public SoundType wrap(Object o, TypeInfo target) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case SoundType t -> t;
-			case null -> throw new KubeRuntimeException("SoundType cannot be null!").source(SourceLine.of(cx));
-			case Undefined u -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of(cx));
+			case null -> throw new KubeRuntimeException("SoundType cannot be null!").source(SourceLine.of());
+			case Undefined u -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of());
 //			case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot wrap undefined as SoundType!").source(SourceLine.of(cx));
-			case JsonPrimitive j -> wrap(cx, j.getAsString(), target);
-			case Identifier id -> wrap(cx, id.toString(), target);
+			case JsonPrimitive j -> wrap(j.getAsString(), target);
+			case Identifier id -> wrap(id.toString(), target);
 			case CharSequence cs -> {
 				var soundType = getMap().get(cs.toString());
 				if (soundType != null) {
 					yield soundType;
 				}
 
-				throw new KubeRuntimeException("Unknown SoundType '%s'".formatted(o)).source(SourceLine.of(cx));
+				throw new KubeRuntimeException("Unknown SoundType '%s'".formatted(o)).source(SourceLine.of());
 			}
-			default -> ((WrappedSoundType) WrappedSoundType.TYPE_INFO.wrap(cx, o, target)).toSoundType();
+			default -> ((WrappedSoundType) WrappedSoundType.TYPE_INFO.wrap(o, target)).toSoundType();
 		};
 	}
 

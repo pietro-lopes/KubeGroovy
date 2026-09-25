@@ -10,7 +10,8 @@ import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 
 public record MapCodecTypeWrapper<T>(Class<T> target, MapCodec<T> codec, T defaultValue) implements TypeWrapperFactory<T> {
 	@Override
-	public T wrap(Context cx, Object o, TypeInfo target) {
+	public T wrap(Object o, TypeInfo target) {
+		var cx = Context.getCurrent();
 		o = Wrapper.unwrapped(o);
 
 		if (o == null) {
@@ -18,7 +19,7 @@ public record MapCodecTypeWrapper<T>(Class<T> target, MapCodec<T> codec, T defau
 		} else if (target.asClass().isInstance(o)) {
 			return Cast.to(o);
 		} else {
-			return RegistryAccessContainer.of(cx).decodeMap(cx, codec, o);
+			return RegistryAccessContainer.of().decodeMap(codec, o);
 		}
 	}
 }

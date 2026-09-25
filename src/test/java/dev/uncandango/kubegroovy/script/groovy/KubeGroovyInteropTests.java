@@ -2,6 +2,10 @@ package dev.uncandango.kubegroovy.groovytest;
 
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.UtilsWrapper;
 import dev.uncandango.kubegroovy.item.ItemBuilder;
+import dev.uncandango.kubegroovy.event.EventResult;
+import dev.uncandango.kubegroovy.event.EventExit;
+import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;
+import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -63,21 +67,21 @@ class KubeGroovyInteropTests {
 				validated.set(true);
 				return from instanceof String;
 			},
-			(cx, from, target) -> new WrappedValue((String) from), true);
+			(from, target) -> new WrappedValue((String) from), true);
 
-		var value = (WrappedValue) wrappers.coerce(new Context(new ContextFactory()), "wrapped", WrappedValue.class);
+		var value = (WrappedValue) wrappers.coerce("wrapped", WrappedValue.class);
 		assertEquals("wrapped", value.value());
 		assertTrue(validated.get());
-		assertThrows(GroovyCastException.class, () -> wrappers.coerce(new Context(new ContextFactory()), 42, WrappedValue.class));
+		assertThrows(GroovyCastException.class, () -> wrappers.coerce(42, WrappedValue.class));
 
 		wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)), false);
-		assertEquals("direct", ((DirectValue) wrappers.coerce(new Context(new ContextFactory()), "direct", DirectValue.class)).value());
+		assertEquals("direct", ((DirectValue) wrappers.coerce("direct", DirectValue.class)).value());
 	}
 
 	@Test
 	void sandboxRewritesExplicitCastAndAsTypeForms() {
 		var wrappers = new TypeWrappers();
-		wrappers.register(String.class, (cx, value, target) -> String.valueOf(value), true);
+		wrappers.register(String.class, (value, target) -> String.valueOf(value), true);
 		var configuration = new CompilerConfiguration();
 		KubeGroovySandbox.customizers(null, wrappers).forEach(configuration::addCompilationCustomizers);
 		var shell = new GroovyShell(configuration);
@@ -140,6 +144,16 @@ class KubeGroovyInteropTests {
 		});
 		assertSame(context, seenRun.get());
 		assertSame(context, seenSupply.get());
+	}
+
+	@Test
+	void publicScriptMethodsUseTheCurrentContextWithoutAContextArgument() throws Exception {
+		var context = new Context(new ContextFactory());
+		var result = (EventExit) ScopedValue.where(KubeGroovyContext.CURRENT, context)
+			.call(() -> EventResult.Type.INTERRUPT_DEFAULT.exit("value"));
+
+		assertSame(context, result.result.cx());
+		assertDoesNotThrow(() -> RegistryKubeEvent.class.getMethod("create", KubeIdentifier.class, KubeIdentifier.class));
 	}
 
 //	@Test

@@ -18,7 +18,7 @@ public interface RecipeLikeKGY {
 
 	Identifier kgy$getOrCreateId();
 
-	RecipeSchema kgy$getSchema(Context cx);
+	RecipeSchema kgy$getSchema();
 
 	default String kgy$getMod() {
 		return kgy$getOrCreateId().getNamespace();

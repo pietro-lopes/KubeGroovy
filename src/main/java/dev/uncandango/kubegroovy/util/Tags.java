@@ -67,7 +67,8 @@ public class Tags {
 		return forHolder(entityType.builtInRegistryHolder());
 	}
 
-	public static <T> Stream<TagKey<T>> forType(Context cx, T object, Registry<T> registry) {
+	public static <T> Stream<TagKey<T>> forType(T object, Registry<T> registry) {
+		var cx = Context.getCurrent();
 		return registry.getResourceKey(object)
 			.flatMap(k -> registry.get(k.identifier()))
 			.stream()

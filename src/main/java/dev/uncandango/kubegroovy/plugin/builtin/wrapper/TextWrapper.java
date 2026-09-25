@@ -50,7 +50,8 @@ public interface TextWrapper {
 	}
 
 	@HideFromGY
-	static MutableComponent wrap(Context cx, @Nullable Object from) {
+	static MutableComponent wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		return switch (from) {
 			case null -> Component.literal("null");
 			case MutableComponent component -> component;
@@ -86,7 +87,7 @@ public interface TextWrapper {
 							with[i] = e1;
 
 							if (with[i] instanceof Map<?, ?> || with[i] instanceof Collection<?>) {
-								with[i] = wrap(cx, e1);
+								with[i] = wrap(e1);
 							}
 
 							i++;
@@ -110,22 +111,22 @@ public interface TextWrapper {
 
 				text.kgy$insertion((String) map.getOrDefault("insertion", null));
 				text.kgy$font(map.containsKey("font") ? Identifier.parse(map.get("font").toString()) : null);
-				text.kgy$click(map.containsKey("click") ? wrapClickEvent(cx, map.get("click")) : null);
-				text.kgy$hover(map.containsKey("hover") ? wrap(cx, map.get("hover")) : null);
+				text.kgy$click(map.containsKey("click") ? wrapClickEvent(map.get("click")) : null);
+				text.kgy$hover(map.containsKey("hover") ? wrap(map.get("hover")) : null);
 
 				if (map.get("extra") instanceof Iterable<?> itr) {
 					for (var e : itr) {
-						text.append(wrap(cx, e));
+						text.append(wrap(e));
 					}
 				}
 
 				yield text;
 			}
-			case Map<?, ?> map -> wrap(cx, JsonUtils.of(cx, map));
+			case Map<?, ?> map -> wrap(JsonUtils.of(map));
 			case Iterable<?> list -> {
 				var text = Component.empty();
 				for (var e1 : list) {
-					text.append(wrap(cx, e1));
+					text.append(wrap(e1));
 				}
 				yield text;
 			}
@@ -158,7 +159,8 @@ public interface TextWrapper {
 	}
 
 	@HideFromGY
-	static ClickEvent wrapClickEvent(Context cx, Object o) {
+	static ClickEvent wrapClickEvent(Object o) {
+		var cx = Context.getCurrent();
 		if (o == null) {
 			return null;
 		} else if (o instanceof ClickEvent ce) {
@@ -171,7 +173,7 @@ public interface TextWrapper {
 		// parser because they are not JSON objects.
 		var json = o instanceof JsonObject || o instanceof Map<?, ?>
 			|| o instanceof CharSequence cs && cs.toString().stripLeading().startsWith("{")
-			? JsonUtils.objectOf(cx, o)
+			? JsonUtils.objectOf(o)
 			: null;
 
 		if (json != null) {

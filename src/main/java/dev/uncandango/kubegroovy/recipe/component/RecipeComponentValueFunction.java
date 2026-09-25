@@ -18,6 +18,6 @@ public class RecipeComponentValueFunction extends BaseFunction {
 
 	@Override
 	public Object call(Object... args) {
-		return recipe.setValue(componentValue.key, Cast.to(componentValue.key.component.wrap(new RecipeScriptContext.Impl(Context.getCurrent(), recipe), Wrapper.unwrapped(args[0]))));
+		return recipe.setValue(componentValue.key, Cast.to(componentValue.key.component.wrap(new RecipeScriptContext.Impl(recipe), Wrapper.unwrapped(args[0]))));
 	}
 }

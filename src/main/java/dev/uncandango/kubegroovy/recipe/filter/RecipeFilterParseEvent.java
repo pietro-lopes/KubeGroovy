@@ -11,7 +11,8 @@ public class RecipeFilterParseEvent extends Event {
 	public final List<RecipeFilter> filters;
 	public final Map<?, ?> map;
 
-	public RecipeFilterParseEvent(Context cx, List<RecipeFilter> filters, Map<?, ?> map) {
+	public RecipeFilterParseEvent(List<RecipeFilter> filters, Map<?, ?> map) {
+		var cx = Context.getCurrent();
 		this.cx = cx;
 		this.filters = filters;
 		this.map = map;

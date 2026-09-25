@@ -142,9 +142,10 @@ public class PlatformWrapper {
 		return DatagenModLoader.isRunningDataGen();
 	}
 
-	public static void breakpoint(Context cx, Object... args) {
+	public static void breakpoint(Object... args) {
+		var cx = Context.getCurrent();
 		KubeGroovy.LOGGER.info(Arrays.stream(args).map(String::valueOf).collect(Collectors.joining(", ")));
-		KubeGroovyPlugins.forEachPlugin(p -> p.breakpoint(cx, args));
+		KubeGroovyPlugins.forEachPlugin(p -> p.breakpoint(args));
 	}
 
 	public static String getCurrentThreadName() {

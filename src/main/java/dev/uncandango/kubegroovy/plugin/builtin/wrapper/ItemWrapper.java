@@ -137,15 +137,16 @@ public interface ItemWrapper {
 			case null -> ItemStack.EMPTY;
 			case ItemStack s -> s.isEmpty() ? ItemStack.EMPTY : s;
 			case ItemLike i when i.asItem() == Items.AIR -> ItemStack.EMPTY;
-			case Ingredient i -> throw new KubeRuntimeException("Use .first of an ingredient to get its ItemStack!").source(SourceLine.of(cx));
-			case SizedIngredient sized -> throw new KubeRuntimeException("Use .ingredient.first on a sized ingredient to get its ItemStack!").source(SourceLine.of(cx));
+			case Ingredient i -> throw new KubeRuntimeException("Use .first of an ingredient to get its ItemStack!").source(SourceLine.of());
+			case SizedIngredient sized -> throw new KubeRuntimeException("Use .ingredient.first on a sized ingredient to get its ItemStack!").source(SourceLine.of());
 			case ItemLike i -> i.asItem().getDefaultInstance();
 			default -> null;
 		};
 	}
 
 	@HideFromGY
-	static DataResult<ItemStack> wrapResult(Context cx, @Nullable Object from) {
+	static DataResult<ItemStack> wrapResult(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		if (from instanceof Wrapper w) {
 			from = w.unwrap();
 		}
@@ -155,14 +156,14 @@ public interface ItemWrapper {
 			return DataResult.success(trivial);
 		}
 
-		var registries = RegistryAccessContainer.of(cx);
+		var registries = RegistryAccessContainer.of();
 
 		// safe because wrapTrivial has handled the null case
 		assert from != null;
 		return switch (from) {
 			case Identifier id -> findItem(id).map(Holder::value).map(Item::getDefaultInstance);
-			case JsonElement json -> parseJson(cx, registries.nbt(), json);
-			case StringTag tag -> wrapResult(cx, tag.value());
+			case JsonElement json -> parseJson(registries.nbt(), json);
+			case StringTag tag -> wrapResult(tag.value());
 			case CharSequence charSequence -> {
 				var os = from.toString().trim();
 				var s = os;
@@ -182,7 +183,7 @@ public interface ItemWrapper {
 					count = 1;
 				}
 
-				yield parseString(cx, registries.nbt(), s)
+				yield parseString(registries.nbt(), s)
 					.map(stack -> stack.kgy$withCount(count))
 					.ifSuccess(stack -> registries.itemStackParseCache().put(os, stack.copy()))
 					;
@@ -192,9 +193,9 @@ public interface ItemWrapper {
 
 				if (map != null) {
 					// TODO: data results instead?
-					var item = ItemWrapper.wrapItem(cx, map.get("item"));
+					var item = ItemWrapper.wrapItem(map.get("item"));
 					var amount = StringUtilsWrapper.parseInt(map.get("count"), 1);
-					var components = DataComponentWrapper.patchOrEmptyOf(cx, map.get("components"));
+					var components = DataComponentWrapper.patchOrEmptyOf(map.get("components"));
 
 					yield DataResult.success(new ItemStack(item.kgy$asHolder(), amount, components));
 				}
@@ -206,26 +207,28 @@ public interface ItemWrapper {
 	}
 
 	@HideFromGY
-	static ItemStack wrap(Context cx, @Nullable Object from) {
+	static ItemStack wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		var trivial = wrapTrivial(cx, from);
 		if (trivial != null) {
 			return trivial;
 		}
 
-		return wrapResult(cx, from)
+		return wrapResult(from)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read item stack from %s: %s".formatted(from, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	@HideFromGY
-	static Item wrapItem(Context cx, @Nullable Object o) {
+	static Item wrapItem(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> Items.AIR;
 			case ItemLike item -> item.asItem();
 			case CharSequence cs -> findItem(cs.toString())
 				.getOrThrow(error -> new KubeRuntimeException("Failed to read item from %s: %s".formatted(cs, error))
-					.source(SourceLine.of(cx)));
-			default -> wrap(cx, o).getItem();
+					.source(SourceLine.of()));
+			default -> wrap(o).getItem();
 		};
 	}
 
@@ -255,8 +258,9 @@ public interface ItemWrapper {
 
 	@Info("Get a list of all the item ids in the game")
 	// TODO: remove or rework
-	static List<String> getTypeList(Context cx) {
-		return RegistryAccessContainer.of(cx).item()
+	static List<String> getTypeList() {
+		var cx = Context.getCurrent();
+		return RegistryAccessContainer.of().item()
 			.keySet()
 			.stream()
 			.map(Identifier::toString)
@@ -354,22 +358,24 @@ public interface ItemWrapper {
 		return from instanceof ItemStack || from instanceof ItemLike;
 	}
 
-	static DataResult<ItemStack> parseJson(Context cx, DynamicOps<Tag> registryOps, @Nullable JsonElement json) {
+	static DataResult<ItemStack> parseJson(DynamicOps<Tag> registryOps, @Nullable JsonElement json) {
+		var cx = Context.getCurrent();
 		return switch (json) {
 			case null -> DataResult.success(ItemStack.EMPTY);
 			case JsonNull jsonNull -> DataResult.success(ItemStack.EMPTY);
-			case JsonPrimitive primitive -> parseString(cx, registryOps, primitive.getAsString());
+			case JsonPrimitive primitive -> parseString(registryOps, primitive.getAsString());
 			case JsonObject obj -> ItemStack.OPTIONAL_CODEC.decode(JsonOps.INSTANCE, obj).map(Pair::getFirst);
 			default -> DataResult.error(() -> "Could not parse item stack from JSON " + json);
 		};
 	}
 
-	static DataResult<ItemStack> parseString(Context cx, DynamicOps<Tag> registryOps, String s) {
+	static DataResult<ItemStack> parseString(DynamicOps<Tag> registryOps, String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "", "-", "air", "minecraft:air" -> DataResult.success(ItemStack.EMPTY);
 			default -> {
 				try {
-					yield read(cx, registryOps, new StringReader(s));
+					yield read(registryOps, new StringReader(s));
 				} catch (CommandSyntaxException ex) {
 					yield DataResult.error(() -> "Error parsing item from string: " + ex);
 				}
@@ -377,7 +383,8 @@ public interface ItemWrapper {
 		};
 	}
 
-	static DataResult<ItemStack> read(Context cx, DynamicOps<Tag> registryOps, StringReader reader) throws CommandSyntaxException {
+	static DataResult<ItemStack> read(DynamicOps<Tag> registryOps, StringReader reader) throws CommandSyntaxException {
+		var cx = Context.getCurrent();
 		reader.skipWhitespace();
 
 		if (!reader.canRead() || reader.peek() == '-') {

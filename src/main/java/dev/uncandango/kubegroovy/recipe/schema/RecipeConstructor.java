@@ -92,12 +92,13 @@ public class RecipeConstructor {
 		return str;
 	}
 
-	public KubeRecipe create(Context cx, SourceLine sourceLine, RecipeTypeFunction type, RecipeSchemaType schemaType, ComponentValueMap from) {
+	public KubeRecipe create(SourceLine sourceLine, RecipeTypeFunction type, RecipeSchemaType schemaType, ComponentValueMap from) {
+		var cx = Context.getCurrent();
 		var recipe = schemaType.schema.recipeFactory.create(type, sourceLine, true);
 		recipe.json = new JsonObject();
 		recipe.json.addProperty("type", type.idString);
 		recipe.newRecipe = true;
-		setValues(new RecipeScriptContext.Impl(cx, recipe, new ErrorStack()), schemaType, from);
+		setValues(new RecipeScriptContext.Impl(recipe, new ErrorStack()), schemaType, from);
 		return recipe;
 	}
 

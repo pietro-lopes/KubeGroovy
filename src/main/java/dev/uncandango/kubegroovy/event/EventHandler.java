@@ -103,7 +103,8 @@ public class EventHandler extends BaseFunction {
 		return eventContainers != null;
 	}
 
-	public void listen(@Nullable Context cx, ScriptType type, @Nullable Object extraId, IEventHandler handler) {
+	public void listen(ScriptType type, @Nullable Object extraId, IEventHandler handler) {
+		var cx = Context.getCurrent();
 		if (cx != null) {
 			if (!((KubeGroovyContext) cx).kgyFactory.manager.canListenEvents) {
 				throw new IllegalStateException("Event handler '" + this + "' can only be registered during script loading!");
@@ -132,7 +133,7 @@ public class EventHandler extends BaseFunction {
 		}
 
 		var line = new int[1];
-		var source = cx == null ? "java" : Context.getSourcePositionFromStack(cx, line);
+		var source = cx == null ? "java" : Context.getSourcePositionFromStack(line);
 
 		var map = createMap(extraId);
 		var index = type.ordinal();
@@ -154,7 +155,7 @@ public class EventHandler extends BaseFunction {
 
 	@HideFromGY
 	public void listenJava(ScriptType type, @Nullable Object extraId, IEventHandler handler) {
-		listen(null, type, extraId, handler);
+		listen(type, extraId, handler);
 	}
 
 	/// @see EventHandler#post(ScriptTypeHolder, KubeEvent)
@@ -232,7 +233,7 @@ public class EventHandler extends BaseFunction {
 			eventResult = exit.result;
 		} catch (Throwable error) {
 			scriptType.console.error("Internal Error in '" + this + "'", error);
-			eventResult = EventResult.Type.ERROR.exit(null, error).result;
+			eventResult = EventResult.Type.ERROR.exit(error).result;
 		}
 
 		event.afterPosted(eventResult);
@@ -252,12 +253,12 @@ public class EventHandler extends BaseFunction {
 
 		try {
 			if (args.length == 1) {
-				listen(cx, type, null, (IEventHandler) cx.gyToJava(args[0], EVENT_HANDLER_TYPE_INFO));
+				listen(type, null, (IEventHandler) cx.gyToJava(args[0], EVENT_HANDLER_TYPE_INFO));
 			} else if (args.length == 2) {
 				var handler = (IEventHandler) cx.gyToJava(args[1], EVENT_HANDLER_TYPE_INFO);
 
 				for (var o : ListGY.orSelf(args[0])) {
-					listen(cx, type, o, handler);
+					listen(type, o, handler);
 				}
 			}
 		} catch (Exception ex) {

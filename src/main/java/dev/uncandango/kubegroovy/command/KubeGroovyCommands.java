@@ -305,7 +305,7 @@ public class KubeGroovyCommands {
 			} else if (result.value() != null) {
 				var cx = result.cx();
 				if (cx != null) {
-					source.sendSuccess(() -> TextWrapper.wrap(cx, result.value()), false);
+					source.sendSuccess(() -> TextWrapper.wrap(result.value()), false);
 				}
 			}
 

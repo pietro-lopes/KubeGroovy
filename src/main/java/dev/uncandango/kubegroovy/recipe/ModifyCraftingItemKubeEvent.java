@@ -29,7 +29,8 @@ public class ModifyCraftingItemKubeEvent implements KubeEvent {
 	}
 
 	@Override
-	public ItemStack defaultExitValue(Context cx) {
+	public ItemStack defaultExitValue() {
+		var cx = Context.getCurrent();
 		return item;
 	}
 

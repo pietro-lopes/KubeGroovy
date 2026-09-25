@@ -23,7 +23,8 @@ public class EventResult {
 			this.defaultExit = new EventExit(this.defaultResult);
 		}
 
-		public EventExit exit(@Nullable Context cx, @Nullable Object value) {
+		public EventExit exit(@Nullable Object value) {
+			var cx = Context.getCurrent();
 			return value == null ? defaultExit : new EventExit(new EventResult(cx, this, value));
 		}
 	}

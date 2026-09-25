@@ -5,5 +5,5 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import net.minecraft.resources.Identifier;
 
 public interface RemoveCategoriesKubeEvent extends KubeEvent {
-	void remove(Context cx, Identifier[] categories);
+	void remove(Identifier[] categories);
 }

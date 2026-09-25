@@ -45,12 +45,13 @@ public record BuildingMaterialProperties(
 	}
 
 	@HideFromGY
-	public void register(Context cx, RegistryKubeEvent<Block> event, KubeIdentifier id) {
+	public void register(RegistryKubeEvent<Block> event, KubeIdentifier id) {
+		var cx = Context.getCurrent();
 		var builder = new ArrayList<BlockBuilder>();
 
 		if (baseBlock.orElse(true)) {
 			boolean _baseBlockSuffix = baseBlockSuffix.orElse(true);
-			var baseBlock = (BlockBuilder) event.create(cx, _baseBlockSuffix ? id.withPath(p -> p + "_block") : id);
+			var baseBlock = (BlockBuilder) event.create(_baseBlockSuffix ? id.withPath(p -> p + "_block") : id);
 			builder.add(baseBlock);
 
 			if (_baseBlockSuffix) {
@@ -59,39 +60,39 @@ public record BuildingMaterialProperties(
 		}
 
 		if (add(Blocks::slab)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_slab"), new KubeIdentifier(KubeGroovy.id("slab"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_slab"), new KubeIdentifier(KubeGroovy.id("slab"))));
 		}
 
 		if (add(Blocks::stairs)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_stairs"), new KubeIdentifier(KubeGroovy.id("stairs"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_stairs"), new KubeIdentifier(KubeGroovy.id("stairs"))));
 		}
 
 		if (add(Blocks::fence)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_fence"), new KubeIdentifier(KubeGroovy.id("fence"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_fence"), new KubeIdentifier(KubeGroovy.id("fence"))));
 		}
 
 		if (add(Blocks::fenceGate)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_fence_gate"), new KubeIdentifier(KubeGroovy.id("fence_gate"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_fence_gate"), new KubeIdentifier(KubeGroovy.id("fence_gate"))));
 		}
 
 		if (add(Blocks::wall)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_wall"), new KubeIdentifier(KubeGroovy.id("wall"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_wall"), new KubeIdentifier(KubeGroovy.id("wall"))));
 		}
 
 		if (add(Blocks::pressurePlate)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_pressure_plate"), new KubeIdentifier(KubeGroovy.id("pressure_plate"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_pressure_plate"), new KubeIdentifier(KubeGroovy.id("pressure_plate"))));
 		}
 
 		if (add(Blocks::button)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_button"), new KubeIdentifier(KubeGroovy.id("button"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_button"), new KubeIdentifier(KubeGroovy.id("button"))));
 		}
 
 		if (add(Blocks::trapdoor)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_trapdoor"), new KubeIdentifier(KubeGroovy.id("trapdoor"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_trapdoor"), new KubeIdentifier(KubeGroovy.id("trapdoor"))));
 		}
 
 		if (add(Blocks::door)) {
-			builder.add((BlockBuilder) event.create(cx, id.withPath(p -> p + "_door"), new KubeIdentifier(KubeGroovy.id("door"))));
+			builder.add((BlockBuilder) event.create(id.withPath(p -> p + "_door"), new KubeIdentifier(KubeGroovy.id("door"))));
 		}
 
 		for (var b : builder) {

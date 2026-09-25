@@ -72,7 +72,8 @@ public class ConsoleGY {
 	public static ConsoleGY SERVER;
 	public static ConsoleGY CLIENT;
 
-	public static ConsoleGY getCurrent(@Nullable Context cx) {
+	public static ConsoleGY getCurrent() {
+		var cx = Context.getCurrent();
 		if (cx instanceof KubeGroovyContext kcx) {
 			return kcx.getConsole();
 		}
@@ -275,7 +276,7 @@ public class ConsoleGY {
 			var factory = contextFactory == null ? null : contextFactory.get();
 
 			if (factory != null) {
-				line.withSourceLine(SourceLine.of(Context.getCurrent()));
+				line.withSourceLine(SourceLine.of());
 			}
 		}
 
@@ -475,7 +476,7 @@ public class ConsoleGY {
 
 		if (factory != null) {
 			var linep = new int[]{0};
-			Context.getSourcePositionFromStack(Context.getCurrent(), linep);
+			Context.getSourcePositionFromStack(linep);
 			return linep[0];
 		}
 

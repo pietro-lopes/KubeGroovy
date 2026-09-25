@@ -42,12 +42,13 @@ public interface FluidStackKGY extends
 	}
 
 	@Override
-	default boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	default boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case CharSequence cs -> kgy$getId().equals(ID.string(cs.toString()));
 			case Identifier id -> kgy$getIdLocation().equals(id);
 			case FluidStack s -> kgy$equalsIgnoringCount(s);
-			case null, default -> kgy$equalsIgnoringCount(FluidWrapper.wrap(cx, o));
+			case null, default -> kgy$equalsIgnoringCount(FluidWrapper.wrap(o));
 		};
 	}
 
@@ -119,14 +120,15 @@ public interface FluidStackKGY extends
 	}
 
 	@Override
-	default Codec<?> getCodec(Context cx) {
+	default Codec<?> getCodec() {
+		var cx = Context.getCurrent();
 		return FluidStack.CODEC;
 	}
 
 	@Override
 	default Object replaceThisWith(RecipeScriptContext cx, Object with) {
 		var t = kgy$self();
-		var r = FluidWrapper.wrap(cx.cx(), with);
+		var r = FluidWrapper.wrap(with);
 
 		if (!FluidStack.isSameFluidSameComponents(t, r)) {
 			r.setAmount(t.getAmount());

@@ -4,5 +4,5 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import net.minecraft.nbt.Tag;
 
 public interface NBTSerializable {
-	Tag toNBT(Context cx);
+	Tag toNBT();
 }

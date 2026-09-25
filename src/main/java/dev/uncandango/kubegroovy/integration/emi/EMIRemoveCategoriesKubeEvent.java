@@ -14,7 +14,8 @@ public class EMIRemoveCategoriesKubeEvent implements RemoveCategoriesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] categories) {
+	public void remove(Identifier[] categories) {
+		var cx = Context.getCurrent();
 		categoriesRemoved.addAll(Set.of(categories));
 	}
 }

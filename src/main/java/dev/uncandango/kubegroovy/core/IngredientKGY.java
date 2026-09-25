@@ -95,14 +95,15 @@ public interface IngredientKGY extends ItemPredicate, Replaceable, WithCodec, It
 	}
 
 	@Override
-	default Codec<?> getCodec(Context cx) {
+	default Codec<?> getCodec() {
+		var cx = Context.getCurrent();
 		return Ingredient.CODEC;
 	}
 
 	@Override
 	default Object replaceThisWith(RecipeScriptContext cx, Object with) {
 		var t = kgy$self();
-		var r = IngredientWrapper.wrap(cx.cx(), with);
+		var r = IngredientWrapper.wrap(with);
 
 		if (!r.equals(t)) {
 			return r;

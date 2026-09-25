@@ -495,7 +495,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 
 	@Override
 	public void registerTypeWrappers(TypeWrapperRegistry registry) {
-		registry.register(RegistryPredicate.class, RegistryPredicate::of,true);
+		registry.register(RegistryPredicate.class, (dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory) RegistryPredicate::of, true);
 
 		// Java / Minecraft //
 		// registry.register(String.class, String::valueOf);
@@ -512,7 +512,10 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(Duration.class, TimeGY::wrapDuration, true);
 		registry.register(TickDuration.class, TickDuration::wrap, true);
 
-		registry.register(HolderSet.class, (cx, from, target) -> HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0)), true);
+		registry.register(HolderSet.class, (dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory) (from, target) -> {
+			var cx = Context.getCurrent();
+			return HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0));
+		}, true);
 		registry.register(Identifier.class, ID::mc, true);
 		registry.register(KubeIdentifier.class, KubeIdentifier::wrap, true);
 		registry.register(CompoundTag.class, (from, target) -> NBTWrapper.isTagCompound(from), NBTWrapper::wrapCompound, true);

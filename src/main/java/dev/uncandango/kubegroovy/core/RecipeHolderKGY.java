@@ -48,7 +48,8 @@ public interface RecipeHolderKGY extends RecipeLikeKGY {
 	}
 
 	@Override
-	default RecipeSchema kgy$getSchema(Context cx) {
+	default RecipeSchema kgy$getSchema() {
+		var cx = Context.getCurrent();
 		var s = kgy$getType();
 		return ((ServerScriptManager) ((KubeGroovyContext) cx).kgyFactory.manager).recipeSchemaStorage.namespaces.get(s.getNamespace()).get(s.getPath()).schema;
 	}

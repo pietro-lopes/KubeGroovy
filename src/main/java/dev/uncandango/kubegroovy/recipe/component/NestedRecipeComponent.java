@@ -35,7 +35,7 @@ public class NestedRecipeComponent implements RecipeComponent<KubeRecipe> {
 		if (from instanceof KubeRecipe r) {
 			return KubeRecipeEventOps.MARK_SYNTHETIC.apply(r);
 		} else if (from instanceof JsonObject json && json.has("type")) {
-			return KubeRecipeEventOps.MARK_SYNTHETIC.apply(cx.recipe().type.event.custom(cx.cx(), json));
+			return KubeRecipeEventOps.MARK_SYNTHETIC.apply(cx.recipe().type.event.custom(json));
 		}
 
 		throw new IllegalArgumentException("Can't parse recipe from " + from);

@@ -41,11 +41,11 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 
 	@Override
 	public Object call(Object[] args0) {
-		var sourceLine = SourceLine.of(Context.getCurrent());
+		var sourceLine = SourceLine.of();
 		var stack = new ErrorStack();
 
 		try {
-			return createRecipe(Context.getCurrent(), sourceLine, stack, args0);
+			return createRecipe(sourceLine, stack, args0);
 		} catch (Throwable cause) {
 			var r = schemaType.schema.recipeFactory.create(this, sourceLine, true);
 			r.creationError = true;
@@ -58,7 +58,8 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 		}
 	}
 
-	public KubeRecipe createRecipe(Context cx, SourceLine sourceLine, ErrorStack stack, Object[] args) {
+	public KubeRecipe createRecipe(SourceLine sourceLine, ErrorStack stack, Object[] args) {
+		var cx = Context.getCurrent();
 		try {
 			for (int i = 0; i < args.length; i++) {
 				args[i] = Wrapper.unwrapped(args[i]);
@@ -70,7 +71,7 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 
 			if (constructor == null) {
 				if (args.length == 1 && (args[0] instanceof Map<?, ?> || args[0] instanceof JsonObject)) {
-					var recipe = schemaType.schema.deserialize(sourceLine, this, null, JsonUtils.objectOf(cx, args[0]));
+					var recipe = schemaType.schema.deserialize(sourceLine, this, null, JsonUtils.objectOf(args[0]));
 					recipe.afterLoaded(stack);
 					return event.addRecipe(recipe, true);
 					// throw new RecipeExceptionGY("Use event.custom(json) for json recipes!");
@@ -94,7 +95,7 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 				argMap.put(key, Wrapper.unwrapped(args[index++]));
 			}
 
-			var recipe = constructor.create(cx, sourceLine, this, schemaType, argMap);
+			var recipe = constructor.create(sourceLine, this, schemaType, argMap);
 			recipe.afterLoaded(stack);
 			return event.addRecipe(recipe, false);
 		} catch (KubeRuntimeException rex) {

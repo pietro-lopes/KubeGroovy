@@ -22,17 +22,6 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class AfterRecipesLoadedKubeEvent implements KubeEvent {
-	public record MatchCx(
-		Context cx,
-		RegistryAccessContainer registries,
-		RegistryOpsContainer ops,
-		RecipeLikeKGY recipe
-	) implements RecipeMatchContext {
-		public MatchCx(Context cx, AfterRecipesLoadedKubeEvent event, RecipeLikeKGY recipe) {
-			this(cx, event.registries, event.registries, recipe);
-		}
-	}
-
 	private final RecipeManagerKGY recipeManager;
 	private final RegistryAccessContainer registries;
 	private @Nullable List<RecipeLikeKGY> originalRecipes;
@@ -54,32 +43,35 @@ public class AfterRecipesLoadedKubeEvent implements KubeEvent {
 		return originalRecipes;
 	}
 
-	public void forEachRecipe(Context cx, RecipeFilter filter, Consumer<RecipeLikeKGY> consumer) {
+	public void forEachRecipe(RecipeFilter filter, Consumer<RecipeLikeKGY> consumer) {
+		var cx = Context.getCurrent();
 		if (filter == ConstantFilter.TRUE) {
 			getOriginalRecipes().forEach(consumer);
 		} else if (filter != ConstantFilter.FALSE) {
-			getOriginalRecipes().stream().filter(r -> filter.test(new MatchCx(cx, this, r))).forEach(consumer);
+			getOriginalRecipes().stream().filter(r -> filter.test(new RecipeMatchContext.Impl(registries, registries, r))).forEach(consumer);
 		}
 	}
 
-	public int countRecipes(Context cx, RecipeFilter filter) {
+	public int countRecipes(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		if (filter == ConstantFilter.TRUE) {
 			return getOriginalRecipes().size();
 		} else if (filter != ConstantFilter.FALSE) {
-			return (int) getOriginalRecipes().stream().filter(r -> filter.test(new MatchCx(cx, this, r))).count();
+			return (int) getOriginalRecipes().stream().filter(r -> filter.test(new RecipeMatchContext.Impl(registries, registries, r))).count();
 		}
 
 		return 0;
 	}
 
-	public int remove(Context cx, RecipeFilter filter) {
+	public int remove(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		int count = 0;
 		var itr = getOriginalRecipes().iterator();
 
 		while (itr.hasNext()) {
 			var r = itr.next();
 
-			if (filter.test(new MatchCx(cx, this, r))) {
+			if (filter.test(new RecipeMatchContext.Impl(registries, registries, r))) {
 				itr.remove();
 				count++;
 				changed = true;

@@ -12,15 +12,16 @@ public class LegacyCodeHandler extends BaseFunction {
 		this.code = code;
 	}
 
-	public LegacyError makeError(Context cx) {
+	public LegacyError makeError() {
+		var cx = Context.getCurrent();
 		int[] linep = {0};
-		Context.getSourcePositionFromStack(cx, linep);
+		Context.getSourcePositionFromStack(linep);
 		return new LegacyError("Line " + linep[0] + ": '" + code + "' is no longer supported! Read more on wiki: https://kubejs.com/kjs6");
 	}
 
 	@Override
 	public Object call(Object[] args) {
-		throw makeError(Context.getCurrent());
+		throw makeError();
 	}
 //
 //	@Override

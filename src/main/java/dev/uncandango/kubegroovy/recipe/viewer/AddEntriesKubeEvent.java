@@ -4,5 +4,5 @@ import dev.uncandango.kubegroovy.event.KubeEvent;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 
 public interface AddEntriesKubeEvent extends KubeEvent {
-	void add(Context cx, Object[] items);
+	void add(Object[] items);
 }

@@ -7,7 +7,8 @@ public interface DirectTypeWrapperFactory<T> extends TypeWrapperFactory<T> {
 	T wrap(Object from);
 
 	@Override
-	default T wrap(Context cx, Object from, TypeInfo target) {
+	default T wrap(Object from, TypeInfo target) {
+		var cx = Context.getCurrent();
 		return wrap(from);
 	}
 }

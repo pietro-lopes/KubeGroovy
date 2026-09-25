@@ -66,12 +66,13 @@ public interface ItemStackKGY extends
 	}
 
 	@Override
-	default boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	default boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case CharSequence cs -> kgy$getId().equals(ID.string(cs.toString()));
 			case Identifier id -> kgy$getIdLocation().equals(id);
 			case ItemStack s -> kgy$equalsIgnoringCount(s);
-			case null, default -> KubeGroovyCodecs.filter(ItemWrapper.wrapResult(cx, o), this::kgy$equalsIgnoringCount);
+			case null, default -> KubeGroovyCodecs.filter(ItemWrapper.wrapResult(o), this::kgy$equalsIgnoringCount);
 		};
 	}
 
@@ -139,8 +140,9 @@ public interface ItemStackKGY extends
 	}
 
 	@Override
-	default String kgy$getComponentString(Context cx) {
-		return DataComponentWrapper.patchToString(new StringBuilder(), RegistryAccessContainer.of(cx).nbt(), kgy$self().getComponentsPatch()).toString();
+	default String kgy$getComponentString() {
+		var cx = Context.getCurrent();
+		return DataComponentWrapper.patchToString(new StringBuilder(), RegistryAccessContainer.of().nbt(), kgy$self().getComponentsPatch()).toString();
 	}
 
 	@ReturnsSelf(copy = true)
@@ -200,12 +202,14 @@ public interface ItemStackKGY extends
 	}
 
 	@Override
-	default String toStringGY(Context cx) {
-		return kgy$toItemString0(RegistryAccessContainer.of(cx).nbt());
+	default String toStringGY() {
+		var cx = Context.getCurrent();
+		return kgy$toItemString0(RegistryAccessContainer.of().nbt());
 	}
 
-	default String kgy$toItemString(Context cx) {
-		return kgy$toItemString0(RegistryAccessContainer.of(cx).nbt());
+	default String kgy$toItemString() {
+		var cx = Context.getCurrent();
+		return kgy$toItemString0(RegistryAccessContainer.of().nbt());
 	}
 
 	default String kgy$toItemString0(@Nullable DynamicOps<Tag> dynamicOps) {
@@ -250,7 +254,8 @@ public interface ItemStackKGY extends
 	}
 
 	@Override
-	default Codec<ItemStack> getCodec(Context cx) {
+	default Codec<ItemStack> getCodec() {
+		var cx = Context.getCurrent();
 		return ItemStack.CODEC;
 	}
 
@@ -271,7 +276,7 @@ public interface ItemStackKGY extends
 	@Override
 	default Object replaceThisWith(RecipeScriptContext cx, Object with) {
 		var t = kgy$self();
-		var r = ItemWrapper.wrap(cx.cx(), with);
+		var r = ItemWrapper.wrap(with);
 
 		if (!ItemStack.isSameItemSameComponents(t, r)) {
 			r.setCount(t.getCount());

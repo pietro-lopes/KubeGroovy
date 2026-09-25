@@ -4,5 +4,5 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 @FunctionalInterface
 public interface TypeWrapperFactory<T> {
-	T wrap(Context cx, Object from, TypeInfo target);
+	T wrap(Object from, TypeInfo target);
 }

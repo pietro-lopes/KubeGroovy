@@ -25,7 +25,8 @@ public final class ScriptRuntime {
 		return true;
 	}
 
-	public static int toInt32(Context cx, Object o) {
+	public static int toInt32(Object o) {
+		var cx = Context.getCurrent();
 		if (o instanceof Number n) {
 			return n.intValue();
 		}
@@ -34,10 +35,6 @@ public final class ScriptRuntime {
 		} catch (Exception e) {
 			return 0;
 		}
-	}
-
-	public static int toInt32(Object o) {
-		return toInt32(null, o);
 	}
 
 	public static String escapeAndWrapString(String s) {

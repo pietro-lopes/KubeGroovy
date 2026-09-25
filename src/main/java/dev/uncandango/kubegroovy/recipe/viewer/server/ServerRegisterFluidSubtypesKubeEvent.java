@@ -16,12 +16,14 @@ public class ServerRegisterFluidSubtypesKubeEvent implements RegisterSubtypesKub
 	}
 
 	@Override
-	public void register(Context cx, Object filter, SubtypeInterpreter interpreter) {
+	public void register(Object filter, SubtypeInterpreter interpreter) {
+		var cx = Context.getCurrent();
 		throw new UnsupportedOperationException("Not available on server side!");
 	}
 
 	@Override
-	public void useComponents(Context cx, Object filter, List<DataComponentType<?>> components) {
-		list.add(new FluidData.DataComponentSubtypes(FluidWrapper.wrapIngredient(cx, filter), components));
+	public void useComponents(Object filter, List<DataComponentType<?>> components) {
+		var cx = Context.getCurrent();
+		list.add(new FluidData.DataComponentSubtypes(FluidWrapper.wrapIngredient(filter), components));
 	}
 }

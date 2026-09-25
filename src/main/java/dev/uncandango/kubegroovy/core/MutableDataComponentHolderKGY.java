@@ -45,15 +45,17 @@ public interface MutableDataComponentHolderKGY extends DataComponentAccessor {
 	}
 
 	@Override
-	default String kgy$getComponentString(Context cx) {
+	default String kgy$getComponentString() {
+		var cx = Context.getCurrent();
 		if (kgy$getComponentMap() instanceof PatchedDataComponentMap map) {
-			return DataComponentWrapper.patchToString(new StringBuilder(), RegistryAccessContainer.of(cx).nbt(), map.asPatch()).toString();
+			return DataComponentWrapper.patchToString(new StringBuilder(), RegistryAccessContainer.of().nbt(), map.asPatch()).toString();
 		}
 
 		return "[]";
 	}
 
-	default void kgy$resetComponents(Context cx) {
+	default void kgy$resetComponents() {
+		var cx = Context.getCurrent();
 		if (kgy$getComponentMap() instanceof PatchedDataComponentMap map) {
 			map.restorePatch(DataComponentPatch.EMPTY);
 		}

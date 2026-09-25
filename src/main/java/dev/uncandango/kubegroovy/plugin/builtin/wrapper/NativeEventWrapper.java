@@ -31,11 +31,13 @@ public interface NativeEventWrapper {
 		}
 	}
 
-	static void onEvent(Context cx, Class<?> eventClass, Consumer<Event> consumer) {
-		onEvent(cx, EventPriority.NORMAL, eventClass, consumer);
+	static void onEvent(Class<?> eventClass, Consumer<Event> consumer) {
+		var cx = Context.getCurrent();
+		onEvent(EventPriority.NORMAL, eventClass, consumer);
 	}
 
-	static void onEvent(Context cx, EventPriority priority, Class<?> eventClass, Consumer<Event> consumer) {
+	static void onEvent(EventPriority priority, Class<?> eventClass, Consumer<Event> consumer) {
+		var cx = Context.getCurrent();
 		if (!Event.class.isAssignableFrom(eventClass)) {
 			throw new IllegalArgumentException("Event class must extend net.neoforged.bus.api.Event!");
 		}

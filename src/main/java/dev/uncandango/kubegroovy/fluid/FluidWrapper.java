@@ -54,7 +54,8 @@ public interface FluidWrapper {
 	}
 
 	@HideFromGY
-	static DataResult<FluidStack> tryWrap(Context cx, @Nullable Object from) {
+	static DataResult<FluidStack> tryWrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		while (from instanceof Wrapper w) {
 			from = w.unwrap();
 		}
@@ -64,17 +65,18 @@ public interface FluidWrapper {
 			case FluidStack s -> s.isEmpty() ? EMPTY_STACK_RESULT : success(s);
 			case Fluid fluid when fluid.kgy$isEmpty() -> EMPTY_STACK_RESULT;
 			case Fluid fluid -> success(new FluidStack(fluid, FluidType.BUCKET_VOLUME));
-			case FluidIngredient i -> throw new KubeRuntimeException("Using FluidIngredient in places where FluidStack is expected is dangerous and unsupported!").source(SourceLine.of(cx));
-			case SizedFluidIngredient sized -> throw new KubeRuntimeException("Using SizedFluidIngredient in places where FluidStack is expected is dangerous and unsupported!").source(SourceLine.of(cx));
-			default -> parseString(cx, from.toString());
+			case FluidIngredient i -> throw new KubeRuntimeException("Using FluidIngredient in places where FluidStack is expected is dangerous and unsupported!").source(SourceLine.of());
+			case SizedFluidIngredient sized -> throw new KubeRuntimeException("Using SizedFluidIngredient in places where FluidStack is expected is dangerous and unsupported!").source(SourceLine.of());
+			default -> parseString(from.toString());
 		};
 	}
 
 	@HideFromGY
-	static FluidStack wrap(Context cx, @Nullable Object from) {
-		return tryWrap(cx, from)
+	static FluidStack wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
+		return tryWrap(from)
 			.getOrThrow(err -> new KubeRuntimeException("Failed to read FluidStack from %s: %s".formatted(from, err))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	static FluidIngredient ingredientOf(FluidIngredient of) {
@@ -92,12 +94,13 @@ public interface FluidWrapper {
 	}
 
 	@HideFromGY
-	static DataResult<FluidIngredient> tryWrapIngredient(Context cx, Object from) {
+	static DataResult<FluidIngredient> tryWrapIngredient(Object from) {
+		var cx = Context.getCurrent();
 		while (from instanceof Wrapper w) {
 			from = w.unwrap();
 		}
 
-		var registries = RegistryAccessContainer.of(cx);
+		var registries = RegistryAccessContainer.of();
 
 		return switch (from) {
 			case null -> EMPTY_INGREDIENT_RESULT;
@@ -107,15 +110,16 @@ public interface FluidWrapper {
 			case Fluid fluid -> success(FluidIngredient.of(fluid));
 			case FluidIngredient in -> success(in);
 			case SizedFluidIngredient s -> success(s.ingredient());
-			default -> ingredientOfString(cx, from.toString());
+			default -> ingredientOfString(from.toString());
 		};
 	}
 
 	@HideFromGY
-	static FluidIngredient wrapIngredient(Context cx, Object from) {
-		return tryWrapIngredient(cx, from)
+	static FluidIngredient wrapIngredient(Object from) {
+		var cx = Context.getCurrent();
+		return tryWrapIngredient(from)
 			.getOrThrow(err -> new KubeRuntimeException("Failed to read FluidIngredient from %s: %s".formatted(from, err))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	static SizedFluidIngredient sizedIngredientOf(SizedFluidIngredient of) {
@@ -127,8 +131,9 @@ public interface FluidWrapper {
 	}
 
 	@HideFromGY
-	static DataResult<SizedFluidIngredient> tryWrapSizedIngredient(Context cx, @Nullable Object o) {
-		var registries = RegistryAccessContainer.of(cx);
+	static DataResult<SizedFluidIngredient> tryWrapSizedIngredient(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		var registries = RegistryAccessContainer.of();
 
 		return switch (o) {
 			case null -> EMPTY_SIZED_RESULT;
@@ -138,15 +143,16 @@ public interface FluidWrapper {
 			case Fluid fluid -> success(SizedFluidIngredient.of(fluid, FluidType.BUCKET_VOLUME));
 			case FluidIngredient in -> success(new SizedFluidIngredient(in, FluidType.BUCKET_VOLUME));
 			case SizedFluidIngredient s -> success(s);
-			default -> sizedIngredientOfString(cx, o.toString());
+			default -> sizedIngredientOfString(o.toString());
 		};
 	}
 
 	@HideFromGY
-	static SizedFluidIngredient wrapSizedIngredient(Context cx, Object from) {
-		return tryWrapSizedIngredient(cx, from)
+	static SizedFluidIngredient wrapSizedIngredient(Object from) {
+		var cx = Context.getCurrent();
+		return tryWrapSizedIngredient(from)
 			.getOrThrow(err -> new KubeRuntimeException("Failed to read SizedFluidIngredient from %s: %s".formatted(from, err))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	@Info("Returns a FluidStack of the input")
@@ -216,29 +222,32 @@ public interface FluidWrapper {
 	}
 
 	interface ReadFn<T> {
-		DataResult<T> read(Context cx, StringReader reader) throws CommandSyntaxException;
+		DataResult<T> read(StringReader reader) throws CommandSyntaxException;
 	}
 
-	static <T> DataResult<T> readWithContext(Context cx, String s, ReadFn<T> fn, String name) {
+	static <T> DataResult<T> readWithContext(String s, ReadFn<T> fn, String name) {
+		var cx = Context.getCurrent();
 		try {
 			var reader = new StringReader(s);
 			reader.skipWhitespace();
 
-			return fn.read(cx, reader);
+			return fn.read(reader);
 		} catch (CommandSyntaxException ex) {
 			return error(() -> "Error parsing %s from string: %s".formatted(name, ex));
 		}
 	}
 
-	static DataResult<FluidStack> parseString(Context cx, String s) {
+	static DataResult<FluidStack> parseString(String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "", "-", "empty", "minecraft:empty" -> success(FluidStack.EMPTY);
-			default -> readWithContext(cx, s, FluidWrapper::read, "FluidStack");
+			default -> readWithContext(s, FluidWrapper::read, "FluidStack");
 		};
 	}
 
-	static DataResult<FluidStack> read(Context cx, StringReader reader) throws CommandSyntaxException {
-		var registries = RegistryAccessContainer.of(cx);
+	static DataResult<FluidStack> read(StringReader reader) throws CommandSyntaxException {
+		var cx = Context.getCurrent();
+		var registries = RegistryAccessContainer.of();
 
 		if (!reader.canRead() || reader.peek() == '-') {
 			return success(FluidStack.EMPTY);
@@ -265,16 +274,18 @@ public interface FluidWrapper {
 		return fluidStack;
 	}
 
-	static DataResult<FluidIngredient> ingredientOfString(Context cx, String s) {
+	static DataResult<FluidIngredient> ingredientOfString(String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "", "-", "empty", "none", "minecraft:empty" -> EMPTY_INGREDIENT_RESULT;
-			default -> readWithContext(cx, s, FluidWrapper::readIngredient, "FluidIngredient");
+			default -> readWithContext(s, FluidWrapper::readIngredient, "FluidIngredient");
 		};
 	}
 
 	@HideFromGY
-	static DataResult<FluidIngredient> readIngredient(Context cx, StringReader reader) {
-		var registries = RegistryAccessContainer.of(cx);
+	static DataResult<FluidIngredient> readIngredient(StringReader reader) {
+		var cx = Context.getCurrent();
+		var registries = RegistryAccessContainer.of();
 
 		if (!reader.canRead() || reader.peek() == '-') {
 			return EMPTY_INGREDIENT_RESULT;
@@ -314,20 +325,22 @@ public interface FluidWrapper {
 		};
 	}
 
-	static DataResult<SizedFluidIngredient> sizedIngredientOfString(Context cx, String s) {
+	static DataResult<SizedFluidIngredient> sizedIngredientOfString(String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "", "-", "empty", "none", "minecraft:empty" -> EMPTY_SIZED_RESULT;
-			default -> readWithContext(cx, s, FluidWrapper::readSizedIngredient, "SizedFluidIngredient");
+			default -> readWithContext(s, FluidWrapper::readSizedIngredient, "SizedFluidIngredient");
 		};
 	}
 
-	static DataResult<SizedFluidIngredient> readSizedIngredient(Context cx, StringReader reader) throws CommandSyntaxException {
+	static DataResult<SizedFluidIngredient> readSizedIngredient(StringReader reader) throws CommandSyntaxException {
+		var cx = Context.getCurrent();
 		if (!reader.canRead()) {
 			return EMPTY_SIZED_RESULT;
 		}
 
 		var amount = readFluidAmount(reader);
-		var ingredient = readIngredient(cx, reader);
+		var ingredient = readIngredient(reader);
 
 		return ingredient.apply2(SizedFluidIngredient::new, amount);
 	}

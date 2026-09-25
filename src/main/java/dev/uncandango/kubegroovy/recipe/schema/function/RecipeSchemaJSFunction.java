@@ -24,7 +24,7 @@ public class RecipeSchemaJSFunction extends BaseFunction {
 	public KubeRecipe call(Object[] args) {
 		var cx = Context.getCurrent();
 		if (argTypes.length == 0) {
-			func.execute(new RecipeScriptContext.Impl(cx, recipe), List.of());
+			func.execute(new RecipeScriptContext.Impl(recipe), List.of());
 			return recipe;
 		}
 
@@ -34,7 +34,7 @@ public class RecipeSchemaJSFunction extends BaseFunction {
 			argList.add(cx.gyToJava(args[i], argTypes[i]));
 		}
 
-		func.execute(new RecipeScriptContext.Impl(cx, recipe), argList);
+		func.execute(new RecipeScriptContext.Impl(recipe), argList);
 		return recipe;
 	}
 }

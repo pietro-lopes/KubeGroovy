@@ -26,8 +26,9 @@ public class RegistryKubeEvent<T> implements KubeStartupEvent, AdditionalObjectR
 		this.created = new LinkedList<>();
 	}
 
-	public BuilderBase<? extends T> create(Context cx, KubeIdentifier id, KubeIdentifier type) {
-		var sourceLine = SourceLine.of(cx);
+	public BuilderBase<? extends T> create(KubeIdentifier id, KubeIdentifier type) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 		var t = builderInfo.namedType(type.wrapped());
 
 		if (t == null) {
@@ -50,8 +51,9 @@ public class RegistryKubeEvent<T> implements KubeStartupEvent, AdditionalObjectR
 		return b;
 	}
 
-	public BuilderBase<? extends T> create(Context cx, KubeIdentifier id) {
-		var sourceLine = SourceLine.of(cx);
+	public BuilderBase<? extends T> create(KubeIdentifier id) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 		var t = builderInfo.defaultType();
 
 		if (t == null) {
@@ -72,8 +74,9 @@ public class RegistryKubeEvent<T> implements KubeStartupEvent, AdditionalObjectR
 		return b;
 	}
 
-	public CustomBuilderObject createCustom(Context cx, KubeIdentifier id, Supplier<Object> object) {
-		var sourceLine = SourceLine.of(cx);
+	public CustomBuilderObject createCustom(KubeIdentifier id, Supplier<Object> object) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 
 		if (object == null) {
 			throw new KubeRuntimeException("Tried to register a null object with id: " + id).source(sourceLine);

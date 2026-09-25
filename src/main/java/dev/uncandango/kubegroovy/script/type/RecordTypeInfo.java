@@ -139,7 +139,8 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 //		}
 	}
 
-	public Object createInstance(Context cx, Map<?, ?> map) {
+	public Object createInstance(Map<?, ?> map) {
+		var cx = Context.getCurrent();
 		var data = getData();
 		var defaultRecordProperties = ((KubeGroovyContext)cx).kgyFactory.getDefaultRecordProperties(asClass());
 		var args0 = defaultRecordProperties == null ? data.defaultArguments : defaultRecordProperties;
@@ -160,7 +161,8 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 		return createInstance0(cx, map, args);
 	}
 
-	public Object createInstance(Context cx, Object... objects) {
+	public Object createInstance(Object... objects) {
+		var cx = Context.getCurrent();
 		var data = getData();
 		var defaultRecordProperties = ((KubeGroovyContext)cx).kgyFactory.getDefaultRecordProperties(asClass());
 		var args0 = defaultRecordProperties == null ? data.defaultArguments : defaultRecordProperties;
@@ -181,7 +183,8 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 
 	@Override
 	@SuppressWarnings({"rawtypes", "unchecked"})
-	public Object wrap(Context cx, Object from, TypeInfo target) {
+	public Object wrap(Object from, TypeInfo target) {
+		var cx = Context.getCurrent();
 		if (asClass().isInstance(from)) {
 			return from;
 		}
@@ -191,7 +194,7 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 //		}
 		else if (from instanceof Map<?, ?> || from instanceof NativeJavaObject) {
 			var map = (Map) cx.mapOf(from, TypeInfo.STRING, TypeInfo.NONE);
-			return createInstance(cx, map);
+			return createInstance(map);
 		}
 //		else if (from instanceof Callable) {
 //			var map = new HashMap<String, Object>(2);

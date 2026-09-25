@@ -16,7 +16,8 @@ public class ServerGroupItemEntriesKubeEvent implements GroupEntriesKubeEvent {
 	}
 
 	@Override
-	public void group(Context cx, Object filter, Identifier groupId, Component description) {
-		list.add(new ItemData.Group(IngredientWrapper.wrap(cx, filter), groupId, description));
+	public void group(Object filter, Identifier groupId, Component description) {
+		var cx = Context.getCurrent();
+		list.add(new ItemData.Group(IngredientWrapper.wrap(filter), groupId, description));
 	}
 }

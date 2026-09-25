@@ -126,16 +126,18 @@ public class BlockWrapper {
 		return ALL_STATE_CACHE;
 	}
 
-	public static BlockState parseBlockState(Context cx, String string) {
+	public static BlockState parseBlockState(String string) {
+		var cx = Context.getCurrent();
 		try {
-			return BlockStateParser.parseForBlock(RegistryAccessContainer.of(cx).block(), string, false).blockState();
+			return BlockStateParser.parseForBlock(RegistryAccessContainer.of().block(), string, false).blockState();
 		} catch (Exception ex) {
-			throw new KubeRuntimeException("Invalid block state '%s'".formatted(string), ex).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("Invalid block state '%s'".formatted(string), ex).source(SourceLine.of());
 		}
 	}
 
 	@Nullable
-	public static BlockSetType wrapSetType(Context cx, @Nullable Object from, TypeInfo target) {
+	public static BlockSetType wrapSetType(@Nullable Object from, TypeInfo target) {
+		var cx = Context.getCurrent();
 		return switch (from) {
 			case null -> null;
 			case BlockSetType type -> type;
@@ -148,21 +150,22 @@ public class BlockWrapper {
 					}
 				}
 
-				throw new KubeRuntimeException("Unknown BlockSetType named '%s'!".formatted(str)).source(SourceLine.of(cx));
+				throw new KubeRuntimeException("Unknown BlockSetType named '%s'!".formatted(str)).source(SourceLine.of());
 			}
-			default -> (BlockSetType) ((RecordTypeInfo) target).wrap(cx, from, target);
+			default -> (BlockSetType) ((RecordTypeInfo) target).wrap(from, target);
 		};
 	}
 
 	@Info("Parses a block state from the input string. May throw for invalid inputs!")
-	public static BlockState wrapBlockState(Context cx, Object o) {
+	public static BlockState wrapBlockState(Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> throw new KubeRuntimeException("BlockState cannot be null!");
 			case BlockState bs -> bs;
 			case Block block -> block.defaultBlockState();
 			default -> {
 				try {
-					yield parseBlockState(cx, o.toString());
+					yield parseBlockState(o.toString());
 				} catch (IllegalArgumentException ex) {
 					throw new KubeRuntimeException("Failed to read block state from %s: %s".formatted(o, ex.getMessage()));
 				}
@@ -214,11 +217,13 @@ public class BlockWrapper {
 		return state;
 	}
 
-	public static void registerBuildingMaterial(Context cx, RegistryKubeEvent<Block> event, KubeIdentifier id, BuildingMaterialProperties properties) {
-		properties.register(cx, event, id);
+	public static void registerBuildingMaterial(RegistryKubeEvent<Block> event, KubeIdentifier id, BuildingMaterialProperties properties) {
+		var cx = Context.getCurrent();
+		properties.register(event, id);
 	}
 
-	public static void registerBuildingMaterial(Context cx, RegistryKubeEvent<Block> event, KubeIdentifier id) {
-		registerBuildingMaterial(cx, event, id, (BuildingMaterialProperties) cx.gyToJava(Map.of(), BuildingMaterialProperties.TYPE_INFO));
+	public static void registerBuildingMaterial(RegistryKubeEvent<Block> event, KubeIdentifier id) {
+		var cx = Context.getCurrent();
+		registerBuildingMaterial(event, id, (BuildingMaterialProperties) cx.gyToJava(Map.of(), BuildingMaterialProperties.TYPE_INFO));
 	}
 }

@@ -17,7 +17,8 @@ public class REIAddInformationKubeEvent implements AddInformationKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object filter, List<Component> info) {
+	public void add(Object filter, List<Component> info) {
+		var cx = Context.getCurrent();
 		if (info.isEmpty()) {
 			return;
 		}

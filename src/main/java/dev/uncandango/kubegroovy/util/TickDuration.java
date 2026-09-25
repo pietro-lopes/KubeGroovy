@@ -25,13 +25,14 @@ public record TickDuration(long ticks) implements TemporalAmount {
 		return ticks == 0L ? ZERO : new TickDuration(ticks);
 	}
 
-	public static TickDuration wrap(Context cx, @Nullable Object from) {
+	public static TickDuration wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		return switch (from) {
 			case null -> ZERO;
 			case TickDuration d -> d;
 			case Number n -> of(n.longValue());
 			case JsonPrimitive json -> of(json.getAsLong());
-			default -> of(TimeGY.wrapDuration(cx, from).toMillis() / 50L);
+			default -> of(TimeGY.wrapDuration(from).toMillis() / 50L);
 		};
 	}
 

@@ -9,7 +9,8 @@ import org.spongepowered.asm.mixin.Mixin;
 @Mixin(ClickEvent.class)
 public interface ClickEventMixin extends WithCodec {
 	@Override
-	default Codec<?> getCodec(Context cx) {
+	default Codec<?> getCodec() {
+		var cx = Context.getCurrent();
 		return ClickEvent.CODEC;
 	}
 }

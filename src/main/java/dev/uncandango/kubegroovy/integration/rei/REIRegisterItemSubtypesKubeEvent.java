@@ -21,8 +21,9 @@ public class REIRegisterItemSubtypesKubeEvent implements RegisterSubtypesKubeEve
 	}
 
 	@Override
-	public void register(Context cx, Object filter, SubtypeInterpreter interpreter) {
-		var in = (ItemPredicate) RecipeViewerEntryType.ITEM.wrapPredicate(cx, filter);
+	public void register(Object filter, SubtypeInterpreter interpreter) {
+		var cx = Context.getCurrent();
+		var in = (ItemPredicate) RecipeViewerEntryType.ITEM.wrapPredicate(filter);
 		registry.register((ctx, stack) -> {
 			var result = interpreter.apply(stack);
 
@@ -37,8 +38,9 @@ public class REIRegisterItemSubtypesKubeEvent implements RegisterSubtypesKubeEve
 	}
 
 	@Override
-	public void useComponents(Context cx, Object filter, List<DataComponentType<?>> components) {
-		var in = (ItemPredicate) RecipeViewerEntryType.ITEM.wrapPredicate(cx, filter);
+	public void useComponents(Object filter, List<DataComponentType<?>> components) {
+		var cx = Context.getCurrent();
+		var in = (ItemPredicate) RecipeViewerEntryType.ITEM.wrapPredicate(filter);
 		registry.register((EntryComparator) DataComponentComparator.of(components), in.kgy$getItemTypes().toArray(new Item[0]));
 	}
 }

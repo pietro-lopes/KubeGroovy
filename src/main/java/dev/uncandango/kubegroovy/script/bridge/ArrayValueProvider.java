@@ -13,52 +13,57 @@ import java.util.Set;
 public interface ArrayValueProvider {
 	ArrayValueProvider EMPTY = new ArrayValueProvider() {
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return 0;
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return null;
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return null;
 		}
 	};
 
-	int getLength(Context cx);
+	int getLength();
 
-	Object getArrayValue(Context cx, int index);
+	Object getArrayValue(int index);
 
-	Object getErrorSource(Context cx);
+	Object getErrorSource();
 
-	default Object createArray(Context cx, TypeInfo target) {
-		int len = getLength(cx);
+	default Object createArray(TypeInfo target) {
+		var cx = Context.getCurrent();
+		int len = getLength();
 		var arr = target.newArray(len);
 
 		for (int i = 0; i < len; i++) {
 			try {
-				Array.set(arr, i, cx.gyToJava(getArrayValue(cx, i), target));
+				Array.set(arr, i, cx.gyToJava(getArrayValue(i), target));
 			} catch (EvaluatorException ee) {
-				return cx.reportConversionError(getErrorSource(cx), target);
+				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
 
 		return arr;
 	}
 
-	default Object createList(Context cx, TypeInfo target) {
-		int len = getLength(cx);
+	default Object createList(TypeInfo target) {
+		var cx = Context.getCurrent();
+		int len = getLength();
 
 		if (len == 0) {
 			return List.of();
 		} else if (len == 1) {
 			try {
-				return List.of(cx.gyToJava(getArrayValue(cx, 0), target));
+				return List.of(cx.gyToJava(getArrayValue(0), target));
 			} catch (EvaluatorException ee) {
-				return cx.reportConversionError(getErrorSource(cx), target);
+				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
 
@@ -66,25 +71,26 @@ public interface ArrayValueProvider {
 
 		for (int i = 0; i < len; i++) {
 			try {
-				list.add(cx.gyToJava(getArrayValue(cx, i), target));
+				list.add(cx.gyToJava(getArrayValue(i), target));
 			} catch (EvaluatorException ee) {
-				return cx.reportConversionError(getErrorSource(cx), target);
+				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
 
 		return list;
 	}
 
-	default Object createSet(Context cx, TypeInfo target) {
-		int len = getLength(cx);
+	default Object createSet(TypeInfo target) {
+		var cx = Context.getCurrent();
+		int len = getLength();
 
 		if (len == 0) {
 			return Set.of();
 		} else if (len == 1) {
 			try {
-				return Set.of(cx.gyToJava(getArrayValue(cx, 0), target));
+				return Set.of(cx.gyToJava(getArrayValue(0), target));
 			} catch (EvaluatorException ee) {
-				return cx.reportConversionError(getErrorSource(cx), target);
+				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
 
@@ -92,9 +98,9 @@ public interface ArrayValueProvider {
 
 		for (int i = 0; i < len; i++) {
 			try {
-				set.add(cx.gyToJava(getArrayValue(cx, i), target));
+				set.add(cx.gyToJava(getArrayValue(i), target));
 			} catch (EvaluatorException ee) {
-				return cx.reportConversionError(getErrorSource(cx), target);
+				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
 
@@ -105,51 +111,60 @@ public interface ArrayValueProvider {
 		public static final FromObject FROM_NULL = new FromObject(null);
 
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return 1;
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return object;
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return object;
 		}
 	}
 
 	record FromJavaArray(Object array, int length) implements ArrayValueProvider {
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return length;
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return Array.get(array, index);
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return array;
 		}
 	}
 
 	record FromPlainJavaArray(Object[] array) implements ArrayValueProvider {
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return array.length;
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return array[index];
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return array;
 		}
 	}
@@ -160,17 +175,20 @@ public interface ArrayValueProvider {
 
 	record FromJavaList(List<?> list, Object errorSource) implements ArrayValueProvider {
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return list.size();
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return list.get(index);
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return errorSource;
 		}
 	}
@@ -193,17 +211,20 @@ public interface ArrayValueProvider {
 
 	record FromIterator(int length, Iterator<?> iterator, Object errorSource) implements ArrayValueProvider {
 		@Override
-		public int getLength(Context cx) {
+		public int getLength() {
+			var cx = Context.getCurrent();
 			return length;
 		}
 
 		@Override
-		public Object getArrayValue(Context cx, int index) {
+		public Object getArrayValue(int index) {
+			var cx = Context.getCurrent();
 			return iterator.next();
 		}
 
 		@Override
-		public Object getErrorSource(Context cx) {
+		public Object getErrorSource() {
+			var cx = Context.getCurrent();
 			return errorSource;
 		}
 	}

@@ -34,13 +34,14 @@ public record SourceLine(String source, int line) {
 		return of(buf.readUtf(), buf.readVarInt());
 	}
 
-	public static SourceLine of(@Nullable Context cx) {
+	public static SourceLine of() {
+		var cx = Context.getCurrent();
 		if (cx == null) {
 			return UNKNOWN;
 		}
 
 		int[] lineP = {0};
-		var source = Context.getSourcePositionFromStack(cx, lineP);
+		var source = Context.getSourcePositionFromStack(lineP);
 		return SourceLine.of(source, lineP[0]);
 	}
 

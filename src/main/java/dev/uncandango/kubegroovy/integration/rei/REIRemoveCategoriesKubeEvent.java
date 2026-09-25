@@ -19,7 +19,8 @@ public class REIRemoveCategoriesKubeEvent implements RemoveCategoriesKubeEvent  
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] categories) {
+	public void remove(Identifier[] categories) {
+		var cx = Context.getCurrent();
 		for (var id : categories) {
 			categoriesRemoved.add(CategoryIdentifier.of(id));
 		}

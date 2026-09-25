@@ -90,7 +90,8 @@ public class Context {
 		return new WrappedException(ex);
 	}
 
-	public static String getSourcePositionFromStack(Context cx, int[] linep) {
+	public static String getSourcePositionFromStack(int[] linep) {
+		var cx = Context.getCurrent();
 		if (linep != null && linep.length > 0) {
 			linep[0] = -1;
 		}
@@ -135,7 +136,7 @@ public class Context {
 		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(unwrappedValue, target);
 
 		if (typeWrapper != null) {
-			return typeWrapper.wrap(this, unwrappedValue, target);
+			return typeWrapper.wrap(unwrappedValue, target);
 		}
 
 		if (target.is(TypeInfo.RAW_SET)) {
@@ -259,7 +260,7 @@ public class Context {
 	}
 
 	public Object listOf(@Nullable Object from, TypeInfo target) {
-		return arrayValueProviderOf(from).createList(this, target);
+		return arrayValueProviderOf(from).createList(target);
 		//		if (from instanceof Object[] arr) {
 //			if (target == null) {
 //				return from;
@@ -381,7 +382,7 @@ public class Context {
 
 	protected Object internalGyToJavaLast(Object from, TypeInfo target) {
 		if (target instanceof TypeWrapperFactory<?> f) {
-			return f.wrap(this, from, target);
+			return f.wrap(from, target);
 		}
 
 		return reportConversionError(from, target);
@@ -416,7 +417,7 @@ public class Context {
 	}
 
 	public Object setOf(@Nullable Object from, TypeInfo target) {
-		return arrayValueProviderOf(from).createSet(this, target);
+		return arrayValueProviderOf(from).createSet(target);
 //		if (from instanceof Set<?> set) {
 //			return set;
 //		}
@@ -463,7 +464,7 @@ public class Context {
 			}
 		}
 
-		return arrayValueProviderOf(from).createArray(this, target);
+		return arrayValueProviderOf(from).createArray(target);
 //		if (from instanceof Object[] arr) {
 //			if (target == null) {
 //				return from;

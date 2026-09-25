@@ -19,9 +19,10 @@ public class EMIAddEntriesKubeEvent implements AddEntriesKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object[] items) {
+	public void add(Object[] items) {
+		var cx = Context.getCurrent();
 		for (var item : items) {
-			var entry = type.wrapEntry(cx, item);
+			var entry = type.wrapEntry(item);
 
 			if (type == RecipeViewerEntryType.ITEM) {
 				registry.addEmiStack(EmiStack.of((ItemStack) entry));

@@ -19,7 +19,7 @@ public interface SizedIngredientKGY extends Replaceable, IngredientSupplierKGY, 
 
 	@Override
 	default Object replaceThisWith(RecipeScriptContext cx, Object with) {
-		var ingredient = IngredientWrapper.wrap(cx.cx(), with);
+		var ingredient = IngredientWrapper.wrap(with);
 
 		if (!ingredient.equals(kgy$self().ingredient())) {
 			return new SizedIngredient(ingredient, kgy$self().count());

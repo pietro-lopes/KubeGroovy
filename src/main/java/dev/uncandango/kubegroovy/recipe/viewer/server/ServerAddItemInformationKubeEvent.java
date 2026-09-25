@@ -15,7 +15,8 @@ public class ServerAddItemInformationKubeEvent implements AddInformationKubeEven
 	}
 
 	@Override
-	public void add(Context cx, Object filter, List<Component> info) {
-		list.add(new ItemData.Info(IngredientWrapper.wrap(cx, filter), info));
+	public void add(Object filter, List<Component> info) {
+		var cx = Context.getCurrent();
+		list.add(new ItemData.Info(IngredientWrapper.wrap(filter), info));
 	}
 }

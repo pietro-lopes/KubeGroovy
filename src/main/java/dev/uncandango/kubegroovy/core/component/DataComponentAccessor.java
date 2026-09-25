@@ -177,11 +177,12 @@ public interface DataComponentAccessor extends DataComponentGetter, DataComponen
 		kgy$override(DataComponents.CONTAINER_LOOT, new SeededContainerLoot(lootTable, seed));
 	}
 
-	default void kgy$set(Context cx, DataComponentType<?> component, Object value) {
-		var wrapped = tryWrapComponent(cx, component, value)
+	default void kgy$set(DataComponentType<?> component, Object value) {
+		var cx = Context.getCurrent();
+		var wrapped = tryWrapComponent(component, value)
 			.getOrThrow(msg ->
 				new dev.uncandango.kubegroovy.error.KubeRuntimeException("Failed to wrap data component %s from '%s': %s".formatted(component, value, msg))
-					.source(dev.uncandango.kubegroovy.script.SourceLine.of(cx))
+					.source(dev.uncandango.kubegroovy.script.SourceLine.of())
 			);
 
 		if (wrapped.isPresent()) {
@@ -191,7 +192,8 @@ public interface DataComponentAccessor extends DataComponentGetter, DataComponen
 		}
 	}
 
-	default String kgy$getComponentString(Context cx) {
+	default String kgy$getComponentString() {
+		var cx = Context.getCurrent();
 		return "[]";
 	}
 }

@@ -57,7 +57,8 @@ public class ItemClickedKubeEvent implements KubePlayerEvent {
 
 	@Override
 	@Nullable
-	public ItemStack defaultExitValue(Context cx) {
+	public ItemStack defaultExitValue() {
+		var cx = Context.getCurrent();
 		return item;
 	}
 

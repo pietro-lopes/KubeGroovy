@@ -92,15 +92,17 @@ public interface ItemComponentFunctions extends DataComponentAccessor, Attribute
 		}
 	}
 
-	default void kgy$setFireResistant(Context cx) {
-		kgy$addDamageResistance(RegistryAccessContainer.of(cx).getOrThrow(DamageTypeTags.IS_FIRE));
+	default void kgy$setFireResistant() {
+		var cx = Context.getCurrent();
+		kgy$addDamageResistance(RegistryAccessContainer.of().getOrThrow(DamageTypeTags.IS_FIRE));
 	}
 
 	@Deprecated
-	default void kgy$setFireResistant(Context cx, boolean fireResistant) {
+	default void kgy$setFireResistant(boolean fireResistant) {
+		var cx = Context.getCurrent();
 		KubeGroovy.LOGGER.warn("kgy$setFireResistant(boolean) is deprecated due to changes in damage resistance, use the no-arg version instead");
 		if (fireResistant) {
-			kgy$setFireResistant(cx);
+			kgy$setFireResistant();
 		}
 	}
 

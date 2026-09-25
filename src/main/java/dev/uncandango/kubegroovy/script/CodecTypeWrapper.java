@@ -12,7 +12,8 @@ import org.jspecify.annotations.Nullable;
 public record CodecTypeWrapper<T>(Class<T> target, Codec<T> codec, @Nullable T defaultValue) implements TypeWrapperFactory<T> {
 	@Override
 	@Nullable
-	public T wrap(Context cx, Object o, TypeInfo target) {
+	public T wrap(Object o, TypeInfo target) {
+		var cx = Context.getCurrent();
 		o = Wrapper.unwrapped(o);
 
 		if (o == null) {
@@ -20,7 +21,7 @@ public record CodecTypeWrapper<T>(Class<T> target, Codec<T> codec, @Nullable T d
 		} else if (target.asClass().isInstance(o)) {
 			return Cast.to(o);
 		} else {
-			return RegistryAccessContainer.of(cx).decode(cx, codec, o);
+			return RegistryAccessContainer.of().decode(codec, o);
 		}
 	}
 }

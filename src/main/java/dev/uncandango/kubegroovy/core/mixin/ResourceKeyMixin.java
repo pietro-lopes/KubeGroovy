@@ -39,7 +39,8 @@ public abstract class ResourceKeyMixin implements SpecialEquality {
 	}
 
 	@Override
-	public boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	public boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> false;
 			case ResourceKey<?> _key -> o == this;

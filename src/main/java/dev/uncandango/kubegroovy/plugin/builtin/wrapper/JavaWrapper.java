@@ -40,12 +40,14 @@ public interface JavaWrapper {
 		return new ConsoleGY(cx.getType(), LoggerFactory.getLogger(name));
 	}
 
-	static <T> T makeFunctionProxy(Context cx, TypeInfo targetClass, BaseFunction function) {
+	static <T> T makeFunctionProxy(TypeInfo targetClass, BaseFunction function) {
+		var cx = Context.getCurrent();
 		return Cast.to(cx.createInterfaceAdapter(targetClass, function));
 	}
 
 	@Info("Cast the object to a target type when Groovy cannot determine the parameter type due to type erasure.")
-	static <T> T cast(Context cx, Class<T> targetClass, Object object) {
+	static <T> T cast(Class<T> targetClass, Object object) {
+		var cx = Context.getCurrent();
 		return Cast.to(cx.gyToJava(object, TypeInfo.of(targetClass)));
 	}
 
@@ -59,7 +61,8 @@ public interface JavaWrapper {
 		}
 	}
 
-	static <R extends Record> R mergeRecord(Context cx, R original, Map<String, ?> merge) {
+	static <R extends Record> R mergeRecord(R original, Map<String, ?> merge) {
+		var cx = Context.getCurrent();
 		var typeInfo = (RecordTypeInfo) TypeInfo.of(original.getClass());
 
 		return original;

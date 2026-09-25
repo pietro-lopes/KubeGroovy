@@ -34,7 +34,8 @@ public class JEIRegisterSubtypesKubeEvent implements RegisterSubtypesKubeEvent {
 	}
 
 	@Override
-	public void register(Context cx, Object filter, SubtypeInterpreter interpreter) {
+	public void register(Object filter, SubtypeInterpreter interpreter) {
+		var cx = Context.getCurrent();
 		var in = new JEISubtypeInterpreter<>(interpreter);
 
 		for (var item : JEIIntegration.getEntries(type, cx, filter)) {
@@ -43,7 +44,8 @@ public class JEIRegisterSubtypesKubeEvent implements RegisterSubtypesKubeEvent {
 	}
 
 	@Override
-	public void useComponents(Context cx, Object filter, List<DataComponentType<?>> components) {
+	public void useComponents(Object filter, List<DataComponentType<?>> components) {
+		var cx = Context.getCurrent();
 		var in = DataComponentTypeInterpreter.of(components);
 
 		for (var item : JEIIntegration.getEntries(type, cx, filter)) {

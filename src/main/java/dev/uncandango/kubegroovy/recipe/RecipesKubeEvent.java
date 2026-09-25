@@ -432,11 +432,12 @@ public class RecipesKubeEvent implements KubeEvent {
 	private record RecipeStreamFilter(Context cx, RecipeFilter filter) implements Predicate<KubeRecipe> {
 		@Override
 		public boolean test(KubeRecipe r) {
-			return r != null && !r.removed && filter.test(new RecipeMatchContext.Impl(cx, r));
+			return r != null && !r.removed && filter.test(new RecipeMatchContext.Impl(r));
 		}
 	}
 
-	public Stream<KubeRecipe> recipeStream(Context cx, RecipeFilter filter) {
+	public Stream<KubeRecipe> recipeStream(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		if (filter == ConstantFilter.FALSE) {
 			return Stream.empty();
 		} else if (filter instanceof IDFilter(Identifier id1)) {
@@ -463,10 +464,11 @@ public class RecipesKubeEvent implements KubeEvent {
 	}
 
 	private <T> T reduceRecipesAsync(Context cx, RecipeFilter filter, Function<Stream<KubeRecipe>, T> function) {
-		return function.apply(recipeStream(cx, filter));
+		return function.apply(recipeStream(filter));
 	}
 
-	public void forEachRecipe(Context cx, RecipeFilter filter, Consumer<KubeRecipe> consumer) {
+	public void forEachRecipe(RecipeFilter filter, Consumer<KubeRecipe> consumer) {
+		var cx = Context.getCurrent();
 		if (filter instanceof IDFilter(Identifier id1)) {
 			var r = originalRecipes.get(id1);
 
@@ -474,35 +476,41 @@ public class RecipesKubeEvent implements KubeEvent {
 				consumer.accept(r);
 			}
 		} else {
-			recipeStream(cx, filter).forEach(consumer);
+			recipeStream(filter).forEach(consumer);
 		}
 	}
 
-	public int countRecipes(Context cx, RecipeFilter filter) {
+	public int countRecipes(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		return reduceRecipesAsync(cx, filter, s -> (int) s.count());
 	}
 
-	public boolean containsRecipe(Context cx, RecipeFilter filter) {
+	public boolean containsRecipe(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		return reduceRecipesAsync(cx, filter, s -> s.findAny().isPresent());
 	}
 
-	public Collection<KubeRecipe> findRecipes(Context cx, RecipeFilter filter) {
+	public Collection<KubeRecipe> findRecipes(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		return reduceRecipesAsync(cx, filter, Stream::toList);
 	}
 
-	public Collection<Identifier> findRecipeIds(Context cx, RecipeFilter filter) {
+	public Collection<Identifier> findRecipeIds(RecipeFilter filter) {
+		var cx = Context.getCurrent();
 		return reduceRecipesAsync(cx, filter, s -> s.map(KubeRecipe::getOrCreateId).toList());
 	}
 
-	public void remove(Context cx, RecipeFilter filter) {
-		forEachRecipe(cx, filter, KubeRecipe::remove);
+	public void remove(RecipeFilter filter) {
+		var cx = Context.getCurrent();
+		forEachRecipe(filter, KubeRecipe::remove);
 	}
 
-	public void replaceInput(Context cx, RecipeFilter filter, ReplacementMatchInfo match, Object with) {
+	public void replaceInput(RecipeFilter filter, ReplacementMatchInfo match, Object with) {
+		var cx = Context.getCurrent();
 		var dstring = (DevProperties.get().logModifiedRecipes || ConsoleGY.SERVER.shouldPrintDebug()) ? (": IN " + match + " -> " + with) : "";
 
-		forEachRecipe(cx, filter, r -> {
-			if (r.replaceInput(new RecipeScriptContext.Impl(cx, r), match, with)) {
+		forEachRecipe(filter, r -> {
+			if (r.replaceInput(new RecipeScriptContext.Impl(r), match, with)) {
 				if (DevProperties.get().logModifiedRecipes) {
 					ConsoleGY.SERVER.info("~ " + r + dstring);
 				} else if (ConsoleGY.SERVER.shouldPrintDebug()) {
@@ -512,11 +520,12 @@ public class RecipesKubeEvent implements KubeEvent {
 		});
 	}
 
-	public void replaceOutput(Context cx, RecipeFilter filter, ReplacementMatchInfo match, Object with) {
+	public void replaceOutput(RecipeFilter filter, ReplacementMatchInfo match, Object with) {
+		var cx = Context.getCurrent();
 		var dstring = (DevProperties.get().logModifiedRecipes || ConsoleGY.SERVER.shouldPrintDebug()) ? (": OUT " + match + " -> " + with) : "";
 
-		forEachRecipe(cx, filter, r -> {
-			if (r.replaceOutput(new RecipeScriptContext.Impl(cx, r), match, with)) {
+		forEachRecipe(filter, r -> {
+			if (r.replaceOutput(new RecipeScriptContext.Impl(r), match, with)) {
 				if (DevProperties.get().logModifiedRecipes) {
 					ConsoleGY.SERVER.info("~ " + r + dstring);
 				} else if (ConsoleGY.SERVER.shouldPrintDebug()) {
@@ -537,8 +546,9 @@ public class RecipesKubeEvent implements KubeEvent {
 		}
 	}
 
-	public KubeRecipe custom(Context cx, JsonObject json) {
-		return parseJson(json, SourceLine.of(cx)).getPartialOrThrow(KubeRuntimeException::new);
+	public KubeRecipe custom(JsonObject json) {
+		var cx = Context.getCurrent();
+		return parseJson(json, SourceLine.of()).getPartialOrThrow(KubeRuntimeException::new);
 	}
 
 	@HideFromGY
@@ -626,7 +636,8 @@ public class RecipesKubeEvent implements KubeEvent {
 		ConsoleGY.SERVER.info(t + " types");
 	}
 
-	public void printTypes(Context cx) {
+	public void printTypes() {
+		var cx = Context.getCurrent();
 		ConsoleGY.SERVER.info("== All recipe types [used] ==");
 		var set = reduceRecipesAsync(cx, ConstantFilter.TRUE, s -> s.map(r -> r.type.id).collect(Collectors.toSet()));
 		printTypes(t -> set.contains(t.id), false);
@@ -662,7 +673,8 @@ public class RecipesKubeEvent implements KubeEvent {
 		return id;
 	}
 
-	public void stage(Context cx, RecipeFilter filter, String stage) {
-		forEachRecipe(cx, filter, r -> r.stage(stage));
+	public void stage(RecipeFilter filter, String stage) {
+		var cx = Context.getCurrent();
+		forEachRecipe(filter, r -> r.stage(stage));
 	}
 }

@@ -29,8 +29,9 @@ public class ServerRegistryKubeEvent<T> implements KubeEvent {
 		this.builders = builders;
 	}
 
-	public BuilderBase<? extends T> create(Context cx, KubeIdentifier id, KubeIdentifier type) {
-		var sourceLine = SourceLine.of(cx);
+	public BuilderBase<? extends T> create(KubeIdentifier id, KubeIdentifier type) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 		var t = builderInfo == null ? null : builderInfo.namedType(type.wrapped());
 
 		if (t == null) {
@@ -49,8 +50,9 @@ public class ServerRegistryKubeEvent<T> implements KubeEvent {
 		}
 	}
 
-	public BuilderBase<? extends T> create(Context cx, KubeIdentifier id) {
-		var sourceLine = SourceLine.of(cx);
+	public BuilderBase<? extends T> create(KubeIdentifier id) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 		var t = builderInfo == null ? null : builderInfo.defaultType();
 
 		if (t == null && builderInfo != null && builderInfo.directCodec() != null) {
@@ -73,8 +75,9 @@ public class ServerRegistryKubeEvent<T> implements KubeEvent {
 		}
 	}
 
-	public CustomBuilderObject createCustom(Context cx, KubeIdentifier id, Supplier<Object> object) {
-		var sourceLine = SourceLine.of(cx);
+	public CustomBuilderObject createCustom(KubeIdentifier id, Supplier<Object> object) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 
 		if (object == null) {
 			throw new KubeRuntimeException("Tried to register a null object with id: " + id).source(sourceLine);
@@ -87,8 +90,9 @@ public class ServerRegistryKubeEvent<T> implements KubeEvent {
 		return b;
 	}
 
-	public CodecRegistryBuilder<T> createFromJson(Context cx, KubeIdentifier id, JsonElement json) {
-		var sourceLine = SourceLine.of(cx);
+	public CodecRegistryBuilder<T> createFromJson(KubeIdentifier id, JsonElement json) {
+		var cx = Context.getCurrent();
+		var sourceLine = SourceLine.of();
 		return createCodecBuilder(sourceLine, id, json);
 	}
 

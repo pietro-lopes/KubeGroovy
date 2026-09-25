@@ -144,13 +144,9 @@ class PureContainerTests {
 		assertEquals(backing.hashCode(), map.hashCode());
 
 		assertThrows(KubeRuntimeException.class, () -> map.put("b", 2));
-		assertThrows(KubeRuntimeException.class, () -> map.put(null, "b", 2));
 		assertThrows(KubeRuntimeException.class, () -> map.remove("a"));
-		assertThrows(KubeRuntimeException.class, () -> map.remove(null, "a"));
 		assertThrows(KubeRuntimeException.class, () -> map.putAll(Map.of("b", 2)));
-		assertThrows(KubeRuntimeException.class, () -> map.putAll(null, Map.of()));
 		assertThrows(KubeRuntimeException.class, map::clear);
-		assertThrows(KubeRuntimeException.class, () -> map.clear(null));
 	}
 
 	@Test

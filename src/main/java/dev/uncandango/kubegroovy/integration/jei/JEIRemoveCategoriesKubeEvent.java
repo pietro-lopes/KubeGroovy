@@ -18,7 +18,8 @@ public class JEIRemoveCategoriesKubeEvent implements RemoveCategoriesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] ids) {
+	public void remove(Identifier[] ids) {
+		var cx = Context.getCurrent();
 		for (var c : ids) {
 			var category = categories.get(c);
 

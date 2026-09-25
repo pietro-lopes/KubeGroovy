@@ -50,7 +50,7 @@ public class TypeWrapperRegistry {
 		if (!(cx instanceof KubeGroovyContext kgy)) {
 			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target.asClass());
 		}
-		Object result = kgy.kgyFactory.getTypeWrappers().coerce(cx, value, target);
+		Object result = kgy.kgyFactory.getTypeWrappers().coerce(value, target);
 		// A wrapper may return a vanilla value whose script-facing methods are
 		// supplied by an injected KGY interface.  Refresh that concrete class so
 		// the same aliases/properties are available immediately after an explicit
@@ -67,7 +67,7 @@ public class TypeWrapperRegistry {
 		if (!(cx instanceof KubeGroovyContext kgy)) {
 			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target);
 		}
-		Object result = kgy.kgyFactory.getTypeWrappers().coerce(cx, value, target);
+		Object result = kgy.kgyFactory.getTypeWrappers().coerce(value, target);
 		// A wrapper may return a vanilla value whose script-facing methods are
 		// supplied by an injected KGY interface.  Refresh that concrete class so
 		// the same aliases/properties are available immediately after an explicit
@@ -79,7 +79,8 @@ public class TypeWrapperRegistry {
 	}
 
 	/** Used by the compiler customizer while a script class is being compiled. */
-	public static boolean hasTypeWrapper(Context cx, String targetName) {
+	public static boolean hasTypeWrapper(String targetName) {
+		var cx = Context.getCurrent();
 		return cx instanceof KubeGroovyContext kgy && kgy.kgyFactory.getTypeWrappers().hasWrapper(targetName);
 	}
 
@@ -92,19 +93,19 @@ public class TypeWrapperRegistry {
 	}
 
 	public <T> void register(Class<T> target, TypeWrapperValidator validator, ContextFromFunction<T> factory, boolean coercesCharSequence) {
-		typeWrappers.register(target, validator, (cx, from, t) -> factory.apply(cx, from), coercesCharSequence);
+		typeWrappers.register(target, validator, (from, t) -> { var cx = Context.getCurrent(); return factory.apply(cx, from); }, coercesCharSequence);
 	}
 
 	public <T> void register(Class<T> target, ContextFromFunction<T> factory, boolean coercesCharSequence) {
-		typeWrappers.register(target, (cx, from, t) -> factory.apply(cx, from), coercesCharSequence);
+		typeWrappers.register(target, (from, t) -> { var cx = Context.getCurrent(); return factory.apply(cx, from); }, coercesCharSequence);
 	}
 
 	public <T> void register(Class<T> target, RegistriesFromFunction<T> factory, boolean coercesCharSequence) {
-		typeWrappers.register(target, (cx, from, t) -> {
+		typeWrappers.register(target, (from, t) -> {
 			try {
-				return factory.apply(RegistryAccessContainer.of(cx), from);
+				return factory.apply(RegistryAccessContainer.of(), from);
 			} catch (KubeRuntimeException ex) {
-				throw ex.source(SourceLine.of(cx));
+				throw ex.source(SourceLine.of());
 			}
 		}, coercesCharSequence);
 	}
@@ -158,7 +159,8 @@ public class TypeWrapperRegistry {
 
 	public <F, T> void registerAlias(Class<T> target, TypeInfo from, @Nullable Function<F, T> converter, boolean coercesCharSequence) {
 		if (converter != null) {
-			typeWrappers.register(target, (cx, f, typeInfo) -> {
+			typeWrappers.register(target, (f, typeInfo) -> {
+				var cx = Context.getCurrent();
 				var o1 = cx.gyToJava(f, from);
 				return o1 == null ? null : Cast.to(converter.apply(Cast.to(o1)));
 			}, coercesCharSequence);

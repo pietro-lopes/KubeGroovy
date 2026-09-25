@@ -34,9 +34,10 @@ public class REIIntegration {
 		}
 	}
 
-	public static EntryStack<?> stackOf(Context cx, RecipeViewerEntryType type, Object from) {
+	public static EntryStack<?> stackOf(RecipeViewerEntryType type, Object from) {
+		var cx = Context.getCurrent();
 		if (type == RecipeViewerEntryType.ITEM) {
-			var in = (ItemStack) type.wrapEntry(cx, from);
+			var in = (ItemStack) type.wrapEntry(from);
 			return EntryStacks.of(in);
 		} else if (type == RecipeViewerEntryType.FLUID) {
 			var in = (FluidStack) type.wrapEntry(cx, from);
@@ -52,9 +53,10 @@ public class REIIntegration {
 		return EntryIngredient.of(Arrays.stream(fluidStacks).map(FluidStackHooksForge::fromForge).map(EntryStacks::of).toList());
 	}
 
-	public static EntryIngredient ingredientOf(Context cx, RecipeViewerEntryType type, Object from) {
+	public static EntryIngredient ingredientOf(RecipeViewerEntryType type, Object from) {
+		var cx = Context.getCurrent();
 		if (type == RecipeViewerEntryType.ITEM) {
-			var in = (ItemPredicate) type.wrapPredicate(cx, from);
+			var in = (ItemPredicate) type.wrapPredicate(from);
 			return in instanceof Ingredient i ? EntryIngredients.ofIngredient(i) : EntryIngredients.ofItemStacks(Arrays.asList(in.kgy$getStackArray()));
 		} else if (type == RecipeViewerEntryType.FLUID) {
 			return fluidIngredient((FluidIngredient) type.wrapPredicate(cx, from));

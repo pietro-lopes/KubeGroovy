@@ -39,47 +39,52 @@ import static dev.uncandango.kubegroovy.plugin.builtin.wrapper.StringUtilsWrappe
 import static dev.uncandango.kubegroovy.plugin.builtin.wrapper.StringUtilsWrapper.tryParseInt;
 
 public interface MiscWrappers {
-	static IntProvider wrapIntProvider(Context cx, @Nullable Object o) {
+	static IntProvider wrapIntProvider(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return tryWrapIntProvider(cx, o)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read IntProvider from %s: %s".formatted(o, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
-	static FloatProvider wrapFloatProvider(Context cx, @Nullable Object o) {
+	static FloatProvider wrapFloatProvider(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return tryWrapFloatProvider(cx, o)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read FloatProvider from %s: %s".formatted(o, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
-	static NumberProvider wrapNumberProvider(Context cx, @Nullable Object o) {
+	static NumberProvider wrapNumberProvider(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return tryWrapNumberProvider(cx, o)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read NumberProvider from %s: %s".formatted(o, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
-	static Vec3 wrapVec3(Context cx, @Nullable Object o) {
+	static Vec3 wrapVec3(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case Vec3 vec -> vec;
 			case Position vec -> new Vec3(vec.x(), vec.y(), vec.z());
 			case List<?> list when list.size() == 3 -> new Vec3(StringUtilsWrapper.parseDouble(list.get(0), 0), StringUtilsWrapper.parseDouble(list.get(1), 0), StringUtilsWrapper.parseDouble(list.get(2), 0));
-			case List<?> list -> throw new KubeRuntimeException("Vec3 list requires 3 entries, got %s".formatted(list)).source(SourceLine.of(cx));
+			case List<?> list -> throw new KubeRuntimeException("Vec3 list requires 3 entries, got %s".formatted(list)).source(SourceLine.of());
 			case BlockPos pos -> new Vec3(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
 			case Entity entity -> entity.position();
 			case LevelBlock block -> new Vec3(block.getCenterX(), block.getCenterY(), block.getCenterZ());
-			case null -> throw new KubeRuntimeException("Vec3 cannot be null!").source(SourceLine.of(cx));
-			default -> throw new KubeRuntimeException("Invalid Vec3 input! Expected list, position, block position, entity or block, got %s.".formatted(o)).source(SourceLine.of(cx));
+			case null -> throw new KubeRuntimeException("Vec3 cannot be null!").source(SourceLine.of());
+			default -> throw new KubeRuntimeException("Invalid Vec3 input! Expected list, position, block position, entity or block, got %s.".formatted(o)).source(SourceLine.of());
 		};
 	}
 
-	static BlockPos wrapBlockPos(Context cx, @Nullable Object o) {
+	static BlockPos wrapBlockPos(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case BlockPos pos -> pos;
 			case List<?> list when list.size() == 3 -> new BlockPos(StringUtilsWrapper.parseInt(list.get(0), 0), StringUtilsWrapper.parseInt(list.get(1), 0), StringUtilsWrapper.parseInt(list.get(2), 0));
-			case List<?> list -> throw new KubeRuntimeException("BlockPos list requires 3 entries, got %s".formatted(list)).source(SourceLine.of(cx));
+			case List<?> list -> throw new KubeRuntimeException("BlockPos list requires 3 entries, got %s".formatted(list)).source(SourceLine.of());
 			case LevelBlock block -> block.getPos();
 			case Position vec -> BlockPos.containing(vec.x(), vec.y(), vec.z());
-			case null -> throw new KubeRuntimeException("BlockPos cannot be null!").source(SourceLine.of(cx));
-			default -> throw new KubeRuntimeException("Invalid BlockPos input! Expected list, position or block, got %s.".formatted(o)).source(SourceLine.of(cx));
+			case null -> throw new KubeRuntimeException("BlockPos cannot be null!").source(SourceLine.of());
+			default -> throw new KubeRuntimeException("Invalid BlockPos input! Expected list, position or block, got %s.".formatted(o)).source(SourceLine.of());
 		};
 	}
 
@@ -104,7 +109,7 @@ public interface MiscWrappers {
 				} else if (hasBounds(map)) {
 					yield parseIntBounds(map).map(v -> v);
 				} else {
-					yield IntProviders.CODEC.parse(RegistryAccessContainer.of(cx).nbt(), NBTWrapper.wrapCompound(cx, map))
+					yield IntProviders.CODEC.parse(RegistryAccessContainer.of().nbt(), NBTWrapper.wrapCompound(map))
 						.mapError(error -> "Failed to decode IntProvider from %s: %s".formatted(map, error));
 				}
 			}
@@ -187,7 +192,7 @@ public interface MiscWrappers {
 		} else if (hasBounds(m)) {
 			return parseIntBounds(m).map(v -> v);
 		} else {
-			return IntProviders.CODEC.parse(RegistryAccessContainer.of(cx).nbt(), NBTWrapper.wrapCompound(cx, m)).map(v -> v).mapError(error -> "Failed to decode IntProvider from %s: %s".formatted(m, error));
+			return IntProviders.CODEC.parse(RegistryAccessContainer.of().nbt(), NBTWrapper.wrapCompound(m)).map(v -> v).mapError(error -> "Failed to decode IntProvider from %s: %s".formatted(m, error));
 		}
 	}
 
@@ -214,7 +219,7 @@ public interface MiscWrappers {
 		} else if (hasBounds(m)) {
 			return parseFloatBounds(m).map(v -> v);
 		} else {
-			return FloatProviders.CODEC.parse(RegistryAccessContainer.of(cx).nbt(), NBTWrapper.wrapCompound(cx, m))
+			return FloatProviders.CODEC.parse(RegistryAccessContainer.of().nbt(), NBTWrapper.wrapCompound(m))
 				.mapError(error -> "Failed to decode FloatProvider from %s: %s".formatted(m, error));
 		}
 	}
@@ -255,7 +260,8 @@ public interface MiscWrappers {
 	}
 
 	@Nullable
-	public static Path wrapPath(Context cx, @Nullable Object o) {
+	public static Path wrapPath(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		try {
 			if (o instanceof Path p) {
 				return KubeGroovyPaths.verifyFilePath(p);
@@ -265,12 +271,13 @@ public interface MiscWrappers {
 
 			return KubeGroovyPaths.verifyFilePath(KubeGroovyPaths.GAMEDIR.resolve(o.toString()));
 		} catch (Exception ex) {
-			throw new KubeRuntimeException("Invalid path '%s'".formatted(o), ex).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("Invalid path '%s'".formatted(o), ex).source(SourceLine.of());
 		}
 	}
 
 	@Nullable
-	static File wrapFile(Context cx, @Nullable Object o) {
+	static File wrapFile(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		try {
 			if (o instanceof File f) {
 				return KubeGroovyPaths.verifyFilePath(f.toPath()).toFile();
@@ -280,7 +287,7 @@ public interface MiscWrappers {
 
 			return KubeGroovyPaths.verifyFilePath(KubeGroovyPaths.GAMEDIR.resolve(o.toString())).toFile();
 		} catch (Exception ex) {
-			throw new KubeRuntimeException("Invalid file path '%s'".formatted(o), ex).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("Invalid file path '%s'".formatted(o), ex).source(SourceLine.of());
 		}
 	}
 }

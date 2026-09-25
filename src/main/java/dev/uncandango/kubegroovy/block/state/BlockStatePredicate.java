@@ -54,13 +54,14 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 		return null;
 	}
 
-	static BlockStatePredicate fromString(Context cx, String s) {
+	static BlockStatePredicate fromString(String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "*" -> Simple.ALL;
 			case "-" -> Simple.NONE;
 			case String str when str.startsWith("#") -> new TagMatch(Tags.block(Identifier.parse(str.substring(1))));
 			case String str when str.indexOf('[') != -1 -> {
-				var state = BlockWrapper.parseBlockState(cx, str);
+				var state = BlockWrapper.parseBlockState(str);
 				yield state != Blocks.AIR.defaultBlockState() ? new StateMatch(state) : Simple.NONE;
 			}
 			default -> {
@@ -70,7 +71,8 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 		};
 	}
 
-	static BlockStatePredicate wrap(Context cx, @Nullable Object o) {
+	static BlockStatePredicate wrap(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		if (o == null || o == Simple.ALL) {
 			return Simple.ALL;
 		} else if (o == Simple.NONE) {
@@ -85,7 +87,7 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 			var predicates = new ArrayList<BlockStatePredicate>();
 
 			for (var o1 : list) {
-				var p = wrap(cx, o1);
+				var p = wrap(o1);
 				if (p == Simple.ALL) {
 					return Simple.ALL;
 				} else if (p != Simple.NONE) {
@@ -107,11 +109,11 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 			var predicates = new ArrayList<BlockStatePredicate>();
 
 			if (map.get("or") != null) {
-				predicates.add(wrap(cx, map.get("or")));
+				predicates.add(wrap(map.get("or")));
 			}
 
 			if (map.get("not") != null) {
-				predicates.add(new NotMatch(wrap(cx, map.get("not"))));
+				predicates.add(new NotMatch(wrap(map.get("not"))));
 			}
 
 			return new AndMatch(predicates);
@@ -120,18 +122,19 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 		return ofSingle(cx, first);
 	}
 
-	static RuleTest wrapRuleTest(Context cx, @Nullable Object o) {
-		var nbt = RegistryAccessContainer.of(cx).nbt();
+	static RuleTest wrapRuleTest(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		var nbt = RegistryAccessContainer.of().nbt();
 		return switch (o) {
 			case RuleTest rule -> rule;
 			case BlockStatePredicate bsp when bsp.asRuleTest() != null ->
 				//noinspection DataFlowIssue
 				bsp.asRuleTest(); // safe
-			case null, default -> Optional.ofNullable(NBTWrapper.wrapCompound(cx, o))
+			case null, default -> Optional.ofNullable(NBTWrapper.wrapCompound(o))
 				.map(tag -> RuleTest.CODEC.parse(nbt, tag))
 				.flatMap(DataResult::result)
-				.or(() -> Optional.ofNullable(wrap(cx, o).asRuleTest()))
-				.orElseThrow(() -> new KubeRuntimeException("Could not parse valid rule test from %s!".formatted(o)).source(SourceLine.of(cx)));
+				.or(() -> Optional.ofNullable(wrap(o).asRuleTest()))
+				.orElseThrow(() -> new KubeRuntimeException("Could not parse valid rule test from %s!".formatted(o)).source(SourceLine.of()));
 		};
 	}
 
@@ -144,7 +147,7 @@ public sealed interface BlockStatePredicate extends Predicate<BlockState>, Repla
 			case TagKey tag -> new TagMatch((TagKey<Block>) tag);
 			default -> {
 				var pattern = RegExpKGY.wrap(o);
-				yield pattern == null ? BlockStatePredicate.fromString(cx, o.toString()) : new RegexMatch(pattern);
+				yield pattern == null ? BlockStatePredicate.fromString(o.toString()) : new RegexMatch(pattern);
 			}
 		};
 	}

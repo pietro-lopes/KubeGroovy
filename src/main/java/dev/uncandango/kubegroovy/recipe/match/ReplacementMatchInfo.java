@@ -13,15 +13,16 @@ public record ReplacementMatchInfo(ReplacementMatch match, boolean exact, Option
 
 	public static final ReplacementMatchInfo NONE = new ReplacementMatchInfo(ReplacementMatch.NONE, false, Optional.empty());
 
-	public static ReplacementMatchInfo wrap(Context cx, Object o, TypeInfo target) {
+	public static ReplacementMatchInfo wrap(Object o, TypeInfo target) {
+		var cx = Context.getCurrent();
 		if (o == null) {
 			return NONE;
 		} else if (o instanceof ReplacementMatchInfo h) {
 			return h;
 		} else if (o instanceof Map) {
-			return (ReplacementMatchInfo) TYPE_INFO.wrap(cx, o, target);
+			return (ReplacementMatchInfo) TYPE_INFO.wrap(o, target);
 		} else {
-			var m = ReplacementMatch.wrap(cx, o);
+			var m = ReplacementMatch.wrap(o);
 			return m == ReplacementMatch.NONE ? NONE : new ReplacementMatchInfo(m, false, Optional.empty());
 		}
 	}

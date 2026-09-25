@@ -67,7 +67,7 @@ public record RegistryComponent<T>(
 			} else if (from instanceof Item item) {
 				return (Holder<T>) item.builtInRegistryHolder();
 			} else {
-				return (Holder<T>) ItemWrapper.wrap(cx.cx(), from).typeHolder();
+				return (Holder<T>) ItemWrapper.wrap(from).typeHolder();
 			}
 		} else if (registry.equals(Registries.FLUID)) {
 			if (from instanceof FluidStack fs) {
@@ -75,7 +75,7 @@ public record RegistryComponent<T>(
 			} else if (from instanceof Fluid fluid) {
 				return (Holder<T>) fluid.builtInRegistryHolder();
 			} else {
-				return (Holder<T>) FluidWrapper.wrap(cx.cx(), from).typeHolder();
+				return (Holder<T>) FluidWrapper.wrap(from).typeHolder();
 			}
 		} else if (regType != null) {
 			return (Holder<T>) HolderWrapper.wrap((KubeGroovyContext) cx.cx(), from, regType.type());

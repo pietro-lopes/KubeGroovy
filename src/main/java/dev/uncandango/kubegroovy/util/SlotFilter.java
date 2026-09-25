@@ -39,21 +39,22 @@ public record SlotFilter(Optional<Ingredient> item, int index) {
 		SlotFilter::of
 	);
 
-	public static SlotFilter wrap(Context cx, Object o, TypeInfo target) {
+	public static SlotFilter wrap(Object o, TypeInfo target) {
+		var cx = Context.getCurrent();
 		if (o instanceof Number num) {
 			return of(Optional.empty(), num.intValue());
 		} else if (o instanceof CharSequence || o instanceof Ingredient || o instanceof Pattern) {
-			return of(Optional.of(IngredientWrapper.wrap(cx, o)), -1);
+			return of(Optional.of(IngredientWrapper.wrap(o)), -1);
 		} else if (o instanceof Map<?, ?> map) {
 			var rawItem = map.get("item");
 			var item = rawItem == null
 				? Optional.<Ingredient>empty()
-				: Optional.of(IngredientWrapper.wrap(cx, rawItem));
+				: Optional.of(IngredientWrapper.wrap(rawItem));
 			var rawIndex = map.get("index");
 			int index = rawIndex == null ? -1 : ((Number) cx.gyToJava(rawIndex, TypeInfo.INT)).intValue();
 			return of(item, index);
 		} else {
-			return (SlotFilter) ((RecordTypeInfo) target).wrap(cx, o, target);
+			return (SlotFilter) ((RecordTypeInfo) target).wrap(o, target);
 		}
 	}
 

@@ -24,9 +24,10 @@ public class JEIAddEntriesKubeEvent implements AddEntriesKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object[] items) {
+	public void add(Object[] items) {
+		var cx = Context.getCurrent();
 		for (var o : items) {
-			added.add(type.wrapEntry(cx, o));
+			added.add(type.wrapEntry(o));
 		}
 	}
 

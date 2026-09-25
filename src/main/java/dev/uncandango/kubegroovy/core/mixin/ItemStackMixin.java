@@ -51,7 +51,8 @@ public abstract class ItemStackMixin implements ItemStackKGY {
 	}*/
 
 	@Override
-	public void kgy$resetComponents(Context cx) {
+	public void kgy$resetComponents() {
+		var cx = Context.getCurrent();
 		components.restorePatch(DataComponentPatch.EMPTY);
 	}
 

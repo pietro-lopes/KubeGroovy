@@ -22,8 +22,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public record RegistryWrapper<T>(Registry<T> registry, @Nullable ResourceKey<T> unknownKey) implements Iterable<T> {
-	public static RegistryWrapper<?> of(Context cx, Identifier id) {
-		return RegistryAccessContainer.of(cx).wrapRegistry(id);
+	public static RegistryWrapper<?> of(Identifier id) {
+		var cx = Context.getCurrent();
+		return RegistryAccessContainer.of().wrapRegistry(id);
 	}
 
 	public static RegistryAccessContainer access() {

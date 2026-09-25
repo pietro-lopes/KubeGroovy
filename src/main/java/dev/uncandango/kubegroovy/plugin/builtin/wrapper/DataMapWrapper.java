@@ -16,13 +16,15 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 public record DataMapWrapper<T, A>(Registry<T> registry, DataMapType<T, A> type) implements Iterable<DataMapWrapper.Data<T, A>> {
-	public static DataMapWrapper<?, ?> of(Context cx, Identifier registry, Identifier id) {
-		var reg = RegistryAccessContainer.of(cx).wrapRegistry(registry);
+	public static DataMapWrapper<?, ?> of(Identifier registry, Identifier id) {
+		var cx = Context.getCurrent();
+		var reg = RegistryAccessContainer.of().wrapRegistry(registry);
 		return of(reg, id);
 	}
 
-	public static DataMapType<?, ?> typeOf(Context cx, Identifier registry, Identifier id) {
-		var reg = RegistryAccessContainer.of(cx).wrapRegistry(registry);
+	public static DataMapType<?, ?> typeOf(Identifier registry, Identifier id) {
+		var cx = Context.getCurrent();
+		var reg = RegistryAccessContainer.of().wrapRegistry(registry);
 		return typeOf(reg, id);
 	}
 

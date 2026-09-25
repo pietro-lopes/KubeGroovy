@@ -28,8 +28,9 @@ public class JEIRemoveEntriesKubeEvent implements RemoveEntriesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Object filter) {
-		var predicate = (Predicate) type.wrapPredicate(cx, filter);
+	public void remove(Object filter) {
+		var cx = Context.getCurrent();
+		var predicate = (Predicate) type.wrapPredicate(filter);
 
 		for (var value : allIngredients) {
 			if (predicate.test(value)) {

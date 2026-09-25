@@ -71,11 +71,12 @@ public class JsonIO {
 	/** Script-safe overload: accepts a game-relative string and validates it. */
 	public static String readString(Object path) throws IOException {
 		var cx = Context.getCurrent();
-		return readString(MiscWrappers.wrapPath(cx == null ? new Context(new ContextFactory()) : cx, path));
+		return readString(MiscWrappers.wrapPath(path));
 	}
 
 	@Nullable
-	public static Map<?, ?> read(Context cx, Path path) throws IOException {
+	public static Map<?, ?> read(Path path) throws IOException {
+		var cx = Context.getCurrent();
 		return cx.optionalMapOf(readJson(path));
 	}
 
@@ -83,7 +84,7 @@ public class JsonIO {
 	public static Map<?, ?> read(Object path) throws IOException {
 		var cx = Context.getCurrent();
 		cx = cx == null ? new Context(new ContextFactory()) : cx;
-		return cx.optionalMapOf(readJson(MiscWrappers.wrapPath(cx, path)));
+		return cx.optionalMapOf(readJson(MiscWrappers.wrapPath(path)));
 	}
 
 	public static void write(Path path, @Nullable JsonElement json) throws IOException {
@@ -101,7 +102,7 @@ public class JsonIO {
 	public static void write(Object path, @Nullable Object json) throws IOException {
 		var cx = Context.getCurrent();
 		cx = cx == null ? new Context(new ContextFactory()) : cx;
-		write(MiscWrappers.wrapPath(cx, path), JsonUtils.of(cx, json));
+		write(MiscWrappers.wrapPath(path), JsonUtils.of(json));
 	}
 
 	public static JsonArray toArray(@Nullable JsonElement element) {

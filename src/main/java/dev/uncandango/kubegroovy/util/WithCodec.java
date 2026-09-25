@@ -6,15 +6,17 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import net.minecraft.nbt.Tag;
 
 public interface WithCodec extends NBTSerializable, JsonSerializable {
-	Codec<?> getCodec(Context cx);
+	Codec<?> getCodec();
 
 	@Override
-	default Tag toNBT(Context cx) {
-		return getCodec(cx).encodeStart(RegistryAccessContainer.of(cx).nbt(), Cast.to(this)).getOrThrow();
+	default Tag toNBT() {
+		var cx = Context.getCurrent();
+		return getCodec().encodeStart(RegistryAccessContainer.of().nbt(), Cast.to(this)).getOrThrow();
 	}
 
 	@Override
-	default JsonElement toJson(Context cx) {
-		return getCodec(cx).encodeStart(RegistryAccessContainer.of(cx).json(), Cast.to(this)).getOrThrow();
+	default JsonElement toJson() {
+		var cx = Context.getCurrent();
+		return getCodec().encodeStart(RegistryAccessContainer.of().json(), Cast.to(this)).getOrThrow();
 	}
 }

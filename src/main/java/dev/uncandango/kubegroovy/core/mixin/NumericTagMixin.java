@@ -21,7 +21,8 @@ public interface NumericTagMixin extends SpecialEquality {
 	Number box();
 
 	@Override
-	default boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	default boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case Boolean b -> b == (asByte().orElseThrow() != 0);
 			case Number n1 -> box().equals(n1);

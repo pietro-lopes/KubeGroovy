@@ -26,7 +26,7 @@ public interface NBTIOWrapper {
 	/** Script-safe overload: accepts a game-relative string and validates it. */
 	static CompoundTag read(Object path) throws IOException {
 		var cx = Context.getCurrent();
-		return read(MiscWrappers.wrapPath(cx == null ? new Context(new ContextFactory()) : cx, path));
+		return read(MiscWrappers.wrapPath(path));
 	}
 
 	static void write(Path path, CompoundTag nbt) throws IOException {
@@ -40,8 +40,6 @@ public interface NBTIOWrapper {
 
 	/** Script-safe overload: converts Groovy maps and validates the path. */
 	static void write(Object path, Object nbt) throws IOException {
-		var cx = Context.getCurrent();
-		cx = cx == null ? new Context(new ContextFactory()) : cx;
-		write(MiscWrappers.wrapPath(cx, path), NBTWrapper.wrapCompound(cx, nbt));
+		write(MiscWrappers.wrapPath(path), NBTWrapper.wrapCompound(nbt));
 	}
 }

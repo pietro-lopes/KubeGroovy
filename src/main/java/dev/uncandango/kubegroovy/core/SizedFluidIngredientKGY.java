@@ -21,7 +21,7 @@ public interface SizedFluidIngredientKGY extends Replaceable, FluidMatch {
 
 	@Override
 	default Object replaceThisWith(RecipeScriptContext cx, Object with) {
-		var ingredient = FluidWrapper.wrapIngredient(cx.cx(), with);
+		var ingredient = FluidWrapper.wrapIngredient(with);
 
 		if (!ingredient.equals(kgy$self().ingredient())) {
 			return new SizedFluidIngredient(ingredient, kgy$self().amount());

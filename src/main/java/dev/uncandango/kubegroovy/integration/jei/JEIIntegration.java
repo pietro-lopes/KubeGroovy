@@ -25,9 +25,9 @@ public class JEIIntegration {
 
 	public static Object[] getEntries(RecipeViewerEntryType type, Context cx, Object filter) {
 		if (type == RecipeViewerEntryType.ITEM) {
-			return ((ItemPredicate) type.wrapPredicate(cx, filter)).kgy$getStackArray();
+			return ((ItemPredicate) type.wrapPredicate(filter)).kgy$getStackArray();
 		} else if (type == RecipeViewerEntryType.FLUID) {
-			return new List[]{((FluidIngredient) type.wrapPredicate(cx, filter)).fluids()};
+			return new List[]{((FluidIngredient) type.wrapPredicate(filter)).fluids()};
 		} else {
 			return new Object[0];
 		}

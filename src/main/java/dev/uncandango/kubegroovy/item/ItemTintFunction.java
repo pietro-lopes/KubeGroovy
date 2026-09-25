@@ -99,7 +99,8 @@ public interface ItemTintFunction {
 	};
 
 	@Nullable
-	static ItemTintFunction wrap(Context cx, @Nullable Object o) {
+	static ItemTintFunction wrap(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> null;
 			case Undefined undefined -> null;
@@ -109,7 +110,7 @@ public interface ItemTintFunction {
 				var map = new Mapped();
 
 				for (int i = 0; i < list.size(); i++) {
-					var f = wrap(cx, list.get(i));
+					var f = wrap(list.get(i));
 
 					if (f != null) {
 						map.map.put(i, f);

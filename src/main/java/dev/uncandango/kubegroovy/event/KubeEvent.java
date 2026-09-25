@@ -9,13 +9,15 @@ import org.jspecify.annotations.Nullable;
 public interface KubeEvent {
 	@Nullable
 	@HideFromGY
-	default Object defaultExitValue(Context cx) {
+	default Object defaultExitValue() {
+		var cx = Context.getCurrent();
 		return null;
 	}
 
 	@Nullable
 	@HideFromGY
-	default Object mapExitValue(Context cx, @Nullable Object value) {
+	default Object mapExitValue(@Nullable Object value) {
+		var cx = Context.getCurrent();
 		var t = getExitValueType();
 		return t == null ? value : cx.gyToJava(value, t);
 	}
@@ -31,8 +33,9 @@ public interface KubeEvent {
 		
 		`cancel` denotes a `false` outcome.
 		""")
-	default Object cancel(Context cx) throws EventExit {
-		return cancel(cx, defaultExitValue(cx));
+	default Object cancel() throws EventExit {
+		var cx = Context.getCurrent();
+		return cancel(defaultExitValue());
 	}
 
 	@Info("""
@@ -40,8 +43,9 @@ public interface KubeEvent {
 		
 		`success` denotes a `true` outcome.
 		""")
-	default Object success(Context cx) throws EventExit {
-		return success(cx, defaultExitValue(cx));
+	default Object success() throws EventExit {
+		var cx = Context.getCurrent();
+		return success(defaultExitValue());
 	}
 
 	@Info("""
@@ -49,8 +53,9 @@ public interface KubeEvent {
 		
 		`exit` denotes a `default` outcome.
 		""")
-	default Object exit(Context cx) throws EventExit {
-		return exit(cx, defaultExitValue(cx));
+	default Object exit() throws EventExit {
+		var cx = Context.getCurrent();
+		return exit(defaultExitValue());
 	}
 
 	@Info("""
@@ -58,8 +63,9 @@ public interface KubeEvent {
 		
 		`cancel` denotes a `false` outcome.
 		""")
-	default Object cancel(Context cx, @Nullable Object value) throws EventExit {
-		throw EventResult.Type.INTERRUPT_FALSE.exit(cx, mapExitValue(cx, value));
+	default Object cancel(@Nullable Object value) throws EventExit {
+		var cx = Context.getCurrent();
+		throw EventResult.Type.INTERRUPT_FALSE.exit(mapExitValue(value));
 	}
 
 	@Info("""
@@ -67,8 +73,9 @@ public interface KubeEvent {
 		
 		`success` denotes a `true` outcome.
 		""")
-	default Object success(Context cx, @Nullable Object value) throws EventExit {
-		throw EventResult.Type.INTERRUPT_TRUE.exit(cx, mapExitValue(cx, value));
+	default Object success(@Nullable Object value) throws EventExit {
+		var cx = Context.getCurrent();
+		throw EventResult.Type.INTERRUPT_TRUE.exit(mapExitValue(value));
 	}
 
 	@Info("""
@@ -76,8 +83,9 @@ public interface KubeEvent {
 		
 		`exit` denotes a `default` outcome.
 		""")
-	default Object exit(Context cx, @Nullable Object value) throws EventExit {
-		throw EventResult.Type.INTERRUPT_DEFAULT.exit(cx, mapExitValue(cx, value));
+	default Object exit(@Nullable Object value) throws EventExit {
+		var cx = Context.getCurrent();
+		throw EventResult.Type.INTERRUPT_DEFAULT.exit(mapExitValue(value));
 	}
 
 	@HideFromGY

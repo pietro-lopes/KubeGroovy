@@ -52,38 +52,26 @@ public class GlobalUnmodifiableMap<K, V> implements Map<K, V> { // CustomJavaToG
 
 	@Override
 	public @Nullable V put(K key, V value) {
-		throw new KubeRuntimeException(MESSAGE);
-	}
-
-	public @Nullable V put(Context cx, K key, V value) {
-		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of(cx));
+		var cx = Context.getCurrent();
+		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of());
 	}
 
 	@Override
 	public V remove(Object key) {
-		throw new KubeRuntimeException(MESSAGE);
-	}
-
-	public V remove(Context cx, Object key) {
-		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of(cx));
+		var cx = Context.getCurrent();
+		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of());
 	}
 
 	@Override
 	public void putAll(@NotNull Map<? extends K, ? extends V> m) {
-		throw new KubeRuntimeException(MESSAGE);
-	}
-
-	public void putAll(Context cx, @NotNull Map<? extends K, ? extends V> m) {
-		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of(cx));
+		var cx = Context.getCurrent();
+		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of());
 	}
 
 	@Override
 	public void clear() {
-		throw new KubeRuntimeException(MESSAGE);
-	}
-
-	public void clear(Context cx) {
-		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of(cx));
+		var cx = Context.getCurrent();
+		throw new KubeRuntimeException(MESSAGE).source(SourceLine.of());
 	}
 
 	@Override

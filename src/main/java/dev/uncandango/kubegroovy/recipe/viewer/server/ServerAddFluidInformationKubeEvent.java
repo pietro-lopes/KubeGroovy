@@ -15,7 +15,8 @@ public class ServerAddFluidInformationKubeEvent implements AddInformationKubeEve
 	}
 
 	@Override
-	public void add(Context cx, Object filter, List<Component> info) {
-		list.add(new FluidData.Info(FluidWrapper.wrapIngredient(cx, filter), info));
+	public void add(Object filter, List<Component> info) {
+		var cx = Context.getCurrent();
+		list.add(new FluidData.Info(FluidWrapper.wrapIngredient(filter), info));
 	}
 }

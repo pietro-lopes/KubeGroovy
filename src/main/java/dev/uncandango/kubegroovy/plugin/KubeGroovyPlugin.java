@@ -220,6 +220,7 @@ public interface KubeGroovyPlugin {
 	}
 
 	/// Called by Platform.breakpoint('abc', ...) from scripts, only used for debugging
-	default void breakpoint(Context cx, Object[] args) {
+	default void breakpoint(Object[] args) {
+		var cx = Context.getCurrent();
 	}
 }

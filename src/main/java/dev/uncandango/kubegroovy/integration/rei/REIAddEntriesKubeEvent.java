@@ -20,9 +20,10 @@ public class REIAddEntriesKubeEvent implements AddEntriesKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object[] items) {
+	public void add(Object[] items) {
+		var cx = Context.getCurrent();
 		for (var item : items) {
-			registry.addEntries(EntryStack.of(entryType, type.wrapEntry(cx, item)));
+			registry.addEntries(EntryStack.of(entryType, type.wrapEntry(item)));
 		}
 	}
 }*/

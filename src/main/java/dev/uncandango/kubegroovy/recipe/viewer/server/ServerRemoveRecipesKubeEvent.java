@@ -19,14 +19,16 @@ public class ServerRemoveRecipesKubeEvent implements RemoveRecipesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] recipesToRemove) {
+	public void remove(Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		this.global.addAll(Arrays.asList(recipesToRemove));
 	}
 
 	@Override
-	public void removeFromCategory(Context cx, @Nullable Identifier category, Identifier[] recipesToRemove) {
+	public void removeFromCategory(@Nullable Identifier category, Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		if (category == null) {
-			remove(cx, recipesToRemove);
+			remove(recipesToRemove);
 			return;
 		}
 

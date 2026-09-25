@@ -15,21 +15,22 @@ import java.util.Calendar;
 import static com.mojang.serialization.DataResult.error;
 
 public interface TimeGY {
-	static TemporalAmount wrapTemporalAmount(Context cx, Object o) {
+	static TemporalAmount wrapTemporalAmount(Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case TemporalAmount d -> d;
 			case Number n -> Duration.ofMillis(n.longValue());
-			case null -> throw new KubeRuntimeException("Cannot convert null to temporal amount!").source(SourceLine.of(cx));
-			case Undefined undefined -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of(cx));
+			case null -> throw new KubeRuntimeException("Cannot convert null to temporal amount!").source(SourceLine.of());
+			case Undefined undefined -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of());
 			//case Scriptable s when Undefined.isUndefined(s) -> throw new KubeRuntimeException("Cannot convert undefined to temporal amount!").source(SourceLine.of(cx));
 			case CharSequence cs -> {
 				try {
 					yield readTemporalAmount(new StringReader(cs.toString()));
 				} catch (CommandSyntaxException ex) {
-					throw new KubeRuntimeException("Failed to parse temporal amount: %s".formatted(cs), ex).source(SourceLine.of(cx));
+					throw new KubeRuntimeException("Failed to parse temporal amount: %s".formatted(cs), ex).source(SourceLine.of());
 				}
 			}
-			default -> throw new KubeRuntimeException("Don't know how to parse temporal amount from %s".formatted(o)).source(SourceLine.of(cx));
+			default -> throw new KubeRuntimeException("Don't know how to parse temporal amount from %s".formatted(o)).source(SourceLine.of());
 		};
 	}
 
@@ -107,8 +108,9 @@ public interface TimeGY {
 		};
 	}
 
-	static Duration wrapDuration(Context cx, Object o) {
-		var t = wrapTemporalAmount(cx, o);
+	static Duration wrapDuration(Object o) {
+		var cx = Context.getCurrent();
+		var t = wrapTemporalAmount(o);
 
 		return switch (t) {
 			case Duration d -> d;

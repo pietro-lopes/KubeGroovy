@@ -17,7 +17,8 @@ public abstract class StringTagMixin implements SpecialEquality {
 	private String value;
 
 	@Override
-	public boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	public boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case CharSequence s -> Objects.equals(s, value);
 			case null, default -> equals(o);

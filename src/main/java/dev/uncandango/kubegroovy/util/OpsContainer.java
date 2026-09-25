@@ -37,19 +37,21 @@ public class OpsContainer {
 		return java;
 	}
 
-	public <T> T decode(Context cx, Codec<T> codec, Object o) {
+	public <T> T decode(Codec<T> codec, Object o) {
+		var cx = Context.getCurrent();
 		return (switch (o) {
 			case Tag tag -> codec.decode(nbt, tag);
 			case Map<?, ?> map -> codec.decode(java, map);
-			default -> codec.decode(json, JsonUtils.of(cx, o));
+			default -> codec.decode(json, JsonUtils.of(o));
 		}).getOrThrow().getFirst();
 	}
 
-	public <T> T decodeMap(Context cx, MapCodec<T> codec, Object o) {
+	public <T> T decodeMap(MapCodec<T> codec, Object o) {
+		var cx = Context.getCurrent();
 		return (switch (o) {
 			case Tag tag -> codec.decode(nbt, nbt.getMap(tag).getOrThrow());
 			case Map<?, ?> map -> codec.decode(java, java.getMap(map).getOrThrow());
-			default -> codec.decode(json, json.getMap(JsonUtils.of(cx, o)).getOrThrow());
+			default -> codec.decode(json, json.getMap(JsonUtils.of(o)).getOrThrow());
 		}).getOrThrow();
 	}
 }

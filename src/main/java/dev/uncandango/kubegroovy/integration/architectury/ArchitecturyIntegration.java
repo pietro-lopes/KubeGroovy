@@ -8,8 +8,9 @@ import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 
 public class ArchitecturyIntegration implements KubeGroovyPlugin {
-	public static dev.architectury.fluid.FluidStack wrapArchFluid(Context cx, Object o) {
-		return FluidStackHooksForge.fromForge(FluidWrapper.wrap(cx, o));
+	public static dev.architectury.fluid.FluidStack wrapArchFluid(Object o) {
+		var cx = Context.getCurrent();
+		return FluidStackHooksForge.fromForge(FluidWrapper.wrap(o));
 	}
 
 	@Override

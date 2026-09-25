@@ -15,7 +15,8 @@ public class ServerRemoveFluidEntriesKubeEvent implements RemoveEntriesKubeEvent
 	}
 
 	@Override
-	public void remove(Context cx, Object filter) {
-		removedEntries.add(FluidWrapper.wrapIngredient(cx, filter));
+	public void remove(Object filter) {
+		var cx = Context.getCurrent();
+		removedEntries.add(FluidWrapper.wrapIngredient(filter));
 	}
 }

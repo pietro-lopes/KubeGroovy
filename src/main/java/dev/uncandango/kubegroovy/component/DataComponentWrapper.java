@@ -280,32 +280,37 @@ public interface DataComponentWrapper {
 		return from == null || from instanceof DataComponentMap || from instanceof DataComponentPatch || from instanceof Map || from instanceof String s && (s.isEmpty() || s.charAt(0) == '[');
 	}
 
-	static DataComponentMap mapOf(Context cx, Object from) {
-		return tryMapOf(cx, from)
+	static DataComponentMap mapOf(Object from) {
+		var cx = Context.getCurrent();
+		return tryMapOf(from)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to wrap DataComponentMap: %s".formatted(error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
-	static DataComponentPatch patchOf(Context cx, Object from) {
-		return tryPatchOf(cx, from)
+	static DataComponentPatch patchOf(Object from) {
+		var cx = Context.getCurrent();
+		return tryPatchOf(from)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to wrap DataComponentPatch: %s".formatted(error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
-	static DataComponentMap mapOrEmptyOf(Context cx, Object from) {
-		return tryMapOf(cx, from)
+	static DataComponentMap mapOrEmptyOf(Object from) {
+		var cx = Context.getCurrent();
+		return tryMapOf(from)
 			.resultOrPartial()
 			.orElse(DataComponentMap.EMPTY);
 	}
 
-	static DataComponentPatch patchOrEmptyOf(Context cx, Object from) {
-		return tryPatchOf(cx, from)
+	static DataComponentPatch patchOrEmptyOf(Object from) {
+		var cx = Context.getCurrent();
+		return tryPatchOf(from)
 			.resultOrPartial()
 			.orElse(DataComponentPatch.EMPTY);
 	}
 
-	static DataResult<DataComponentMap> tryMapOf(Context cx, @Nullable Object o) {
-		var reg = RegistryAccessContainer.of(cx);
+	static DataResult<DataComponentMap> tryMapOf(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		var reg = RegistryAccessContainer.of();
 		return switch (o) {
 			case DataComponentMap map -> success(map);
 			case DataComponentPatch patch -> success(PatchedDataComponentMap.fromPatch(DataComponentMap.EMPTY, patch));
@@ -346,8 +351,9 @@ public interface DataComponentWrapper {
 		};
 	}
 
-	static DataResult<DataComponentPatch> tryPatchOf(Context cx, @Nullable Object o) {
-		var reg = RegistryAccessContainer.of(cx);
+	static DataResult<DataComponentPatch> tryPatchOf(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		var reg = RegistryAccessContainer.of();
 		return switch (o) {
 			case DataComponentPatch patch -> success(patch);
 			case BaseFunction fn -> fnToBuilder(cx, PatchBuilder.class, fn,
@@ -387,8 +393,9 @@ public interface DataComponentWrapper {
 		};
 	}
 
-	static <T> DataResult<Optional<T>> tryWrapComponent(Context cx, DataComponentType<T> type, @Nullable Object value) {
-		var reg = RegistryAccessContainer.of(cx);
+	static <T> DataResult<Optional<T>> tryWrapComponent(DataComponentType<T> type, @Nullable Object value) {
+		var cx = Context.getCurrent();
+		var reg = RegistryAccessContainer.of();
 
 		var valueType = getTypeInfo(type);
 
@@ -414,7 +421,7 @@ public interface DataComponentWrapper {
 
 		if (codec != null) {
 			//noinspection unchecked
-			return (DataResult<Optional<T>>) switch (codec.parse(reg.json(), JsonUtils.of(cx, value))) {
+			return (DataResult<Optional<T>>) switch (codec.parse(reg.json(), JsonUtils.of(value))) {
 				case DataResult.Success<?> success -> success.map(Optional::of);
 				case DataResult.Error<?> error -> error.mapError(err -> evalError.get() != null
 					? "Failed to parse component from type wrappers and codec! Native: %s, Codec: %s".formatted(evalError.get().details(), err)
@@ -435,7 +442,7 @@ public interface DataComponentWrapper {
 		var type = entry.getKey();
 		var value = entry.getValue();
 
-		tryWrapComponent(cx, type, value)
+		tryWrapComponent(type, value)
 			.ifSuccess(success -> {
 				if (success.isPresent()) {
 					builder.accept(type, success.get());

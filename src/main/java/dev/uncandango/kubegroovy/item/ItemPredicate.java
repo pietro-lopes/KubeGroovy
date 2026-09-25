@@ -25,7 +25,8 @@ public interface ItemPredicate extends Predicate<ItemStack>, IngredientSupplierK
 	ItemPredicate NONE = stack -> false;
 	ItemPredicate ALL = stack -> true;
 
-	static ItemPredicate wrap(Context cx, @Nullable Object from) {
+	static ItemPredicate wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		if (from == null) {
 			return NONE;
 		} else if (from instanceof BaseFunction func) {
@@ -39,7 +40,7 @@ public interface ItemPredicate extends Predicate<ItemStack>, IngredientSupplierK
 				}
 			}
 
-			var in = IngredientWrapper.wrap(cx, from);
+			var in = IngredientWrapper.wrap(from);
 
 			return in.kgy$isWildcard() ? ALL : in;
 		}

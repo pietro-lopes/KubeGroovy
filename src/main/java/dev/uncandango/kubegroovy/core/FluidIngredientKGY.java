@@ -22,7 +22,8 @@ public interface FluidIngredientKGY extends WithCodec, FluidMatch, Predicate<Flu
 	}
 
 	@Override
-	default Codec<?> getCodec(Context cx) {
+	default Codec<?> getCodec() {
+		var cx = Context.getCurrent();
 		return FluidIngredient.CODEC;
 	}
 

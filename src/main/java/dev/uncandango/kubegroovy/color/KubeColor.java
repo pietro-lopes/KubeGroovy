@@ -46,7 +46,8 @@ public interface KubeColor extends SpecialEquality {
 	}
 
 	@Override
-	default boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	default boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		KubeColor c = ColorWrapper.wrap(o);
 		return shallow ? (kgy$getARGB() == c.kgy$getARGB()) : (kgy$getRGB() == c.kgy$getRGB());
 	}

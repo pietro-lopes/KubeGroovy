@@ -15,15 +15,16 @@ public interface ParticleOptionsWrapper {
 	DustParticleOptions ERROR = new DustParticleOptions(ARGB.colorFromFloat(1F, 0F, 0F, 0F), 1F);
 
 	// TODO (26.1?): improve
-	static ParticleOptions wrap(Context cx, Object o) {
+	static ParticleOptions wrap(Object o) {
+		var cx = Context.getCurrent();
 		if (o instanceof ParticleOptions po) {
 			return po;
 		} else if (o != null) {
 			try {
 				var reader = new StringReader(o instanceof JsonElement j ? j.getAsString() : o.toString());
-				return ParticleArgument.readParticle(reader, RegistryAccessContainer.of(cx).registryAccess());
+				return ParticleArgument.readParticle(reader, RegistryAccessContainer.of().registryAccess());
 			} catch (Exception ex) {
-				throw new KubeRuntimeException("Failed to parse ParticleOptions from %s".formatted(o), ex).source(SourceLine.of(cx));
+				throw new KubeRuntimeException("Failed to parse ParticleOptions from %s".formatted(o), ex).source(SourceLine.of());
 			}
 		}
 

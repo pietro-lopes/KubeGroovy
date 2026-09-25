@@ -56,10 +56,11 @@ public interface JsonUtils {
 		};
 	}
 
-	static JsonElement of(Context cx, @Nullable Object o) {
+	static JsonElement of(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case JsonElement e -> e;
-			case JsonSerializable s -> s.toJson(cx);
+			case JsonSerializable s -> s.toJson();
 			case CharSequence ignore -> new JsonPrimitive(o.toString());
 			case Boolean b -> new JsonPrimitive(b);
 			case Number n -> new JsonPrimitive(n);
@@ -67,24 +68,26 @@ public interface JsonUtils {
 			case null -> JsonNull.INSTANCE;
 			default -> {
 				if (cx.isMapLike(o)) {
-					yield objectOf(cx, o);
+					yield objectOf(o);
 				} else if (cx.isListLike(o)) {
-					yield arrayOf(cx, o);
+					yield arrayOf(o);
 				} else {
-					throw new KubeRuntimeException("Unsure how to convert '%s' to JSON!".formatted(o)).source(SourceLine.of(cx));
+					throw new KubeRuntimeException("Unsure how to convert '%s' to JSON!".formatted(o)).source(SourceLine.of());
 				}
 			}
 		};
 	}
 
 	@Nullable
-	static JsonPrimitive primitiveOf(Context cx, @Nullable Object o) {
-		return of(cx, o) instanceof JsonPrimitive p ? p : null;
+	static JsonPrimitive primitiveOf(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		return of(o) instanceof JsonPrimitive p ? p : null;
 	}
 
 	@Nullable
 	@Contract("_, null -> null; _, _ -> !null")
-	static JsonObject objectOf(Context cx, @Nullable Object map) {
+	static JsonObject objectOf(@Nullable Object map) {
+		var cx = Context.getCurrent();
 		return switch (map) {
 			case null -> null;
 			case JsonObject json -> json;
@@ -97,7 +100,7 @@ public interface JsonUtils {
 
 					yield json;
 				} catch (JsonParseException ex) {
-					throw new KubeRuntimeException("Failed to parse JsonObject from '%s'".formatted(map), ex).source(SourceLine.of(cx));
+					throw new KubeRuntimeException("Failed to parse JsonObject from '%s'".formatted(map), ex).source(SourceLine.of());
 				}
 			}
 			default -> {
@@ -107,7 +110,7 @@ public interface JsonUtils {
 					var json = new JsonObject();
 
 					for (var entry : m.entrySet()) {
-						var e = of(cx, entry.getValue());
+						var e = of(entry.getValue());
 
 						if (e instanceof JsonPrimitive p && p.isNumber() && p.getAsNumber() instanceof Double d && d <= Long.MAX_VALUE && d >= Long.MIN_VALUE && d == d.longValue()) {
 							var l = d.longValue();
@@ -124,7 +127,7 @@ public interface JsonUtils {
 
 					yield json;
 				} else {
-					throw new KubeRuntimeException("Expected a map-like object or JSON object string, got '%s'".formatted(map)).source(SourceLine.of(cx));
+					throw new KubeRuntimeException("Expected a map-like object or JSON object string, got '%s'".formatted(map)).source(SourceLine.of());
 				}
 			}
 		};
@@ -132,7 +135,8 @@ public interface JsonUtils {
 
 	@Nullable
 	@Contract("_, null -> null; _, _ -> !null")
-	static JsonArray arrayOf(Context cx, @Nullable Object array) {
+	static JsonArray arrayOf(@Nullable Object array) {
+		var cx = Context.getCurrent();
 		return switch (array) {
 			case null -> null;
 			case JsonArray arr -> arr;
@@ -145,19 +149,19 @@ public interface JsonUtils {
 
 					yield json;
 				} catch (Exception ex) {
-					throw new KubeRuntimeException("Failed to parse JsonArray from '%s'".formatted(array), ex).source(SourceLine.of(cx));
+					throw new KubeRuntimeException("Failed to parse JsonArray from '%s'".formatted(array), ex).source(SourceLine.of());
 				}
 			}
 			case Iterable<?> itr -> {
 				JsonArray json = new JsonArray();
 
 				for (Object o1 : itr) {
-					json.add(JsonUtils.of(cx, o1));
+					json.add(JsonUtils.of(o1));
 				}
 
 				yield json;
 			}
-			default -> throw new KubeRuntimeException("Expected an iterable or JSON array string, got %s".formatted(array)).source(SourceLine.of(cx));
+			default -> throw new KubeRuntimeException("Expected an iterable or JSON array string, got %s".formatted(array)).source(SourceLine.of());
 		};
 	}
 

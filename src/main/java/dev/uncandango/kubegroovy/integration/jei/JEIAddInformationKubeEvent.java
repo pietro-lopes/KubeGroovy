@@ -24,8 +24,9 @@ public class JEIAddInformationKubeEvent implements AddInformationKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object filter, List<Component> info) {
-		var in = (Predicate) type.wrapPredicate(cx, filter);
+	public void add(Object filter, List<Component> info) {
+		var cx = Context.getCurrent();
+		var in = (Predicate) type.wrapPredicate(filter);
 
 		if (allIngredients == null) {
 			var manager = registration.getIngredientManager();

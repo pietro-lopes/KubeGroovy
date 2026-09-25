@@ -15,7 +15,8 @@ public class ServerRemoveCategoriesKubeEvent implements RemoveCategoriesKubeEven
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] categories) {
+	public void remove(Identifier[] categories) {
+		var cx = Context.getCurrent();
 		this.categories.addAll(Arrays.asList(categories));
 	}
 }

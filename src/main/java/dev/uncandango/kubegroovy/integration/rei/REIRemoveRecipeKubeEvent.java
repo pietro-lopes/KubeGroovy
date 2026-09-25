@@ -24,7 +24,8 @@ public class REIRemoveRecipeKubeEvent implements RemoveRecipesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] recipesToRemove) {
+	public void remove(Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		var asList = List.of(recipesToRemove);
 
 		for (var catId : categories) {
@@ -33,9 +34,10 @@ public class REIRemoveRecipeKubeEvent implements RemoveRecipesKubeEvent {
 	}
 
 	@Override
-	public void removeFromCategory(Context cx, @Nullable Identifier category, Identifier[] recipesToRemove) {
+	public void removeFromCategory(@Nullable Identifier category, Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		if (category == null) {
-			remove(cx, recipesToRemove);
+			remove(recipesToRemove);
 			return;
 		}
 

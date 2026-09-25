@@ -18,8 +18,9 @@ public class EMIRemoveEntriesKubeEvent implements RemoveEntriesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Object filter) {
-		var predicate = type.wrapPredicate(cx, filter);
+	public void remove(Object filter) {
+		var cx = Context.getCurrent();
+		var predicate = type.wrapPredicate(filter);
 
 		if (type == RecipeViewerEntryType.ITEM) {
 			registry.removeEmiStacks(EMIIntegration.predicate((ItemPredicate) predicate));

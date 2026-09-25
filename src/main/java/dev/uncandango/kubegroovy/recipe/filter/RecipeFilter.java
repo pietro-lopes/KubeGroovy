@@ -21,7 +21,8 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 	@Override
 	boolean test(RecipeMatchContext cx);
 
-	static RecipeFilter wrap(Context cx, @Nullable Object o) {
+	static RecipeFilter wrap(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		if (o == null || o == ConstantFilter.TRUE) {
 			return ConstantFilter.TRUE;
 		} else if (o == ConstantFilter.FALSE) {
@@ -49,7 +50,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 			var predicate = new OrFilter();
 
 			for (var o1 : list) {
-				var p = wrap(cx, o1);
+				var p = wrap(o1);
 
 				if (p == ConstantFilter.TRUE) {
 					return ConstantFilter.TRUE;
@@ -70,11 +71,11 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 		var predicate = new AndFilter();
 
 		if (map.get("or") != null) {
-			predicate.list.add(wrap(cx, map.get("or")));
+			predicate.list.add(wrap(map.get("or")));
 		}
 
 		if (map.get("not") != null) {
-			predicate.list.add(new NotFilter(wrap(cx, map.get("not"))));
+			predicate.list.add(new NotFilter(wrap(map.get("not"))));
 		}
 
 		try {
@@ -106,7 +107,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 			var input = map.get("input");
 
 			if (input != null) {
-				var m = ReplacementMatchInfo.wrap(cx, input, ReplacementMatchInfo.TYPE_INFO);
+				var m = ReplacementMatchInfo.wrap(input, ReplacementMatchInfo.TYPE_INFO);
 
 				if (m != ReplacementMatchInfo.NONE) {
 					predicate.list.add(new InputFilter(m));
@@ -118,7 +119,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 			var output = map.get("output");
 
 			if (output != null) {
-				var m = ReplacementMatchInfo.wrap(cx, output, ReplacementMatchInfo.TYPE_INFO);
+				var m = ReplacementMatchInfo.wrap(output, ReplacementMatchInfo.TYPE_INFO);
 
 				if (m != ReplacementMatchInfo.NONE) {
 					predicate.list.add(new OutputFilter(m));
@@ -127,7 +128,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 				}
 			}
 
-			NeoForge.EVENT_BUS.post(new RecipeFilterParseEvent(cx, predicate.list, map));
+			NeoForge.EVENT_BUS.post(new RecipeFilterParseEvent(predicate.list, map));
 
 			if (predicate.list.isEmpty() && !map.isEmpty()) {
 				throw Context.reportRuntimeError("Unable to parse recipe filter " + map, cx);
@@ -135,7 +136,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 
 			return predicate.list.isEmpty() ? ConstantFilter.TRUE : predicate.list.size() == 1 ? predicate.list.getFirst() : predicate;
 		} catch (KubeRuntimeException rex) {
-			ConsoleGY.getCurrent(cx).warn("", rex, RecipesKubeEvent.POST_SKIP_ERROR);
+			ConsoleGY.getCurrent().warn("", rex, RecipesKubeEvent.POST_SKIP_ERROR);
 			return ConstantFilter.FALSE;
 		}
 	}

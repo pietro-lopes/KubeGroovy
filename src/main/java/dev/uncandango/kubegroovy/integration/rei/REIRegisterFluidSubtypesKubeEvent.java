@@ -23,8 +23,9 @@ public class REIRegisterFluidSubtypesKubeEvent implements RegisterSubtypesKubeEv
 	}
 
 	@Override
-	public void register(Context cx, Object filter, SubtypeInterpreter interpreter) {
-		var in = (FluidIngredient) RecipeViewerEntryType.FLUID.wrapPredicate(cx, filter);
+	public void register(Object filter, SubtypeInterpreter interpreter) {
+		var cx = Context.getCurrent();
+		var in = (FluidIngredient) RecipeViewerEntryType.FLUID.wrapPredicate(filter);
 		FluidStack[] fluidStacks = (FluidStack[]) in.fluids().stream().map(holder -> new FluidStack(holder.value(), 0)).toArray();
 		registry.register((ctx, stack) -> {
 			var result = interpreter.apply(stack);
@@ -40,8 +41,9 @@ public class REIRegisterFluidSubtypesKubeEvent implements RegisterSubtypesKubeEv
 	}
 
 	@Override
-	public void useComponents(Context cx, Object filter, List<DataComponentType<?>> components) {
-		var in = (FluidIngredient) RecipeViewerEntryType.FLUID.wrapPredicate(cx, filter);
+	public void useComponents(Object filter, List<DataComponentType<?>> components) {
+		var cx = Context.getCurrent();
+		var in = (FluidIngredient) RecipeViewerEntryType.FLUID.wrapPredicate(filter);
 		FluidStack[] fluidStacks = (FluidStack[]) in.fluids().stream().map(holder -> new FluidStack(holder.value(), 0)).toArray();
 		registry.register((EntryComparator) DataComponentComparator.of(components), Arrays.stream(fluidStacks).map(FluidStack::getFluid).toArray(Fluid[]::new));
 	}

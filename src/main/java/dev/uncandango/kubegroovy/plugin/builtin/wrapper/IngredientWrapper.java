@@ -75,22 +75,25 @@ public interface IngredientWrapper {
 	}
 
 	@Info("An ingredient that matches everything")
-	static Ingredient getAll(Context cx) {
-		return Ingredient.of(new AnyHolderSet<>(RegistryAccessContainer.of(cx).item()));
+	static Ingredient getAll() {
+		var cx = Context.getCurrent();
+		return Ingredient.of(new AnyHolderSet<>(RegistryAccessContainer.of().item()));
 	}
 
 	@DoNotCall
 	@Deprecated(forRemoval = true)
 	@Info("Empty ingredients are no longer supported. Do not call!")
-	static Ingredient getNone(Context cx) {
-		return EMPTY_INGREDIENT.getOrThrow(str -> new KubeRuntimeException(str).source(SourceLine.of(cx)));
+	static Ingredient getNone() {
+		var cx = Context.getCurrent();
+		return EMPTY_INGREDIENT.getOrThrow(str -> new KubeRuntimeException(str).source(SourceLine.of()));
 	}
 
 	@DoNotCall
 	@Deprecated(forRemoval = true)
 	@Info("Empty ingredients are no longer supported. Do not call!")
-	static Ingredient of(Context cx) {
-		return getNone(cx);
+	static Ingredient of() {
+		var cx = Context.getCurrent();
+		return getNone();
 	}
 
 	@Info("Returns an ingredient that accepts the given set of items under the given component filter.")
@@ -104,12 +107,13 @@ public interface IngredientWrapper {
 	}
 
 	@HideFromGY
-	static DataResult<Ingredient> wrapResult(Context cx, @Nullable Object from) {
+	static DataResult<Ingredient> wrapResult(@Nullable Object from) {
+		var cx = Context.getCurrent();
 		while (from instanceof Wrapper w) {
 			from = w.unwrap();
 		}
 
-		var registries = RegistryAccessContainer.of(cx);
+		var registries = RegistryAccessContainer.of();
 
 		var trivial = switch (from) {
 			case null -> EMPTY_INGREDIENT;
@@ -144,9 +148,9 @@ public interface IngredientWrapper {
 				.map(Ingredient::of)
 				;
 		} else if (from instanceof JsonElement json) {
-			return parseJson(cx, json);
+			return parseJson(json);
 		} else if (from instanceof CharSequence) {
-			return parseString(cx, from.toString());
+			return parseString(from.toString());
 		}
 
 		List<?> list = ListGY.of(from);
@@ -157,7 +161,7 @@ public interface IngredientWrapper {
 			Stream.Builder<String> errors = Stream.builder();
 
 			for (var o1 : list) {
-				var ingredient = wrapResult(cx, o1);
+				var ingredient = wrapResult(o1);
 
 				ingredient.resultOrPartial().ifPresent(results::add);
 
@@ -185,7 +189,7 @@ public interface IngredientWrapper {
 			return Ingredient.CODEC.parse(JavaOps.INSTANCE, map);
 		}
 
-		return ItemWrapper.wrapResult(cx, from).flatMap(IngredientWrapper::tryFromStack);
+		return ItemWrapper.wrapResult(from).flatMap(IngredientWrapper::tryFromStack);
 	}
 
 	private static DataResult<Ingredient> tryFromStack(ItemStack stack) {
@@ -197,36 +201,40 @@ public interface IngredientWrapper {
 	}
 
 	@HideFromGY
-	static Ingredient wrap(Context cx, @Nullable Object from) {
-		return wrapResult(cx, from)
+	static Ingredient wrap(@Nullable Object from) {
+		var cx = Context.getCurrent();
+		return wrapResult(from)
 			.getOrThrow(error -> new KubeRuntimeException("Failed to read ingredient from %s: %s".formatted(from, error))
-				.source(SourceLine.of(cx)));
+				.source(SourceLine.of()));
 	}
 
 	static boolean isIngredientLike(@Nullable Object from) {
 		return from instanceof Ingredient || from instanceof SizedIngredient || from instanceof ItemStack;
 	}
 
-	static DataResult<Ingredient> parseJson(Context cx, @Nullable JsonElement json) {
+	static DataResult<Ingredient> parseJson(@Nullable JsonElement json) {
+		var cx = Context.getCurrent();
 		return switch (json) {
 			case null -> EMPTY_INGREDIENT;
 			case JsonNull jsonNull -> EMPTY_INGREDIENT;
 			case JsonArray arr when arr.isEmpty() -> EMPTY_INGREDIENT;
-			case JsonPrimitive primitive -> wrapResult(cx, json.getAsString());
+			case JsonPrimitive primitive -> wrapResult(json.getAsString());
 			default -> Ingredient.CODEC.decode(JsonOps.INSTANCE, json).map(Pair::getFirst);
 		};
 	}
 
-	static DataResult<Ingredient> parseString(Context cx, String s) {
+	static DataResult<Ingredient> parseString(String s) {
+		var cx = Context.getCurrent();
 		return switch (s) {
 			case "", "-", "air", "minecraft:air" -> EMPTY_INGREDIENT;
-			case "*" -> DataResult.success(IngredientWrapper.getAll(cx));
-			default -> read(cx, new StringReader(s));
+			case "*" -> DataResult.success(IngredientWrapper.getAll());
+			default -> read(new StringReader(s));
 		};
 	}
 
-	static DataResult<Ingredient> read(Context cx, StringReader reader) {
-		var registries = RegistryAccessContainer.of(cx);
+	static DataResult<Ingredient> read(StringReader reader) {
+		var cx = Context.getCurrent();
+		var registries = RegistryAccessContainer.of();
 
 		reader.skipWhitespace();
 
@@ -241,7 +249,7 @@ public interface IngredientWrapper {
 			}
 			case '*' -> {
 				reader.skip();
-				yield DataResult.success(IngredientWrapper.getAll(cx));
+				yield DataResult.success(IngredientWrapper.getAll());
 			}
 			case '#' -> {
 				reader.skip();
@@ -276,7 +284,7 @@ public interface IngredientWrapper {
 				var ingredients = new ArrayList<Ingredient>(2);
 
 				while (true) {
-					var ingredient = read(cx, reader);
+					var ingredient = read(reader);
 
 					if (ingredient.isSuccess()) {
 						ingredients.add(ingredient.getOrThrow());

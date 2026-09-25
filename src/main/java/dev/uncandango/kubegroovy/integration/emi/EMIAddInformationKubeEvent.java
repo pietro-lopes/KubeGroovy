@@ -23,8 +23,9 @@ public class EMIAddInformationKubeEvent implements AddInformationKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object filter, List<Component> info) {
-		var in = type.wrapPredicate(cx, filter);
+	public void add(Object filter, List<Component> info) {
+		var cx = Context.getCurrent();
+		var in = type.wrapPredicate(filter);
 
 		if (type == RecipeViewerEntryType.ITEM) {
 			registry.addRecipe(new EmiInfoRecipe(List.of(EmiIngredient.of((Ingredient) in)), info, null));

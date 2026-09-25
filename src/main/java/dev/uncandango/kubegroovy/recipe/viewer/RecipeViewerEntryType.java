@@ -35,13 +35,15 @@ public class RecipeViewerEntryType {
 		new Component<>(ItemWrapper.ITEM_TYPE_INFO, ByteBufCodecs.registry(Registries.ITEM), i -> i == Items.AIR)
 	) {
 		@Override
-		public Object wrapEntry(Context cx, Object from) {
-			return ItemWrapper.wrap(cx, from);
+		public Object wrapEntry(Object from) {
+			var cx = Context.getCurrent();
+			return ItemWrapper.wrap(from);
 		}
 
 		@Override
-		public Object wrapPredicate(Context cx, Object from) {
-			return ItemPredicate.wrap(cx, from);
+		public Object wrapPredicate(Object from) {
+			var cx = Context.getCurrent();
+			return ItemPredicate.wrap(from);
 		}
 
 		@Override
@@ -56,13 +58,15 @@ public class RecipeViewerEntryType {
 		new Component<>(FluidWrapper.FLUID_TYPE_INFO, ByteBufCodecs.registry(Registries.FLUID), FluidKGY::kgy$isEmpty)
 	) {
 		@Override
-		public Object wrapEntry(Context cx, Object from) {
-			return FluidWrapper.wrap(cx, from);
+		public Object wrapEntry(Object from) {
+			var cx = Context.getCurrent();
+			return FluidWrapper.wrap(from);
 		}
 
 		@Override
-		public Object wrapPredicate(Context cx, Object from) {
-			return FluidWrapper.wrapIngredient(cx, from);
+		public Object wrapPredicate(Object from) {
+			var cx = Context.getCurrent();
+			return FluidWrapper.wrapIngredient(from);
 		}
 
 		@Override
@@ -104,11 +108,13 @@ public class RecipeViewerEntryType {
 		this.baseClass = baseClass;
 	}
 
-	public Object wrapEntry(Context cx, Object from) {
+	public Object wrapEntry(Object from) {
+		var cx = Context.getCurrent();
 		return cx.gyToJava(from, entryType.type);
 	}
 
-	public Object wrapPredicate(Context cx, Object from) {
+	public Object wrapPredicate(Object from) {
+		var cx = Context.getCurrent();
 		return cx.gyToJava(from, predicateType.type);
 	}
 

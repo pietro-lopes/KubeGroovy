@@ -90,7 +90,7 @@ public class ScheduledEvents {
 		@Override
 		public Object call(Object[] args) {
 			if (clear) {
-				scheduledEvents.clear(ScriptRuntime.toInt32(Context.getCurrent(), args[0]));
+				scheduledEvents.clear(ScriptRuntime.toInt32(args[0]));
 				return Undefined.INSTANCE;
 			} else {
 				var timer = (TemporalAmount) Context.getCurrent().gyToJava(args[1], TEMPORAL_AMOUNT_TYPE_INFO);

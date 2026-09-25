@@ -130,14 +130,15 @@ public class TypeWrappers {
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */
-	public Object coerce(Context cx, Object value, TypeInfo target) {
+	public Object coerce(Object value, TypeInfo target) {
+		var cx = Context.getCurrent();
 		if (target == null) {
 			throw new GroovyCastException(value, Object.class);
 		}
 		value = Wrapper.unwrapped(value);
 
 		if (target.asClass().isArray()) {
-			return coerceCollection(cx, value, target);
+			return coerceCollection(value, target);
 		}
 
 		Object raw = wrappers.get(target.asClass());
@@ -154,7 +155,7 @@ public class TypeWrappers {
 			if (!entry.validator.test(value, type)) {
 				throw new IllegalArgumentException("value is not valid for " + target);
 			}
-			Object result = entry.factory == null ? null : entry.factory.wrap(cx, value, type);
+			Object result = entry.factory == null ? null : entry.factory.wrap(value, type);
 			if (result != null && !target.asClass().isInstance(result)) {
 				throw new IllegalArgumentException("wrapper returned " + result.getClass().getName());
 			}
@@ -166,7 +167,8 @@ public class TypeWrappers {
 		}
 	}
 
-	public Object coerceCollection(Context cx, Object from, TypeInfo target){
+	public Object coerceCollection(Object from, TypeInfo target){
+		var cx = Context.getCurrent();
 		if (from instanceof Object[] arr && java.util.Collection.class.isAssignableFrom(target.asClass())) {
 			return toCollection(java.util.Arrays.asList(arr), target.asClass());
 		}
@@ -182,7 +184,7 @@ public class TypeWrappers {
 			var arr = java.lang.reflect.Array.newInstance(comp, coll.size());
 			int i = 0;
 			for (var e : coll) {
-				java.lang.reflect.Array.set(arr, i++, coerce(cx, e, target.componentType()));
+				java.lang.reflect.Array.set(arr, i++, coerce(e, target.componentType()));
 			}
 			return arr;
 		}
@@ -206,7 +208,8 @@ public class TypeWrappers {
 	}
 
 	/** Convert an explicit Groovy cast through the registered wrapper. */
-	public Object coerce(Context cx, Object value, Class<?> target) {
+	public Object coerce(Object value, Class<?> target) {
+		var cx = Context.getCurrent();
 		if (target == null) {
 			throw new GroovyCastException(value, Object.class);
 		}
@@ -226,7 +229,7 @@ public class TypeWrappers {
 			if (entry.validator != null && !entry.validator.test(value, type)) {
 				throw new IllegalArgumentException("value is not valid for " + target.getName());
 			}
-			Object result = entry.factory == null ? null : entry.factory.wrap(cx, value, type);
+			Object result = entry.factory == null ? null : entry.factory.wrap(value, type);
 			if (result != null && !target.isInstance(result)) {
 				throw new IllegalArgumentException("wrapper returned " + result.getClass().getName());
 			}

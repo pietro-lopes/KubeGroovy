@@ -155,12 +155,13 @@ public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 	}
 
 	// intended for use by scripts
-	public KubeRecipe set(Context cx, String key, Object value) {
+	public KubeRecipe set(String key, Object value) {
+		var cx = Context.getCurrent();
 		for (var h : valueMap.holders) {
 			for (var name : h.key.names) {
 				if (name.equals(key)) {
 					var errors = new ErrorStack();
-					h.value = Cast.to(h.key.component.wrap(new RecipeScriptContext.Impl(cx, this, errors), Wrapper.unwrapped(value)));
+					h.value = Cast.to(h.key.component.wrap(new RecipeScriptContext.Impl(this, errors), Wrapper.unwrapped(value)));
 					h.write();
 					save();
 					return this;
@@ -335,7 +336,8 @@ public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 
 	@Override
 	@Deprecated
-	public final RecipeSchema kgy$getSchema(Context cx) {
+	public final RecipeSchema kgy$getSchema() {
+		var cx = Context.getCurrent();
 		return type.schemaType.schema;
 	}
 

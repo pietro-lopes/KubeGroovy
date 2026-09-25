@@ -15,9 +15,10 @@ public class ServerAddFluidEntriesKubeEvent implements AddEntriesKubeEvent {
 	}
 
 	@Override
-	public void add(Context cx, Object[] items) {
+	public void add(Object[] items) {
+		var cx = Context.getCurrent();
 		for (var item : items) {
-			list.add(FluidWrapper.wrap(cx, item));
+			list.add(FluidWrapper.wrap(item));
 		}
 	}
 }

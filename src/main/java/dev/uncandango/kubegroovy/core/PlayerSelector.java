@@ -18,9 +18,10 @@ import java.util.UUID;
 public interface PlayerSelector {
 	TypeInfo TYPE_INFO = TypeInfo.of(PlayerSelector.class);
 
-	static PlayerSelector wrap(Context cx, Object o) {
+	static PlayerSelector wrap(Object o) {
+		var cx = Context.getCurrent();
 		return switch (o) {
-			case null -> throw new KubeRuntimeException("PlayerSelector cannot be null!").source(SourceLine.of(cx));
+			case null -> throw new KubeRuntimeException("PlayerSelector cannot be null!").source(SourceLine.of());
 			case ServerPlayer sp -> identity(sp);
 			case UUID uuid -> uuid(uuid);
 			case BaseFunction fn -> Cast.to(cx.createInterfaceAdapter(TYPE_INFO, fn));
@@ -30,10 +31,10 @@ public interface PlayerSelector {
 
 	private static PlayerSelector fromString(Context cx, String name) {
 		if (name.isEmpty()) {
-			throw new KubeRuntimeException("PlayerSelector cannot be blank!").source(SourceLine.of(cx));
+			throw new KubeRuntimeException("PlayerSelector cannot be blank!").source(SourceLine.of());
 		}
 
-		var uuid = UUIDWrapper.fromString(cx, name);
+		var uuid = UUIDWrapper.fromString(name);
 		if (uuid != null) {
 			return uuid(uuid);
 		}
@@ -44,7 +45,7 @@ public interface PlayerSelector {
 				return player;
 			}
 
-			throw new KubeRuntimeException("No player matched selector '%s'".formatted(name)).source(SourceLine.of(cx));
+			throw new KubeRuntimeException("No player matched selector '%s'".formatted(name)).source(SourceLine.of());
 		};
 	}
 

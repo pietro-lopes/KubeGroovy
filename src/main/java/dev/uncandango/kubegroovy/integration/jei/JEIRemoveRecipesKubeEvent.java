@@ -32,16 +32,18 @@ public class JEIRemoveRecipesKubeEvent implements RemoveRecipesKubeEvent {
 	}
 
 	@Override
-	public void remove(Context cx, Identifier[] recipesToRemove) {
+	public void remove(Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		for (var cat : categories.values()) {
 			removed.computeIfAbsent(cat, _0 -> new HashSet<>()).addAll(Arrays.asList(recipesToRemove));
 		}
 	}
 
 	@Override
-	public void removeFromCategory(Context cx, @Nullable Identifier category, Identifier[] recipesToRemove) {
+	public void removeFromCategory(@Nullable Identifier category, Identifier[] recipesToRemove) {
+		var cx = Context.getCurrent();
 		if (category == null) {
-			remove(cx, recipesToRemove);
+			remove(recipesToRemove);
 			return;
 		}
 

@@ -43,7 +43,8 @@ public class EnumTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<Ob
 	}
 
 	@Override
-	public Object wrap(Context cx, Object from, TypeInfo target) {
+	public Object wrap(Object from, TypeInfo target) {
+		var cx = Context.getCurrent();
 		if (from instanceof CharSequence) {
 			String s = from.toString();
 

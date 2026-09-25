@@ -54,7 +54,8 @@ public interface ComponentKGY extends Component, WithCodec, WrappedGY {
 	}
 
 	@Override
-	default Codec<?> getCodec(Context cx) {
+	default Codec<?> getCodec() {
+		var cx = Context.getCurrent();
 		return ComponentSerialization.CODEC;
 	}
 

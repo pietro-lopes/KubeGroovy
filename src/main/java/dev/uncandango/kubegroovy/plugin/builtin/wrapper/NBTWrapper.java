@@ -88,12 +88,13 @@ public interface NBTWrapper {
 
 	@SuppressWarnings("DuplicateBranchesInSwitch")
 	@Nullable
-	static Tag wrap(Context cx, @Nullable Object v) {
+	static Tag wrap(@Nullable Object v) {
+		var cx = Context.getCurrent();
 		return switch (v) {
 			case null -> null;
 			case EndTag endTag -> null;
 			case Tag tag -> tag;
-			case NBTSerializable s -> s.toNBT(cx);
+			case NBTSerializable s -> s.toNBT();
 			case CharSequence cs -> StringTag.valueOf(cs.toString());
 			case Character c -> StringTag.valueOf(c.toString());
 			case Boolean b -> ByteTag.valueOf(b);
@@ -107,7 +108,7 @@ public interface NBTWrapper {
 			};
 			case JsonPrimitive json -> {
 				if (json.isNumber()) {
-					yield wrap(cx, json.getAsNumber());
+					yield wrap(json.getAsNumber());
 				} else if (json.isBoolean()) {
 					yield ByteTag.valueOf(json.getAsBoolean());
 				} else {
@@ -118,7 +119,7 @@ public interface NBTWrapper {
 				CompoundTag tag = OrderedCompoundTag.create();
 
 				for (Map.Entry<?, ?> entry : map.entrySet()) {
-					Tag nbt1 = wrap(cx, entry.getValue());
+					Tag nbt1 = wrap(entry.getValue());
 
 					if (nbt1 != null) {
 						tag.put(String.valueOf(entry.getKey()), nbt1);
@@ -131,7 +132,7 @@ public interface NBTWrapper {
 				CompoundTag tag = OrderedCompoundTag.create();
 
 				for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
-					Tag nbt1 = wrap(cx, entry.getValue());
+					Tag nbt1 = wrap(entry.getValue());
 
 					if (nbt1 != null) {
 						tag.put(entry.getKey(), nbt1);
@@ -145,7 +146,7 @@ public interface NBTWrapper {
 				List<Tag> list = new ArrayList<>(array.size());
 
 				for (JsonElement element : array) {
-					list.add(wrap(cx, element));
+					list.add(wrap(element));
 				}
 
 				yield wrapCollection0(cx, list);
@@ -155,7 +156,8 @@ public interface NBTWrapper {
 	}
 
 	@Nullable
-	static CompoundTag wrapCompound(Context cx, @Nullable Object v) {
+	static CompoundTag wrapCompound(@Nullable Object v) {
+		var cx = Context.getCurrent();
 		return switch (v) {
 			case null -> null;
 			case CompoundTag nbt -> nbt;
@@ -180,12 +182,13 @@ public interface NBTWrapper {
 					throw Context.throwAsScriptRuntimeEx(ex, cx);
 				}
 			}
-			default -> wrap(cx, v) instanceof CompoundTag nbt ? nbt : null;
+			default -> wrap(v) instanceof CompoundTag nbt ? nbt : null;
 		};
 	}
 
 	@Nullable
-	static CollectionTag wrapCollection(Context cx, @Nullable Object v) {
+	static CollectionTag wrapCollection(@Nullable Object v) {
+		var cx = Context.getCurrent();
 		return switch (v) {
 			case null -> null;
 			case CollectionTag tag -> tag;
@@ -200,7 +203,7 @@ public interface NBTWrapper {
 				var list = new ArrayList<Tag>(array.size());
 
 				for (var element : array) {
-					list.add(wrap(cx, element));
+					list.add(wrap(element));
 				}
 
 				yield wrapCollection0(cx, list);
@@ -210,8 +213,9 @@ public interface NBTWrapper {
 	}
 
 	@Nullable
-	static ListTag wrapListTag(Context cx, @Nullable Object list) {
-		return (ListTag) wrapCollection(cx, list);
+	static ListTag wrapListTag(@Nullable Object list) {
+		var cx = Context.getCurrent();
+		return (ListTag) wrapCollection(list);
 	}
 
 	private static CollectionTag wrapCollection0(Context cx, Collection<?> c) {
@@ -224,7 +228,7 @@ public interface NBTWrapper {
 		byte commmonId = -1;
 
 		for (Object o : c) {
-			values[s] = wrap(cx, o);
+			values[s] = wrap(o);
 
 			if (values[s] != null) {
 				if (commmonId == -1) {
@@ -282,11 +286,12 @@ public interface NBTWrapper {
 		return OrderedCompoundTag.create();
 	}
 
-	static Tag compoundTag(Context cx, Map<?, ?> map) {
+	static Tag compoundTag(Map<?, ?> map) {
+		var cx = Context.getCurrent();
 		CompoundTag tag = OrderedCompoundTag.create();
 
 		for (var entry : map.entrySet()) {
-			var tag1 = wrap(cx, entry.getValue());
+			var tag1 = wrap(entry.getValue());
 
 			if (tag1 != null) {
 				tag.put(String.valueOf(entry.getKey()), tag1);
@@ -300,11 +305,12 @@ public interface NBTWrapper {
 		return new ListTag();
 	}
 
-	static Tag listTag(Context cx, List<?> list) {
+	static Tag listTag(List<?> list) {
+		var cx = Context.getCurrent();
 		ListTag tag = new ListTag();
 
 		for (Object v : list) {
-			tag.add(wrap(cx, v));
+			tag.add(wrap(v));
 		}
 
 		return tag;

@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
 @FunctionalInterface
 @SuppressWarnings({"rawtypes", "unchecked"})
 public interface RegistryPredicate<T> extends Predicate<Holder<T>> {
-	static RegistryPredicate<?> of(Context cx, @Nullable Object from, TypeInfo target) {
+	static RegistryPredicate<?> of(@Nullable Object from, TypeInfo target) {
+		var cx = Context.getCurrent();
 		return switch (from) {
 			case null -> EntireRegistryPredicate.FALSE;
 			case RegistryPredicate<?> p -> p;
@@ -38,7 +39,7 @@ public interface RegistryPredicate<T> extends Predicate<Holder<T>> {
 				List<RegistryPredicate<?>> results = new ArrayList<>();
 
 				for (var elem : itr) {
-					results.add(of(cx, elem, target));
+					results.add(of(elem, target));
 				}
 
 				yield switch (results.size()) {

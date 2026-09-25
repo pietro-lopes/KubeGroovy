@@ -97,17 +97,19 @@ public class ItemModificationKubeEvent implements KubeEvent {
 
 		@Override
 		@HideFromGY
-		public void kgy$setFireResistant(Context cx) {
+		public void kgy$setFireResistant() {
+			var cx = Context.getCurrent();
 			kgy$addDamageResistance(registries.lookupOrThrow(Registries.DAMAGE_TYPE).get(DamageTypeTags.IS_FIRE).orElseThrow());
 		}
 
 		@Override
 		@Deprecated
 		@HideFromGY
-		public void kgy$setFireResistant(Context cx, boolean fireResistant) {
+		public void kgy$setFireResistant(boolean fireResistant) {
+			var cx = Context.getCurrent();
 			KubeGroovy.LOGGER.warn("kgy$setFireResistant(boolean) is deprecated due to changes in damage resistance, use the no-arg version instead");
 			if (fireResistant) {
-				kgy$setFireResistant(cx);
+				kgy$setFireResistant();
 			}
 		}
 

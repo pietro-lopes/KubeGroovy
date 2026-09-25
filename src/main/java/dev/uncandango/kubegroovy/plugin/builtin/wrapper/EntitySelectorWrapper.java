@@ -24,9 +24,10 @@ public class EntitySelectorWrapper {
 	}
 
 	@HideFromGY
-	public static EntitySelector wrap(Context cx, @Nullable Object o) {
+	public static EntitySelector wrap(@Nullable Object o) {
+		var cx = Context.getCurrent();
 		if (o == null) {
-			throw new KubeRuntimeException("EntitySelector cannot be null!").source(SourceLine.of(cx));
+			throw new KubeRuntimeException("EntitySelector cannot be null!").source(SourceLine.of());
 		} else if (o instanceof EntitySelector s) {
 			return s;
 		}
@@ -34,7 +35,7 @@ public class EntitySelectorWrapper {
 		String s = o.toString();
 
 		if (s.isBlank()) {
-			throw new KubeRuntimeException("EntitySelector cannot be blank!").source(SourceLine.of(cx));
+			throw new KubeRuntimeException("EntitySelector cannot be blank!").source(SourceLine.of());
 		}
 
 		EntitySelector sel;
@@ -46,7 +47,7 @@ public class EntitySelectorWrapper {
 				sel = new EntitySelectorParser(new StringReader(s), true).parse();
 				ENTITY_SELECTOR_CACHE.put(s, sel);
 			} catch (Exception ex) {
-				throw new KubeRuntimeException("Failed to parse entity selector '%s'".formatted(s), ex).source(SourceLine.of(cx));
+				throw new KubeRuntimeException("Failed to parse entity selector '%s'".formatted(s), ex).source(SourceLine.of());
 			}
 		}
 

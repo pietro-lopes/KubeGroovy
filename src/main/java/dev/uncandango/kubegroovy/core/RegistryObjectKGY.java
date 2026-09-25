@@ -17,7 +17,8 @@ import java.util.List;
 @RemapPrefixForGY("kgy$")
 public interface RegistryObjectKGY<T> extends SpecialEquality {
 	@Override
-	default boolean specialEquals(Context cx, @Nullable Object o, boolean shallow) {
+	default boolean specialEquals(@Nullable Object o, boolean shallow) {
+		var cx = Context.getCurrent();
 		return switch (o) {
 			case CharSequence cs -> kgy$getId().equals(cs.toString());
 			case Identifier id -> kgy$getIdLocation().equals(id);

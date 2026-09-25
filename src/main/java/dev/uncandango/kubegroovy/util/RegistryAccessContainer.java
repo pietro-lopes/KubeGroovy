@@ -44,7 +44,8 @@ public final class RegistryAccessContainer extends RegistryOpsContainer implemen
 	@ApiStatus.Internal
 	public static RegistryAccessContainer current = BUILTIN;
 
-	public static RegistryAccessContainer of(Context cx) {
+	public static RegistryAccessContainer of() {
+		var cx = Context.getCurrent();
 		return cx instanceof KubeGroovyContext kcx ? kcx.getRegistries() : current;
 	}
 
