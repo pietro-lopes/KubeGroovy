@@ -1,0 +1,24 @@
+<idea-plugin>
+	<id>dev.uncandango.kubegroovy.intellij</id>
+	<name>KubeGroovy</name>
+	<vendor>Uncandango</vendor>
+	<description>IntelliJ support prototype for KubeGroovy scripts.</description>
+	<version>0.1.0</version>
+	<idea-version since-build="253" />
+
+	<depends>com.intellij.modules.platform</depends>
+	<depends>com.intellij.modules.java</depends>
+	<depends>org.intellij.groovy</depends>
+
+	<extensions defaultExtensionNs="com.intellij">
+		<completion.contributor language="Groovy" implementationClass="dev.uncandango.kubegroovy.intellij.RegistryTargetCompletionContributor" />
+		<completion.confidence language="Groovy" order="first" implementationClass="dev.uncandango.kubegroovy.intellij.RegistryTargetCompletionConfidence" />
+		<typedHandler implementation="dev.uncandango.kubegroovy.intellij.RegistryTargetTypedHandler" />
+		<annotator language="Groovy" implementationClass="dev.uncandango.kubegroovy.intellij.ScriptBindingAnnotator" />
+	</extensions>
+
+	<extensions defaultExtensionNs="org.intellij.groovy">
+		<membersContributor implementation="dev.uncandango.kubegroovy.intellij.StartupEventMembersContributor" />
+		<variableEnhancer implementation="dev.uncandango.kubegroovy.intellij.RegistryEventClosureParameterEnhancer" />
+	</extensions>
+</idea-plugin>

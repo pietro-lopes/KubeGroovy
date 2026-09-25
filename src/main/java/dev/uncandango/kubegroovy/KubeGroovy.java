@@ -80,8 +80,8 @@ public class KubeGroovy {
 		modEventBus = bus;
 		thisMod = mod;
 		VERSION = mod.getModInfo().getVersion().toString();
-		DISPLAY_NAME = "KubeGroovy " + VERSION;
-		QUERY = "source=KubeGroovy&mc=" + MC_VERSION_NUMBER + "&loader=neoforge&v=" + URLEncoder.encode(mod.getModInfo().getVersion().toString(), StandardCharsets.UTF_8);
+		//DISPLAY_NAME = "KubeGroovy " + VERSION;
+		//QUERY = "source=KubeGroovy&mc=" + MC_VERSION_NUMBER + "&loader=neoforge&v=" + URLEncoder.encode(mod.getModInfo().getVersion().toString(), StandardCharsets.UTF_8);
 
 		if (Files.notExists(KubeGroovyPaths.README)) {
 			try {

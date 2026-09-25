@@ -5,3 +5,6 @@ plugins {
 val modName: String by extra
 val minecraftVersion: String by extra
 rootProject.name = "$modName-$minecraftVersion"
+
+include(":plugin:intellij")
+project(":plugin:intellij").projectDir = file("plugin/intellij")

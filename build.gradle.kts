@@ -125,6 +125,12 @@ repositories {
 val artifactType = Attribute.of("artifactType", String::class.java)
 val fixedManifestType = "jar-fixed-manifest"
 
+tasks.named<Copy>("processResources") {
+	from(layout.projectDirectory.file("plugin/live-plugin/plugin.kts")) {
+		into("META-INF/kubegroovy/live-plugin")
+	}
+}
+
 // A dedicated resolvable configuration containing ONLY the jar you want to patch
 val patchedJarConfig by configurations.creating {
 	isCanBeResolved = true

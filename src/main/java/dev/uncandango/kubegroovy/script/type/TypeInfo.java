@@ -281,6 +281,19 @@ public interface TypeInfo {
 		return toString();
 	}
 
+	/** Renders the type with canonical fully qualified class names, including nested generic arguments. */
+	default String toStringFQN() {
+		var fqnContext = new TypeStringContext() {
+			@Override
+			public void appendClassName(StringBuilder sb, ClassTypeInfo type) {
+				var javaClass = type.asClass();
+				var canonicalName = javaClass.getCanonicalName();
+				sb.append(canonicalName != null ? canonicalName : javaClass.getName().replace('$', '.'));
+			}
+		};
+		return fqnContext.toString(this);
+	}
+
 	default TypeInfo componentType() {
 		return NONE;
 	}
@@ -382,4 +395,3 @@ public interface TypeInfo {
 		return this;
 	}
 }
-

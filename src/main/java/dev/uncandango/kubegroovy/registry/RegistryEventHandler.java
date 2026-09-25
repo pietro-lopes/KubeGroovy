@@ -34,7 +34,7 @@ public class RegistryEventHandler {
 
 	@SuppressWarnings({"rawtypes", "unchecked"})
 	private static <T> void handleRegistryEvent(ResourceKey<Registry<T>> registryKey, RegisterEvent event) {
-		StartupEvents.REGISTRY.post(ScriptType.STARTUP, registryKey, new RegistryKubeEvent<>(registryKey));
+		StartupEvents.REGISTRY_TARGET.post(ScriptType.STARTUP, registryKey, new RegistryKubeEvent<>(registryKey));
 
 		var objStorage = RegistryObjectStorage.of(registryKey);
 
