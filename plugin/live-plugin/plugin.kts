@@ -130,9 +130,6 @@ private fun scriptEventMethods(file: PsiFile, groupName: String): List<KubeGroov
 	return methods.orEmpty().filter { it.groupName == groupName }.distinct()
 }
 
-private fun LookupElement.withKubeGroovyPriority(): LookupElement =
-	PrioritizedLookupElement.withPriority(this, 1000.0)
-
 private fun scriptBindingType(binding: KubeGroovyBinding): String = when {
 	binding.eventGroup -> KubeGroovyNames.EVENT_GROUP_BINDING
 	binding.classValue -> "java.lang.Class<${binding.typeName}>"
@@ -356,8 +353,10 @@ class RegistryEventClosureParameterEnhancer : GrVariableEnhancer() {
 
 }
 
-private fun registryTargetForKey(key: String): KubeGroovyRegistryTarget? =
-	KubeGroovyScriptData.registryTargets.firstOrNull { it.key == key }
+private fun registryTargetForKey(key: String): KubeGroovyRegistryTarget? {
+	val normalizedKey = if (key.contains(":")) key else "minecraft:$key"
+	return KubeGroovyScriptData.registryTargets.firstOrNull { it.key == normalizedKey }
+}
 
 private fun registryTargetForElementType(elementTypeName: String): KubeGroovyRegistryTarget? =
 	KubeGroovyScriptData.registryTargets.firstOrNull { it.elementTypeName == elementTypeName.replace('$', '.') }
@@ -399,6 +398,14 @@ class RegistryTargetCompletionContributor : CompletionContributor() {
 }
 
 private object KubeGroovyCompletionSupport {
+	private fun LookupElement.withKubeGroovyPriority(): LookupElement =
+		PrioritizedLookupElement.withPriority(this, 1000.0)
+
+	private fun registryTargetForKey(key: String): KubeGroovyRegistryTarget? {
+		val normalizedKey = if (key.contains(":")) key else "minecraft:$key"
+		return KubeGroovyScriptData.registryTargets.firstOrNull { it.key == normalizedKey }
+	}
+
 	fun addCompletions(parameters: CompletionParameters, result: CompletionResultSet) {
 		val bindingPrefix = supportBindingReferencePrefix(parameters)
 		if (bindingPrefix != null) {
@@ -445,8 +452,13 @@ private object KubeGroovyCompletionSupport {
 		if (supportIsStartupRegistryTarget(parameters.position)) {
 			val withPrefix = result.withPrefixMatcher(supportStringPrefix(parameters))
 			KubeGroovyScriptData.registryTargets.forEach { target ->
+				val suggestedKey = target.key.removePrefix("minecraft:")
+				val suggestion = LookupElementBuilder.create(suggestedKey)
+				val lookupElement = if (target.key.startsWith("minecraft:")) {
+					suggestion.withLookupString(target.key)
+				} else suggestion
 				withPrefix.addElement(
-					LookupElementBuilder.create(target.key)
+					lookupElement
 						.withTypeText("String", true)
 						.withTailText(" (RegistryKubeEvent<${target.elementTypeName}>)", true)
 						.withInsertHandler { insertion, element -> supportInsertRegistryString(insertion, element) }
@@ -645,7 +657,8 @@ private object KubeGroovyCompletionSupport {
 		val replacementRange = literal?.textRange
 			?: TextRange.create(context.startOffset, context.tailOffset)
 		val replacementStart = replacementRange.startOffset
-		val expression = "\"${target.key}\""
+		val suggestedKey = target.key.removePrefix("minecraft:")
+		val expression = "\"$suggestedKey\""
 		context.document.replaceString(replacementStart, replacementRange.endOffset, expression)
 		context.editor.caretModel.moveToOffset(replacementStart + expression.length)
 	}
