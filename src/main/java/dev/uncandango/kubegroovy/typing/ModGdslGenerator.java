@@ -67,17 +67,23 @@ public final class ModGdslGenerator {
 		Map<String, Set<String>> mixinTargets) {
 	}
 
-	private record Member(String name, String type, List<String> parameters, List<String> typeParameters, boolean isStatic,
-		boolean constructor) {
+	private record Member(String name, String type, List<String> parameters, List<List<String>> semanticParameters,
+		List<String> typeParameters, boolean isStatic, boolean constructor) {
+		private Member {
+			parameters = List.copyOf(parameters);
+			semanticParameters = semanticParameters.stream().map(List::copyOf).distinct().toList();
+			typeParameters = List.copyOf(typeParameters);
+		}
 	}
 
 	private record Property(String name, String type, boolean isStatic) {
 	}
 
 	public record LivePluginMember(String receiverType, String name, String returnType, List<String> parameters,
-		List<String> typeParameters, boolean isStatic, boolean constructor) {
+		List<List<String>> semanticParameters, List<String> typeParameters, boolean isStatic, boolean constructor) {
 		public LivePluginMember {
 			parameters = List.copyOf(parameters);
+			semanticParameters = semanticParameters.stream().map(List::copyOf).distinct().toList();
 			typeParameters = List.copyOf(typeParameters);
 		}
 	}
@@ -323,10 +329,15 @@ public final class ModGdslGenerator {
 				for (var entry : receiverMembers.entrySet()) {
 					var member = entry.getValue();
 					var psiReceiver = pluginTypeName(receiver);
-					members.computeIfAbsent(psiReceiver, ignored -> new TreeMap<>()).putIfAbsent(entry.getKey(),
-						new LivePluginMember(psiReceiver, member.name(), pluginTypeName(member.type()),
-							member.parameters().stream().map(ModGdslGenerator::pluginTypeName).toList(),
-							member.typeParameters(), member.isStatic(), member.constructor()));
+					var liveMembers = members.computeIfAbsent(psiReceiver, ignored -> new TreeMap<>());
+					var liveMember = new LivePluginMember(psiReceiver, member.name(), pluginTypeName(member.type()),
+						member.parameters().stream().map(ModGdslGenerator::pluginTypeName).toList(),
+						member.semanticParameters().stream()
+							.map(parameters -> parameters.stream().map(ModGdslGenerator::pluginTypeName).toList()).toList(),
+						member.typeParameters(), member.isStatic(), member.constructor());
+					var existing = liveMembers.get(entry.getKey());
+					if (existing == null) liveMembers.put(entry.getKey(), liveMember);
+					else liveMembers.put(entry.getKey(), mergeLivePluginMember(existing, liveMember));
 				}
 			});
 			collected.properties().forEach((receiver, receiverProperties) -> {
@@ -416,6 +427,13 @@ public final class ModGdslGenerator {
 		}
 	}
 
+	private static LivePluginMember mergeLivePluginMember(LivePluginMember left, LivePluginMember right) {
+		var semanticParameters = new LinkedHashSet<List<String>>(left.semanticParameters());
+		semanticParameters.addAll(right.semanticParameters());
+		return new LivePluginMember(left.receiverType(), left.name(), left.returnType(), left.parameters(),
+			List.copyOf(semanticParameters), left.typeParameters(), left.isStatic(), left.constructor());
+	}
+
 	private static List<Constructor<?>> constructors(Class<?> type) {
 		try {
 			return Arrays.stream(type.getConstructors()).sorted(Comparator.comparing(Constructor::toGenericString)).toList();
@@ -457,13 +475,14 @@ public final class ModGdslGenerator {
 			for (var name : names) {
 				if (name.isBlank()) continue;
 				var renderedParameters = parameterNames(parameters);
+				var semanticParameters = List.of(parameterNamesFqn(parameters));
 				if (emitBase) {
-					addMember(contributors, receiver, new Member(name, returnType, renderedParameters,
+					addMember(contributors, receiver, new Member(name, returnType, renderedParameters, semanticParameters,
 						Arrays.stream(method.getTypeParameters()).map(java.lang.reflect.TypeVariable::getName).toList(),
 						Modifier.isStatic(method.getModifiers()), false));
 				}
 				if (emitWrapper) {
-					addMember(contributors, receiver, new Member(name, returnType, wrapperParameterNames(parameters, wrappers),
+					addMember(contributors, receiver, new Member(name, returnType, wrapperParameterNames(parameters, wrappers), semanticParameters,
 						Arrays.stream(method.getTypeParameters()).map(java.lang.reflect.TypeVariable::getName).toList(),
 						Modifier.isStatic(method.getModifiers()), false));
 				}
@@ -483,6 +502,7 @@ public final class ModGdslGenerator {
 			var parameters = WithTypeInfo.generateParamsTypeInfo(constructor, receiver, false);
 			if (!shouldWrap(parameters, wrappers)) return;
 			var member = new Member(receiver.getSimpleName(), receiver.getName(), wrapperParameterNames(parameters, wrappers),
+				List.of(parameterNamesFqn(parameters)),
 				List.of(), false, true);
 			addMember(contributors, receiver, member);
 		} catch (Throwable error) {
@@ -554,6 +574,12 @@ public final class ModGdslGenerator {
 		return List.copyOf(result);
 	}
 
+	private static List<String> parameterNamesFqn(TypeInfo[] parameters) {
+		var result = new ArrayList<String>(parameters.length);
+		for (var parameter : parameters) result.add(parameter.toStringFQN());
+		return List.copyOf(result);
+	}
+
 	private static List<String> wrapperParameterNames(TypeInfo[] parameters, Collection<TypeWrappers> wrappers) {
 		var result = new ArrayList<String>(parameters.length);
 		for (int i = 0; i < parameters.length; i++) {
@@ -578,7 +604,16 @@ public final class ModGdslGenerator {
 
 	private static void addMember(Map<String, TreeMap<String, Member>> contributors, Class<?> receiver, Member member) {
 		var signature = member.name() + "(" + String.join(",", member.parameters()) + ")|" + member.isStatic() + "|" + member.constructor();
-		contributors.computeIfAbsent(receiver.getName(), ignored -> new TreeMap<>()).putIfAbsent(signature, member);
+		var receiverMembers = contributors.computeIfAbsent(receiver.getName(), ignored -> new TreeMap<>());
+		var existing = receiverMembers.get(signature);
+		if (existing == null) {
+			receiverMembers.put(signature, member);
+			return;
+		}
+		var semanticParameters = new LinkedHashSet<List<String>>(existing.semanticParameters());
+		semanticParameters.addAll(member.semanticParameters());
+		receiverMembers.put(signature, new Member(existing.name(), existing.type(), existing.parameters(),
+			List.copyOf(semanticParameters), existing.typeParameters(), existing.isStatic(), existing.constructor()));
 	}
 
 	private static void renderMember(StringBuilder out, Member member) {

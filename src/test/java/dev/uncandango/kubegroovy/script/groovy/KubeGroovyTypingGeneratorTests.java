@@ -183,15 +183,20 @@ class KubeGroovyTypingGeneratorTests {
 		assertTrue(Files.isRegularFile(first.livePlugin()));
 		assertTrue(Files.readString(first.livePlugin()).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
 		var events = game.resolve("kubegroovy/typings/events.gdsl");
+		var catalog = first.livePlugin().resolveSibling("catalog.json");
+		assertTrue(Files.isRegularFile(catalog));
+		assertTrue(Files.readString(catalog).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
 		assertTrue(Files.isRegularFile(events));
 		assertTrue(Files.readString(game.resolve(".idea/misc.xml")).contains("project-jdk-name=\"25\""));
 		var before = Files.readString(first.gdsl());
 		var eventsBefore = Files.readString(events);
+		var catalogBefore = Files.readString(catalog);
 		var second = KubeGroovyTypingGenerator.generate(game, bindings);
 		assertFalse(second.gdslChanged());
 		assertFalse(second.livePluginChanged());
 		assertEquals(before, Files.readString(first.gdsl()));
 		assertEquals(eventsBefore, Files.readString(events));
+		assertEquals(catalogBefore, Files.readString(catalog));
 		Files.writeString(events, "manual events file");
 		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
 		assertEquals("manual events file", Files.readString(events));
@@ -203,6 +208,26 @@ class KubeGroovyTypingGeneratorTests {
 		Files.writeString(manualPluginResult.livePlugin(), "manual LivePlugin script");
 		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(manualPluginGame, bindings));
 		assertEquals("manual LivePlugin script", Files.readString(manualPluginResult.livePlugin()));
+	}
+
+	@Test
+	void forceGenerationReplacesOnlyManualKubegroovyIml() throws Exception {
+		var game = temp.resolve("force-module-game");
+		var module = game.resolve(".idea/kubegroovy.iml");
+		Files.createDirectories(module.getParent());
+		Files.writeString(module, "manual IntelliJ module");
+		var bindings = Map.of(dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.<TypingBinding>of());
+
+		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
+		assertEquals("manual IntelliJ module", Files.readString(module));
+
+		var result = KubeGroovyTypingGenerator.generate(game, bindings, true);
+		assertTrue(result.moduleChanged());
+		assertTrue(Files.readString(module).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
+
+		Files.writeString(result.gdsl(), "manual GDSL");
+		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings, true));
+		assertEquals("manual GDSL", Files.readString(result.gdsl()));
 	}
 
 	@Test
@@ -228,6 +253,9 @@ class KubeGroovyTypingGeneratorTests {
 		assertTrue(generated.contains("val dummyIdentifier = referenceText.lowercase(Locale.ROOT).indexOf(\"intellijidearulezzz\")"));
 		assertTrue(generated.contains("fun supportHasBindingPrefix(file: PsiFile, prefix: String): Boolean"));
 		assertTrue(generated.contains("receiverClass.allMethods.asSequence()"));
+		assertTrue(generated.contains(".withIcon(AllIcons.Nodes.Method)"));
+		assertTrue(generated.contains("supportTargetForType(type, context) != null"));
+		assertTrue(generated.contains("receiverClass.qualifiedName == \"java.lang.Class\""));
 		assertTrue(generated.contains("supportScriptEventMethods(file).map { it.groupName }.distinct()"));
 		assertTrue(generated.contains("withTailText(\"  KubeGroovy event\", true)"));
 		assertTrue(generated.contains("private fun LookupElement.withKubeGroovyPriority(): LookupElement"));
@@ -248,19 +276,20 @@ class KubeGroovyTypingGeneratorTests {
 			Map.of(startup, List.of(binding)), List.of(mod), List.of(wrappers));
 		var generated = Files.readString(result.livePlugin());
 		var fixtureType = GeneratorFixture.class.getCanonicalName();
+		var wrapperType = WrapperFixture.class.getCanonicalName();
 
 		assertTrue(generated.contains("private fun kgyMembersChunk0(): List<KubeGroovyScriptMember> = listOf("));
 		assertTrue(generated.contains("KubeGroovyScriptData.members = listOf(kgyMembersChunk0()).flatten()"));
 		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"getId\", \"java.lang.String\", emptyList(), emptyList(), false, false)"));
+			+ "\", \"getId\", \"java.lang.String\", emptyList(), listOf(emptyList()), emptyList(), false, false)"));
 		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"withContext\", \"java.lang.String\", listOf(\"java.lang.String\"), emptyList(), false, false)"));
+			+ "\", \"withContext\", \"java.lang.String\", listOf(\"java.lang.String\"), listOf(listOf(\"java.lang.String\")), emptyList(), false, false)"));
 		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"contextOnly\", \"void\", emptyList(), emptyList(), false, false)"));
+			+ "\", \"contextOnly\", \"void\", emptyList(), listOf(emptyList()), emptyList(), false, false)"));
 		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"takesWrapper\", \"void\", listOf(\"java.lang.Object\"), emptyList(), false, false)"));
+			+ "\", \"takesWrapper\", \"void\", listOf(\"java.lang.Object\"), listOf(listOf(\"" + wrapperType + "\")), emptyList(), false, false)"));
 		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"GeneratorFixture\", \"" + fixtureType + "\", listOf(\"java.lang.Object\"), emptyList(), false, true)"));
+			+ "\", \"GeneratorFixture\", \"" + fixtureType + "\", listOf(\"java.lang.Object\"), listOf(listOf(\"" + wrapperType + "\")), emptyList(), false, true)"));
 		assertTrue(generated.contains("KubeGroovySuppressedMethod(\"" + fixtureType
 			+ "\", \"withContext\", listOf(\"dev.uncandango.kubegroovy.script.bridge.Context\", \"java.lang.String\"))"));
 		assertTrue(generated.contains("KubeGroovySuppressedMethod(\"" + fixtureType
@@ -272,6 +301,60 @@ class KubeGroovyTypingGeneratorTests {
 		assertFalse(generated.contains("KubeGroovyScriptMember(\"" + UnboundGeneratorFixture.class.getCanonicalName() + "\""));
 		assertFalse(generated.contains("KubeGroovyScriptMember(\"" + fixtureType + "\", \"hidden\""));
 		assertFalse(generated.contains("KGY_MEMBER_DATA"));
+	}
+
+	@Test
+	void livePluginCatalogIsSortedRepeatableAndProtectedFromManualOverwrite() throws Exception {
+		var catalog = new KubeGroovyTypingGenerator.LivePluginValueCatalog(List.of(
+			new KubeGroovyTypingGenerator.LivePluginRegistryValues("zmod:later", "example.Later",
+				List.of("zmod:z", "minecraft:b", "minecraft:a"), List.of("zmod:z_tag", "minecraft:a_tag")),
+			new KubeGroovyTypingGenerator.LivePluginRegistryValues("minecraft:items", "net.minecraft.world.item.Item",
+				List.of("minecraft:zombie_spawn_egg", "minecraft:air"), List.of("minecraft:planks", "minecraft:logs"))
+		), List.of("z_action", "a_action"), List.of("z_tool", "a_tool"), List.of("z_sound", "a_sound"),
+			List.of("z_color", "a_color"), List.of("z_sound_action", "a_sound_action"),
+			List.of("net.minecraft.world.item.ItemStack", "net.minecraft.world.level.ItemLike"));
+		var game = temp.resolve("catalog-game");
+		var livePluginConfig = temp.resolve("catalog-live-plugins");
+		var result = KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), livePluginConfig,
+			List.of(), List.of(), catalog);
+		var catalogFile = result.livePlugin().resolveSibling("catalog.json");
+		var text = Files.readString(catalogFile);
+		assertTrue(text.contains("\"generatedBy\": \"" + KubeGroovyTypingGenerator.GENERATED_MARKER + "\""));
+		assertTrue(text.indexOf("\"key\": \"minecraft:items\"") < text.indexOf("\"key\": \"zmod:later\""));
+		assertTrue(text.indexOf("\"minecraft:a\"") < text.indexOf("\"minecraft:b\""));
+		assertTrue(text.indexOf("\"a_action\"") < text.indexOf("\"z_action\""));
+		assertTrue(text.contains("\"itemTintFunctions\""));
+		assertTrue(text.contains("\"blockTintFunctions\""));
+		assertTrue(text.indexOf("\"net.minecraft.world.item.ItemStack\"") < text.indexOf("\"net.minecraft.world.level.ItemLike\""));
+		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), livePluginConfig, List.of(), List.of(), catalog);
+		assertEquals(text, Files.readString(catalogFile));
+
+		var manualConfig = temp.resolve("manual-catalog-live-plugins");
+		var manualCatalog = manualConfig.resolve("kubegroovy/catalog.json");
+		Files.createDirectories(manualCatalog.getParent());
+		Files.writeString(manualCatalog, "manual catalog");
+		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(temp.resolve("manual-catalog-game"),
+			Map.of(), List.of(), List.of(), manualConfig, List.of(), List.of(), catalog));
+		assertEquals("manual catalog", Files.readString(manualCatalog));
+	}
+
+	@Test
+	void livePluginKeepsOriginalTypesWhenWrapperOverloadsShareOneVisibleSignature() throws Exception {
+		var fixture = OverloadedSemanticFixture.class;
+		var wrappers = wrappersFor(WrapperFixture.class, ItemStack.class);
+		var mod = new ModGdslGenerator.ModData("semantic_fixture", List.of(fixture), List.of());
+		var binding = new TypingBinding("semantic", fixture.getName(), false, false,
+			dev.uncandango.kubegroovy.script.ScriptType.STARTUP);
+		var result = KubeGroovyTypingGenerator.generate(temp.resolve("semantic-overload-game"),
+			Map.of(dev.uncandango.kubegroovy.script.ScriptType.STARTUP, List.of(binding)), List.of(mod), List.of(wrappers));
+		var generated = Files.readString(result.livePlugin());
+		var visibleMethods = generated.lines().filter(line -> line.contains("KubeGroovyScriptMember(\"" + fixture.getCanonicalName()
+			+ "\", \"convert\"")).toList();
+		assertEquals(1, visibleMethods.size());
+		var visibleMethod = visibleMethods.getFirst();
+		assertTrue(visibleMethod.contains("listOf(\"java.lang.Object\")"));
+		assertTrue(visibleMethod.contains("net.minecraft.world.item.ItemStack"));
+		assertTrue(visibleMethod.contains(WrapperFixture.class.getCanonicalName()));
 	}
 
 	@Test
@@ -290,7 +373,15 @@ class KubeGroovyTypingGeneratorTests {
 		for (int index = 0; index < 15; index++) {
 			targets.add(new KubeGroovyTypingGenerator.LivePluginRegistryTarget("test:registry_" + index, nestedType.toStringFQN()));
 		}
-		var result = KubeGroovyTypingGenerator.generate(temp.resolve("registry-target-game"), Map.of(), List.of(), List.of(), targets);
+		var builderTypes = List.of(
+			new KubeGroovyTypingGenerator.LivePluginBuilderType("minecraft:block", "kubegroovy:default",
+				"dev.uncandango.kubegroovy.block.custom.BasicKubeBlock.Builder", true),
+			new KubeGroovyTypingGenerator.LivePluginBuilderType("minecraft:block", "kubegroovy:crop",
+				"dev.uncandango.kubegroovy.block.custom.CropBlockBuilder", false),
+			new KubeGroovyTypingGenerator.LivePluginBuilderType("minecraft:item", "kubegroovy:default",
+				"dev.uncandango.kubegroovy.item.custom.ItemBuilder", true)
+		);
+		var result = KubeGroovyTypingGenerator.generate(temp.resolve("registry-target-game"), Map.of(), List.of(), List.of(), targets, builderTypes);
 		var generated = Files.readString(result.livePlugin());
 
 		assertTrue(generated.contains("KubeGroovyScriptData.registryTargets = listOf(kgyRegistryTargetsChunk0(), kgyRegistryTargetsChunk1()).flatten()"));
@@ -303,6 +394,27 @@ class KubeGroovyTypingGeneratorTests {
 		assertTrue(generated.contains("target?.elementTypeName ?: \"?\""));
 		assertTrue(generated.contains("val elementTypeName = valueType.parameters.singleOrNull()?.canonicalText"));
 		assertTrue(generated.contains("private fun registryTargetForKey(key: String): KubeGroovyRegistryTarget?"));
+		assertTrue(generated.contains("KubeGroovyScriptData.builderTypes = listOf(kgyBuilderTypesChunk0()).flatten()"));
+		assertTrue(generated.contains("KubeGroovyBuilderType(\"minecraft:block\", \"kubegroovy:default\", \"dev.uncandango.kubegroovy.block.custom.BasicKubeBlock.Builder\", true)"));
+		assertTrue(generated.contains("KubeGroovyBuilderType(\"minecraft:block\", \"kubegroovy:crop\", \"dev.uncandango.kubegroovy.block.custom.CropBlockBuilder\", false)"));
+		assertTrue(generated.contains("class RegistryBuilderCallTypeCalculator : GrCallTypeCalculator"));
+		assertTrue(generated.contains("method: PsiMethod,\n\t\targuments: List<Argument>?,"));
+		assertTrue(generated.contains("else requestedBuilderTypeId(typeExpression) ?: return null"));
+		assertTrue(generated.contains("callTypeCalculatorPoint.point.registerExtension(callTypeCalculator, LoadingOrder.FIRST, pluginDisposable)"));
+		assertTrue(generated.contains("supportBuilderTypeTarget(parameters.position)?.let { target ->"));
+		assertTrue(generated.contains("current = current?.parent"));
+		assertTrue(generated.contains("registryBuilderTypes.firstOrNull { it.defaultType }?.let { options.add(\"default\" to it) }"));
+		assertTrue(generated.contains("type.typeId.startsWith(\"kubegroovy:\")"));
+		assertTrue(generated.contains("type.typeId.removePrefix(\"kubegroovy:\")"));
+		assertTrue(generated.contains("supportInsertBuilderType(insertion, suggestedId)"));
+		assertTrue(generated.contains("kubeGroovyCompletionSupport.supportIsBuilderTypeArgument(position)"));
+		assertTrue(generated.contains("supportTargetForType(type, position)"));
+		assertTrue(generated.contains("supportMapLiteralIsKey(container, literal)"));
+		assertTrue(generated.contains("supportExpectedTypes(position)"));
+		assertTrue(generated.contains("UUID.randomUUID().toString()"));
+		assertTrue(generated.contains("supportIsValidIdentifier(value)"));
+		assertTrue(generated.contains("RegistryPredicate"));
+		assertTrue(generated.contains("catalog.json"));
 		assertFalse(generated.contains("RegistryKind.entries"));
 	}
 
@@ -488,6 +600,14 @@ class KubeGroovyTypingGeneratorTests {
 
 	public static class UnboundGeneratorFixture {
 		public void unrelatedMethod() {
+		}
+	}
+
+	public static class OverloadedSemanticFixture {
+		public void convert(ItemStack item) {
+		}
+
+		public void convert(WrapperFixture wrapper) {
 		}
 	}
 

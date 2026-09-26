@@ -94,7 +94,12 @@ public class KubeGroovyClient extends KubeGroovyCommon {
 
 	@Override
 	public void generateTypings(CommandSourceStack source) {
-		KubeGroovyTypingGenerator.request(source);
+		generateTypings(source, false);
+	}
+
+	@Override
+	public void generateTypings(CommandSourceStack source, boolean forceModuleReplacement) {
+		KubeGroovyTypingGenerator.request(source, forceModuleReplacement);
 	}
 
 	@Override

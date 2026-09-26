@@ -1,18 +1,31 @@
 package dev.uncandango.kubegroovy.typing;
 
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.block.SoundTypeWrapper;
 import dev.uncandango.kubegroovy.event.EventGroups;
 import dev.uncandango.kubegroovy.event.EventHandler;
 import dev.uncandango.kubegroovy.event.EventTargetType;
+import dev.uncandango.kubegroovy.item.ItemToolMaterials;
+import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ColorWrapper;
+import dev.uncandango.kubegroovy.registry.BuilderType;
+import dev.uncandango.kubegroovy.registry.BuilderTypeRegistryHandler;
 import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
 import net.minecraft.commands.CommandSourceStack;
+import net.neoforged.neoforge.common.ItemAbility;
+import net.neoforged.neoforge.common.SoundAction;
+import net.neoforged.neoforge.common.SoundActions;
 import net.neoforged.fml.jarcontents.JarContents;
 import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
@@ -25,6 +38,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -45,6 +59,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -78,20 +93,67 @@ public final class KubeGroovyTypingGenerator {
 	public record LivePluginRegistryTarget(String key, String elementTypeName) {
 	}
 
+	public record LivePluginBuilderType(String registryKey, String typeId, String builderTypeName, boolean defaultType) {
+	}
+
+	public record LivePluginRegistryValues(String key, String elementTypeName, List<String> entries, List<String> tags) {
+		public LivePluginRegistryValues {
+			entries = List.copyOf(entries);
+			tags = List.copyOf(tags);
+		}
+	}
+
+	public record LivePluginValueCatalog(List<LivePluginRegistryValues> registries, List<String> itemAbilities,
+		List<String> toolMaterials, List<String> soundTypes, List<String> colorNames, List<String> soundActions,
+		List<String> stringWrappers) {
+		public LivePluginValueCatalog {
+			registries = List.copyOf(registries);
+			itemAbilities = List.copyOf(itemAbilities);
+			toolMaterials = List.copyOf(toolMaterials);
+			soundTypes = List.copyOf(soundTypes);
+			colorNames = List.copyOf(colorNames);
+			soundActions = List.copyOf(soundActions);
+			stringWrappers = List.copyOf(stringWrappers);
+		}
+
+		public static LivePluginValueCatalog empty() {
+			return new LivePluginValueCatalog(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+		}
+	}
+
 	private record RenderedLivePluginMemberData(String helpers, String initialization) {
 	}
 
 	/** Queues one generation job. A second request while the first is running is harmless. */
 	public static boolean request(CommandSourceStack source) {
+		return request(source, false);
+	}
+
+	/** Queues generation, optionally allowing replacement of an unmarked kubegroovy.iml. */
+	public static boolean request(CommandSourceStack source, boolean forceModuleReplacement) {
 		if (!RUNNING.compareAndSet(false, true)) {
 			source.sendFailure(net.minecraft.network.chat.Component.literal("KubeGroovy typings are already being generated."));
 			return false;
 		}
 
-		source.sendSuccess(() -> net.minecraft.network.chat.Component.literal("Generating KubeGroovy IntelliJ typings and installing the LivePlugin script..."), false);
+		var progressMessage = "Generating KubeGroovy IntelliJ typings and installing the LivePlugin script..."
+			+ (forceModuleReplacement ? " Force mode will replace .idea/kubegroovy.iml." : "");
+		source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(progressMessage), false);
+		LivePluginValueCatalog valueCatalog;
+		try {
+			// Some catalog sources are lazy and may post startup script events on first access.
+			// Snapshot them on the server thread before moving file generation to the worker.
+			valueCatalog = snapshotLivePluginValueCatalog(source);
+		} catch (Throwable error) {
+			KubeGroovy.LOGGER.error("Failed to snapshot KubeGroovy LivePlugin value catalog", error);
+			RUNNING.set(false);
+			source.sendFailure(net.minecraft.network.chat.Component.literal("Failed to generate KubeGroovy typings: " + concise(error)));
+			return false;
+		}
+		var catalogSnapshot = valueCatalog;
 		CompletableFuture.runAsync(() -> {
 			try {
-				var result = generate(source);
+				var result = generate(source, catalogSnapshot, forceModuleReplacement);
 				postToServer(source, () -> source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
 					"Generated KubeGroovy typings: " + result.bindingCount() + " bindings, " + result.eventCount()
 							+ " events, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
@@ -125,13 +187,16 @@ public final class KubeGroovyTypingGenerator {
 		return message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
 	}
 
-	private static GenerationResult generate(CommandSourceStack source) throws IOException {
+	private static GenerationResult generate(CommandSourceStack source, LivePluginValueCatalog valueCatalog,
+		boolean forceModuleReplacement) throws IOException {
 		var gameDir = FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
 		var bindings = snapshotBindings(source);
 		var mods = ModGdslGenerator.discoverLoadedMods();
 		var wrappers = snapshotTypeWrappers(source);
 		var registryTargets = snapshotLivePluginRegistryTargets(source);
-		return generate(gameDir, bindings, mods, wrappers, resolveLivePluginDirectory(), registryTargets);
+		var builderTypes = snapshotLivePluginBuilderTypes();
+		return generate(gameDir, bindings, mods, wrappers, resolveLivePluginDirectory(), registryTargets, builderTypes,
+			valueCatalog, forceModuleReplacement);
 	}
 
 	/**
@@ -139,32 +204,71 @@ public final class KubeGroovyTypingGenerator {
 	 * its immutable binding snapshot.
 	 */
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings) throws IOException {
-		return generate(gameDir, bindings, List.of(), List.of(), gameDir.resolve(".live-plugins"), List.of());
+		return generate(gameDir, bindings, false);
+	}
+
+	/** Test and tooling overload for forcing replacement of only kubegroovy.iml. */
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		boolean forceModuleReplacement) throws IOException {
+		return generate(gameDir, bindings, List.of(), List.of(), gameDir.resolve(".live-plugins"), List.of(), List.of(),
+			LivePluginValueCatalog.empty(), forceModuleReplacement);
 	}
 
 	/** Runtime snapshot overload; tests can provide deterministic mod and wrapper data. */
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
 		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries) throws IOException {
-		return generate(gameDir, bindings, mods, wrapperRegistries, gameDir.resolve(".live-plugins"), List.of());
+		return generate(gameDir, bindings, mods, wrapperRegistries, gameDir.resolve(".live-plugins"), List.of(), List.of(), LivePluginValueCatalog.empty());
 	}
 
 	/** Test and tooling overload for supplying the runtime registry type data used by LivePlugin completions. */
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
 		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
 		Collection<LivePluginRegistryTarget> registryTargets) throws IOException {
-		return generate(gameDir, bindings, mods, wrapperRegistries, gameDir.resolve(".live-plugins"), registryTargets);
+		return generate(gameDir, bindings, mods, wrapperRegistries, gameDir.resolve(".live-plugins"), registryTargets, List.of(), LivePluginValueCatalog.empty());
+	}
+
+	/** Test and tooling overload for supplying the runtime builder classes used by LivePlugin type inference. */
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Collection<LivePluginRegistryTarget> registryTargets, Collection<LivePluginBuilderType> builderTypes) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, gameDir.resolve(".live-plugins"), registryTargets, builderTypes, LivePluginValueCatalog.empty());
 	}
 
 	/** File-based overload that lets tests and tooling choose the LivePlugin config directory. */
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
 		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
 		Path livePluginDirectory) throws IOException {
-		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, List.of());
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, List.of(), List.of(), LivePluginValueCatalog.empty());
 	}
 
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
 		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
 		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, List.of(), LivePluginValueCatalog.empty());
+	}
+
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
+			LivePluginValueCatalog.empty());
+	}
+
+	/** Test and tooling overload for supplying the runtime values used by LivePlugin completions and inspections. */
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
+			valueCatalog, false);
+	}
+
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<ModGdslGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
+		boolean forceModuleReplacement) throws IOException {
 		gameDir = gameDir.toAbsolutePath().normalize();
 		livePluginDirectory = livePluginDirectory.toAbsolutePath().normalize();
 		var idea = gameDir.resolve(".idea").normalize();
@@ -176,6 +280,7 @@ public final class KubeGroovyTypingGenerator {
 		var events = typings.resolve("events.gdsl").normalize();
 		var modsDirectory = typings.resolve("mods").normalize();
 		var livePlugin = livePluginDirectory.resolve("kubegroovy").resolve("plugin.kts").normalize();
+		var livePluginCatalog = livePlugin.resolveSibling("catalog.json");
 		ensureInside(gameDir, idea);
 		ensureInside(gameDir, module);
 		ensureInside(gameDir, modules);
@@ -187,6 +292,7 @@ public final class KubeGroovyTypingGenerator {
 		var livePluginSafetyRoot = livePluginDirectory.getParent();
 		if (livePluginSafetyRoot == null) throw new IOException("LivePlugin config directory must have a parent directory");
 		ensureInside(livePluginDirectory, livePlugin);
+		ensureInside(livePluginDirectory, livePluginCatalog);
 		ensureNoSymlinkComponents(gameDir, idea);
 		ensureNoSymlinkComponents(gameDir, module);
 		ensureNoSymlinkComponents(gameDir, modules);
@@ -199,17 +305,20 @@ public final class KubeGroovyTypingGenerator {
 			throw new IOException("LivePlugin config path contains a symbolic-link directory: " + livePluginSafetyRoot);
 		}
 		ensureNoSymlinkComponents(livePluginSafetyRoot, livePlugin);
+		ensureNoSymlinkComponents(livePluginSafetyRoot, livePluginCatalog);
 		if (Files.exists(modsDirectory) && !Files.isDirectory(modsDirectory)) {
 			throw new IOException("Generated mod GDSL directory is not a directory: " + modsDirectory);
 		}
 
 		// Validate every existing target before creating directories or cache files.
-		guardGeneratedTarget(module);
+		guardGeneratedTarget(module, forceModuleReplacement);
 		guardGeneratedTarget(gdsl);
 		guardGeneratedTarget(events);
 		guardGeneratedTarget(livePlugin);
+		guardGeneratedTarget(livePluginCatalog);
 		var livePluginApi = ModGdslGenerator.describeForLivePlugin(mods, wrapperRegistries, livePluginReceiverTypes(bindings));
-		var livePluginText = readLivePluginScript(bindings, livePluginApi, registryTargets);
+		var livePluginText = readLivePluginScript(bindings, livePluginApi, registryTargets, builderTypes);
+		var livePluginCatalogText = renderLivePluginValueCatalog(valueCatalog);
 		var modGdslTexts = ModGdslGenerator.renderAll(mods, wrapperRegistries);
 		var modGdslTargets = new TreeMap<String, Path>();
 		for (var entry : modGdslTexts.entrySet()) {
@@ -244,6 +353,7 @@ public final class KubeGroovyTypingGenerator {
 		boolean moduleChanged = writeChanged(module, moduleText);
 		boolean gdslChanged = writeChanged(gdsl, gdslText);
 		writeChanged(events, eventsText);
+		writeChanged(livePluginCatalog, livePluginCatalogText);
 		boolean livePluginChanged = writeChanged(livePlugin, livePluginText);
 		for (var entry : modGdslTexts.entrySet()) writeChanged(modGdslTargets.get(entry.getKey()), entry.getValue());
 		pruneStaleModGdsl(modsDirectory, modGdslTargets.values());
@@ -332,7 +442,8 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	private static String readLivePluginScript(Map<ScriptType, List<TypingBinding>> bindings,
-		ModGdslGenerator.LivePluginApi livePluginApi, Collection<LivePluginRegistryTarget> registryTargets) throws IOException {
+		ModGdslGenerator.LivePluginApi livePluginApi, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes) throws IOException {
 		try (var input = KubeGroovyTypingGenerator.class.getResourceAsStream("/META-INF/kubegroovy/live-plugin/plugin.kts")) {
 			if (input == null) throw new IOException("Bundled KubeGroovy LivePlugin script is missing");
 			var script = new String(input.readAllBytes(), StandardCharsets.UTF_8);
@@ -349,12 +460,111 @@ public final class KubeGroovyTypingGenerator {
 			if (!script.contains(LIVE_PLUGIN_MEMBERS_PLACEHOLDER)) {
 				throw new IOException("Bundled KubeGroovy LivePlugin script has no member data placeholder");
 			}
-			var memberData = renderLivePluginMemberData(livePluginApi, registryTargets);
+			var memberData = renderLivePluginMemberData(livePluginApi, registryTargets, builderTypes);
 			return script.replace(LIVE_PLUGIN_BINDINGS_PLACEHOLDER, renderLivePluginBindingData(bindings))
 				.replace(LIVE_PLUGIN_EVENTS_PLACEHOLDER, renderLivePluginEventData())
 				.replace(LIVE_PLUGIN_MEMBER_HELPERS_PLACEHOLDER, memberData.helpers())
 				.replace(LIVE_PLUGIN_MEMBERS_PLACEHOLDER, memberData.initialization());
 		}
+	}
+
+	private static String renderLivePluginValueCatalog(LivePluginValueCatalog catalog) {
+		var root = new JsonObject();
+		root.addProperty("generatedBy", GENERATED_MARKER);
+		var registries = new JsonArray();
+		for (var registry : catalog.registries().stream().sorted(Comparator.comparing(LivePluginRegistryValues::key)).toList()) {
+			var entry = new JsonObject();
+			entry.addProperty("key", registry.key());
+			entry.addProperty("elementType", registry.elementTypeName());
+			entry.add("entries", jsonArray(registry.entries()));
+			entry.add("tags", jsonArray(registry.tags()));
+			registries.add(entry);
+		}
+		root.add("registries", registries);
+		root.add("itemAbilities", jsonArray(catalog.itemAbilities()));
+		root.add("toolMaterials", jsonArray(catalog.toolMaterials()));
+		root.add("soundTypes", jsonArray(catalog.soundTypes()));
+		root.add("colorNames", jsonArray(catalog.colorNames()));
+		root.add("soundActions", jsonArray(catalog.soundActions()));
+		root.add("stringWrappers", jsonArray(catalog.stringWrappers()));
+		root.add("itemTintFunctions", jsonArray(List.of("block", "potion", "map", "display_color_nbt")));
+		root.add("blockTintFunctions", jsonArray(List.of("grass", "foliage", "evergreen_foliage", "birch_foliage",
+			"mangrove_foliage", "water", "redstone")));
+		return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(root) + '\n';
+	}
+
+	private static JsonArray jsonArray(Collection<String> values) {
+		var array = new JsonArray();
+		values.stream().sorted().forEach(array::add);
+		return array;
+	}
+
+	private static LivePluginValueCatalog snapshotLivePluginValueCatalog(CommandSourceStack source) {
+		var registries = new TreeMap<String, LivePluginRegistryValues>();
+		for (var entry : BuiltInRegistries.REGISTRY.entrySet()) {
+			var values = snapshotLivePluginRegistryValues(entry.getKey(), entry.getValue());
+			registries.put(values.key(), values);
+		}
+		for (var registryEntry : source.registryAccess().registries().toList()) {
+			var values = snapshotLivePluginRegistryValues(registryEntry.key(), registryEntry.value());
+			registries.put(values.key(), values);
+		}
+
+		var itemAbilities = new TreeSet<String>();
+		ItemAbility.getActions().forEach(action -> itemAbilities.add(action.name()));
+		var toolMaterials = new TreeSet<>(ItemToolMaterials.ALL.get().keySet());
+		var soundTypes = new TreeSet<>(SoundTypeWrapper.INSTANCE.getMap().keySet());
+		var colorNames = new TreeSet<>(ColorWrapper.MAP.keySet());
+		var stringWrappers = snapshotTypeWrappers(source).stream()
+			.flatMap(wrappers -> wrappers.wrappers.entrySet().stream())
+			.filter(entry -> entry.getValue().explicitCoercions().stream().anyMatch(type -> type.asClass() == CharSequence.class))
+			.map(entry -> entry.getKey().getName().replace('$', '.'))
+			.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+		return new LivePluginValueCatalog(List.copyOf(registries.values()), List.copyOf(itemAbilities),
+			List.copyOf(toolMaterials), List.copyOf(soundTypes), List.copyOf(colorNames), snapshotSoundActionNames(),
+			List.copyOf(stringWrappers));
+	}
+
+	private static LivePluginRegistryValues snapshotLivePluginRegistryValues(ResourceKey<?> key, Registry<?> registry) {
+		var keyName = key.identifier().toString();
+		var registryType = registryTypeOf(key);
+		var elementTypeName = registryType == null ? "?" : registryType.type().toStringFQN();
+		var entries = new TreeSet<String>();
+		for (var entry : registry.entrySet()) entries.add(entry.getKey().identifier().toString());
+		var tags = new TreeSet<String>();
+		registry.listTagIds().map(tag -> tag.location().toString()).forEach(tags::add);
+		return new LivePluginRegistryValues(keyName, elementTypeName, List.copyOf(entries), List.copyOf(tags));
+	}
+
+	private static List<String> snapshotSoundActionNames() {
+		var names = new TreeSet<String>();
+		boolean reflected = false;
+		try {
+			Class.forName(SoundActions.class.getName(), true, SoundActions.class.getClassLoader());
+			var actionsField = SoundAction.class.getDeclaredField("ACTIONS");
+			if (!actionsField.trySetAccessible()) throw new IllegalAccessException("SoundAction.ACTIONS is not accessible");
+			var actions = actionsField.get(null);
+			if (actions instanceof Map<?, ?> map) {
+				for (var value : map.values()) if (value instanceof SoundAction action) names.add(action.name());
+				reflected = true;
+			} else {
+				throw new IllegalStateException("SoundAction.ACTIONS is not a map");
+			}
+		} catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+			KubeGroovy.LOGGER.warn("Unable to read SoundAction.ACTIONS; falling back to SoundActions constants", error);
+		}
+		if (!reflected) {
+			for (var field : SoundActions.class.getFields()) {
+				if (field.getType() != SoundAction.class || !Modifier.isStatic(field.getModifiers())) continue;
+				try {
+					var action = (SoundAction) field.get(null);
+					if (action != null) names.add(action.name());
+				} catch (ReflectiveOperationException | RuntimeException error) {
+					KubeGroovy.LOGGER.debug("Unable to read SoundActions constant {}", field.getName(), error);
+				}
+			}
+		}
+		return List.copyOf(names);
 	}
 
 	private static Set<String> livePluginReceiverTypes(Map<ScriptType, List<TypingBinding>> bindings) {
@@ -380,11 +590,16 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	private static RenderedLivePluginMemberData renderLivePluginMemberData(ModGdslGenerator.LivePluginApi api,
-		Collection<LivePluginRegistryTarget> registryTargets) {
+		Collection<LivePluginRegistryTarget> registryTargets, Collection<LivePluginBuilderType> builderTypes) {
 		var helpers = new StringBuilder();
 		var initialization = new StringBuilder();
 		var uniqueRegistryTargets = new TreeMap<String, LivePluginRegistryTarget>();
 		for (var registryTarget : registryTargets) uniqueRegistryTargets.putIfAbsent(registryTarget.key(), registryTarget);
+		var uniqueBuilderTypes = new TreeMap<String, LivePluginBuilderType>();
+		for (var builderType : builderTypes) {
+			var signature = builderType.registryKey() + "\u0000" + builderType.typeId() + "\u0000" + builderType.defaultType();
+			uniqueBuilderTypes.putIfAbsent(signature, builderType);
+		}
 		var memberChunks = renderLivePluginChunks(helpers, "Members", "KubeGroovyScriptMember", api.members(),
 			KubeGroovyTypingGenerator::renderLivePluginMember);
 		var propertyChunks = renderLivePluginChunks(helpers, "Properties", "KubeGroovyScriptProperty", api.properties(),
@@ -393,10 +608,13 @@ public final class KubeGroovyTypingGenerator {
 			KubeGroovyTypingGenerator::renderLivePluginSuppressedMethod);
 		var registryTargetChunks = renderLivePluginChunks(helpers, "RegistryTargets", "KubeGroovyRegistryTarget",
 			List.copyOf(uniqueRegistryTargets.values()), KubeGroovyTypingGenerator::renderLivePluginRegistryTarget);
+		var builderTypeChunks = renderLivePluginChunks(helpers, "BuilderTypes", "KubeGroovyBuilderType",
+			List.copyOf(uniqueBuilderTypes.values()), KubeGroovyTypingGenerator::renderLivePluginBuilderType);
 		initialization.append("KubeGroovyScriptData.members = ").append(livePluginChunkList(memberChunks)).append('\n')
 			.append("KubeGroovyScriptData.properties = ").append(livePluginChunkList(propertyChunks)).append('\n')
 			.append("KubeGroovyScriptData.suppressedMethods = ").append(livePluginChunkList(suppressedChunks)).append('\n')
-			.append("KubeGroovyScriptData.registryTargets = ").append(livePluginChunkList(registryTargetChunks)).append('\n');
+			.append("KubeGroovyScriptData.registryTargets = ").append(livePluginChunkList(registryTargetChunks)).append('\n')
+			.append("KubeGroovyScriptData.builderTypes = ").append(livePluginChunkList(builderTypeChunks)).append('\n');
 		return new RenderedLivePluginMemberData(helpers.toString(), initialization.toString());
 	}
 
@@ -424,6 +642,7 @@ public final class KubeGroovyTypingGenerator {
 			.append(kotlinString(member.name())).append(", ")
 			.append(kotlinString(member.returnType())).append(", ")
 			.append(kotlinStringList(member.parameters())).append(", ")
+			.append(kotlinStringNestedList(member.semanticParameters())).append(", ")
 			.append(kotlinStringList(member.typeParameters())).append(", ")
 			.append(member.isStatic()).append(", ").append(member.constructor()).append("),\n");
 	}
@@ -449,9 +668,22 @@ public final class KubeGroovyTypingGenerator {
 			.append(kotlinString(target.elementTypeName())).append("),\n");
 	}
 
+	private static void renderLivePluginBuilderType(StringBuilder out, LivePluginBuilderType builderType) {
+		out.append("\t\tKubeGroovyBuilderType(")
+			.append(kotlinString(builderType.registryKey())).append(", ")
+			.append(kotlinString(builderType.typeId())).append(", ")
+			.append(kotlinString(builderType.builderTypeName())).append(", ")
+			.append(builderType.defaultType()).append("),\n");
+	}
+
 	private static String kotlinStringList(List<String> values) {
 		if (values.isEmpty()) return "emptyList()";
 		return "listOf(" + String.join(", ", values.stream().map(KubeGroovyTypingGenerator::kotlinString).toList()) + ")";
+	}
+
+	private static String kotlinStringNestedList(List<List<String>> values) {
+		if (values.isEmpty()) return "emptyList()";
+		return "listOf(" + String.join(", ", values.stream().map(KubeGroovyTypingGenerator::kotlinStringList).toList()) + ")";
 	}
 
 	private static String renderLivePluginBindingData(Map<ScriptType, List<TypingBinding>> bindings) {
@@ -556,6 +788,12 @@ public final class KubeGroovyTypingGenerator {
 
 	private static List<LivePluginRegistryTarget> snapshotLivePluginRegistryTargets(CommandSourceStack source) {
 		var targets = new TreeMap<String, LivePluginRegistryTarget>();
+		for (var entry : BuiltInRegistries.REGISTRY.entrySet()) {
+			var key = entry.getKey();
+			var registryType = registryTypeOf(key);
+			var elementTypeName = registryType == null ? "?" : registryType.type().toStringFQN();
+			targets.put(key.identifier().toString(), new LivePluginRegistryTarget(key.identifier().toString(), elementTypeName));
+		}
 		for (var registryEntry : source.registryAccess().registries().toList()) {
 			var key = registryEntry.key();
 			var registryType = registryTypeOf(key);
@@ -564,6 +802,28 @@ public final class KubeGroovyTypingGenerator {
 			targets.putIfAbsent(keyName, new LivePluginRegistryTarget(keyName, elementTypeName));
 		}
 		return List.copyOf(targets.values());
+	}
+
+	private static List<LivePluginBuilderType> snapshotLivePluginBuilderTypes() {
+		var builderTypes = new TreeMap<String, LivePluginBuilderType>();
+		for (var entry : BuilderTypeRegistryHandler.INFO.get().entrySet()) {
+			var registryKey = entry.getKey().identifier().toString();
+			var info = entry.getValue();
+			var defaultType = info.defaultType();
+			if (defaultType != null) addLivePluginBuilderType(builderTypes, registryKey, defaultType, true);
+			for (var builderType : info.types()) addLivePluginBuilderType(builderTypes, registryKey, builderType, false);
+		}
+		return List.copyOf(builderTypes.values());
+	}
+
+	private static void addLivePluginBuilderType(Map<String, LivePluginBuilderType> output, String registryKey,
+		BuilderType<?> builderType, boolean defaultType) {
+		var builderClass = builderType.builderClass();
+		var builderTypeName = builderClass.getCanonicalName();
+		if (builderTypeName == null) builderTypeName = builderClass.getName().replace('$', '.');
+		var descriptor = new LivePluginBuilderType(registryKey, builderType.type().toString(), builderTypeName, defaultType);
+		var signature = registryKey + "\u0000" + descriptor.typeId() + "\u0000" + defaultType;
+		output.putIfAbsent(signature, descriptor);
 	}
 
 	@SuppressWarnings({"rawtypes", "unchecked"})
@@ -1124,9 +1384,13 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	private static void guardGeneratedTarget(Path path) throws IOException {
+		guardGeneratedTarget(path, false);
+	}
+
+	private static void guardGeneratedTarget(Path path, boolean forceReplacement) throws IOException {
 		if (Files.isSymbolicLink(path)) throw new IOException("Refusing to replace symbolic-link typing target: " + path);
 		if (Files.exists(path) && !Files.isRegularFile(path)) throw new IOException("Generated target is not a regular file: " + path);
-		if (Files.exists(path) && !Files.readString(path, StandardCharsets.UTF_8).contains(GENERATED_MARKER)) {
+		if (!forceReplacement && Files.exists(path) && !Files.readString(path, StandardCharsets.UTF_8).contains(GENERATED_MARKER)) {
 			throw new IOException("Refusing to overwrite unmarked IntelliJ typing file: " + path);
 		}
 	}

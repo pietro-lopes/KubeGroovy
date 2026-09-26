@@ -25,6 +25,10 @@ public class KubeGroovyCommon {
 	public void generateTypings(CommandSourceStack source) {
 	}
 
+	public void generateTypings(CommandSourceStack source, boolean forceModuleReplacement) {
+		generateTypings(source);
+	}
+
 	public void reloadConfig() {
 		CommonProperties.reload();
 		DevProperties.reload();

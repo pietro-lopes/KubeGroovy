@@ -199,7 +199,10 @@ public class KubeGroovyCommands {
 			)
 			.then(Commands.literal("generate-typings")
 				.requires(spOrOP)
-				.executes(context -> generateTypings(context.getSource()))
+				.executes(context -> generateTypings(context.getSource(), false))
+				.then(Commands.literal("force")
+					.executes(context -> generateTypings(context.getSource(), true))
+				)
 			)
 			.then(Commands.literal("packmode")
 				.requires(spOrOP)
@@ -534,13 +537,13 @@ public class KubeGroovyCommands {
 	}
 
 
-	private static int generateTypings(CommandSourceStack source) {
+	private static int generateTypings(CommandSourceStack source, boolean forceModuleReplacement) {
 		if (!source.getServer().isSingleplayer()) {
 			source.sendFailure(Component.literal("You can only run this command in singleplayer!"));
 			return 0;
 		}
 
-		KubeGroovy.PROXY.generateTypings(source);
+		KubeGroovy.PROXY.generateTypings(source, forceModuleReplacement);
 		return 1;
 	}
 
