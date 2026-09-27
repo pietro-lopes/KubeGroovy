@@ -1,0 +1,18 @@
+{
+  "_notes": [
+    "aliases: runtime-backed method renames. Each entry clones every overload named 'from' on 'class' under the name 'to' (same signature). The aliases exist at runtime; this only teaches the editor.",
+    "Both names stay visible (no suppression hooks). If a real method named 'to' with the same erased signature exists, the real one wins and no synthetic is made.",
+    "Constructors are skipped (nothing to rename).",
+    "hideOriginal is reserved for a future suppression mode; currently informational, both names are shown.",
+    "object-overload reads this file too (sibling ../method-aliases/aliases.json) so rewritten Object-signatures are also emitted under alias names.",
+    "This file is reloaded automatically when modified; a broken file keeps serving the last good config."
+  ],
+  "hideOriginal": false,
+  "aliases": [
+    {
+      "class": "net.minecraft.world.damagesource.DamageSource",
+      "from": "getDirectEntity",
+      "to": "getImmediate"
+    }
+  ]
+}
