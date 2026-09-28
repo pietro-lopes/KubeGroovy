@@ -1,3 +1,6 @@
+import net.minecraft.core.Registry
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.block.Block
 
 $StartupEvents.registry('block') { event ->
 	event.create('test_detector', 'detector').detectorId('test')

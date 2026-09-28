@@ -117,7 +117,6 @@ class ItemStackSupport {
     static final List<String> REGISTRY_IDS = ["item", "fluid", "block", "entity_type"]
     static final String SPEC_ITEMSTACK = "itemstack"
     static final String SPEC_REGISTRY = "registry"
-    private static final Pattern TOP_STATEMENT = Pattern.compile("(?m)^(package\\s+[\\w.]+|import\\s+[\\w.*]+)")
     private static final Pattern AS_AFTER = Pattern.compile("as\\s+(net\\.minecraft\\.world\\.item\\.)?ItemStack\\b")
     private static final Pattern AS_CAST_TEXT = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.]+\\.)?ItemStack\\b")
     private static final Pattern AS_CAST_TEXT_REGISTRY = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.]+\\.)?(ResourceKey|RegistryKey|Registry)\\b")
@@ -614,28 +613,6 @@ class ItemStackSupport {
     }
 
     /**
-     * Line-based check for an existing ItemStack import (exact or star import).
-     * Deliberately text-based instead of PSI-based: it runs inside the insert
-     * handler where the document was just edited and PSI may be stale, and
-     * plain lines can't lie about what's written at the top of the file.
-     */
-    static boolean hasItemStackImport(String text) {
-        try {
-            for (String line : text.readLines()) {
-                String t = line.trim()
-                if (!t.startsWith("import ")) continue
-                String rest = t.substring(7).trim()
-                if (rest.startsWith("net.minecraft.world.item.*")) return true
-                if (rest.startsWith(ITEMSTACK_FQN)) {
-                    String after = rest.substring(ITEMSTACK_FQN.length())
-                    if (after.isEmpty() || after.startsWith(";") || Character.isWhitespace(after.charAt(0))) return true
-                }
-            }
-        } catch (Throwable ignored) {}
-        return false
-    }
-
-    /**
      * True when the document text right after {@code endOffset} (skipping
      * whitespace) reads {@code as ItemStack} (short or qualified name).
      * Text-based on purpose: whatever PSI node `as` parses into, the text
@@ -652,28 +629,6 @@ class ItemStackSupport {
             return AS_AFTER.matcher(tail).lookingAt()
         } catch (Throwable ignored) {
             return false
-        }
-    }
-
-    /**
-     * Document offset where a new import line belongs: right after the last
-     * {@code package}/import line, after a {@code #!} shebang line, else 0.
-     * The caller inserts either "\nimport ..." (appending to that line) or
-     * "import ...\n" (at file start) accordingly.
-     */
-    static int importInsertionOffset(String text) {
-        try {
-            Matcher m = TOP_STATEMENT.matcher(text)
-            int lastEnd = -1
-            while (m.find()) lastEnd = m.end()
-            if (lastEnd >= 0) return lastEnd
-            if (text.startsWith("#!")) {
-                int nl = text.indexOf('\n')
-                return nl >= 0 ? nl : text.length()
-            }
-            return 0
-        } catch (Throwable ignored) {
-            return 0
         }
     }
 
@@ -772,9 +727,9 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
      * document into the final form, because the raw inserted word ("apple")
      * is not valid code on its own. Steps and why this order:
      * <ol>
-     *   <li>Ensure the import FIRST (top of file) and remember how many chars
-     *       it added ({@code shift}): every offset below moves, so later
-     *       lookups use {@code tailOffset + shift}.</li>
+     *   <li>No import is added: every branch below inserts a bare quoted id
+     *       resolved by runtime coercion, so no ItemStack reference is ever
+     *       emitted and no import is needed.</li>
      *   <li>{@code commitDocument()} after each edit batch — the document and
      *       the PSI tree are separate copies; PSI queries (findElementAt)
      *       only see committed text.</li>
@@ -800,28 +755,12 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
         ItemStackSupport.debug("insert id=" + id)
         try {
             def doc = ctx.getDocument()
-            // 1. Ensure the import first (top of file), so later offsets stay valid.
-            // Only for ItemStack ids: registry inserts are bare strings needing no import.
-            int shift = 0
-            try {
-                if (ItemStackSupport.IDS.contains(id)) {
-                    String text = doc.getText()
-                    if (!ItemStackSupport.hasItemStackImport(text)) {
-                        int at = ItemStackSupport.importInsertionOffset(text)
-                        String line = at > 0
-                            ? "\nimport " + ItemStackSupport.ITEMSTACK_FQN
-                            : "import " + ItemStackSupport.ITEMSTACK_FQN + "\n"
-                        doc.insertString(at, line)
-                        shift = line.length()
-                    }
-                }
-            } catch (Throwable ignored) {}
             ctx.commitDocument()
             // 2. Locate the string literal at/before the caret, if any.
             //    Check both sides: at a token boundary findElementAt may
             //    return a neighbour instead of the literal's contents.
             PsiFile file = ctx.getFile()
-            int caret = ctx.getTailOffset() + shift
+            int caret = ctx.getTailOffset()
             GrLiteral lit = null
             try {
                 List<PsiElement> leaves = new ArrayList<PsiElement>()

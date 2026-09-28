@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script;
 
+import dev.uncandango.kubegroovy.event.EventGroupWrapper;
 import groovy.lang.Binding;
 import net.minecraft.util.StringUtil;
 
@@ -17,11 +18,19 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding) {
 	/// Adds a value to the script scope when it is not null.
 	public void add(String name, Object value) {
 		if (value != null) {
-			try {
-				binding.setVariable(Character.isUpperCase(name.charAt(0)) ? "$" + name : name, value);
-			} catch (Exception e) {
-				binding.setVariable(Character.isUpperCase(name.charAt(0)) ? "$" + name : name, value);
-			}
+//			try {
+				if (value instanceof Class<?> || value instanceof EventGroupWrapper) {
+					binding.setVariable("$" + name, value);
+				} else {
+					if (Character.isUpperCase(name.charAt(0))) {
+						binding.setVariable("$" + name, value);
+					} else {
+						binding.setVariable(name, value);
+					}
+				}
+//			} catch (Exception e) {
+//				binding.setVariable(Character.isUpperCase(name.charAt(0)) ? "$" + name : name, value);
+//			}
 		}
 	}
 

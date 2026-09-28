@@ -1,20 +1,24 @@
 package dev.uncandango.kubegroovy.typingtest;
 
 import dev.uncandango.kubegroovy.core.AdvancementNodeKGY;
+import dev.uncandango.kubegroovy.event.EventGroup;
+import dev.uncandango.kubegroovy.event.EventTargetType;
+import dev.uncandango.kubegroovy.event.KubeEvent;
+import dev.uncandango.kubegroovy.script.ScriptType;
+import dev.uncandango.kubegroovy.typing.TypeTree;
 import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.typing.KubeGroovyTypingGenerator;
-import dev.uncandango.kubegroovy.typing.ModGdslGenerator;
+import dev.uncandango.kubegroovy.typing.MethodAliasGenerator;
 import dev.uncandango.kubegroovy.typing.TypingBinding;
-import dev.uncandango.kubegroovy.testmod.assertion.KubeEntityEventAssert;
 import groovy.lang.GroovyShell;
 import net.minecraft.advancements.AdvancementNode;
 import net.minecraft.world.item.ItemStack;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -74,6 +78,142 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	void codeInsightSettingsExcludeGroovyGdkAndMergeCleanly() throws Exception {
+		var fresh = KubeGroovyTypingGenerator.mergeCodeInsightSettings(null);
+		assertTrue(fresh.contains("<component name=\"JavaProjectCodeInsightSettings\">"));
+		assertTrue(fresh.contains("<name>org.codehaus.groovy.runtime.*</name>"));
+		assertEquals(fresh, KubeGroovyTypingGenerator.mergeCodeInsightSettings(fresh));
+		var existing = "<?xml version=\"1.0\"?>\n<project version=\"4\">\n"
+			+ "  <component name=\"Other\" enabled=\"true\" />\n"
+			+ "  <component name=\"JavaProjectCodeInsightSettings\">\n"
+			+ "    <excluded-names>\n"
+			+ "      <name>com.example.*</name>\n"
+			+ "    </excluded-names>\n"
+			+ "  </component>\n"
+			+ "</project>\n";
+		var merged = KubeGroovyTypingGenerator.mergeCodeInsightSettings(existing);
+		assertTrue(merged.contains("name=\"Other\""));
+		assertTrue(merged.contains("<name>com.example.*</name>"));
+		assertTrue(merged.contains("<name>org.codehaus.groovy.runtime.*</name>"));
+		assertEquals(merged, KubeGroovyTypingGenerator.mergeCodeInsightSettings(merged));
+		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.mergeCodeInsightSettings("<project><oops>"));
+	}
+
+	@Test
+	void eventMethodsDescribeOverloadMatrixAndSideFiltering() {
+		var group = EventGroup.of("TestEvents");
+		group.startup("plain", () -> FixtureEvent.class);
+		group.startup("optional", () -> FixtureEvent.class).supportsTarget(EventTargetType.STRING);
+		group.startup("targeted", () -> FixtureEvent.class).requiredTarget(EventTargetType.ID);
+		group.server("serverOnly", () -> FixtureEvent.class);
+		var startup = KubeGroovyTypingGenerator.describeEventMethods(group.getHandlers().values(), ScriptType.STARTUP);
+		assertEquals(List.of("optional", "optional", "plain", "targeted", "targeted"),
+			startup.stream().map(KubeGroovyTypingGenerator.EventMethod::name).toList());
+		for (var method : startup) {
+			assertEquals("void", method.returns());
+			assertTrue(method.typeParams().isEmpty());
+		}
+		var optional = startup.stream()
+			.filter(method -> method.name().equals("optional")).toList();
+		assertEquals(1, optional.get(0).params().size());
+		assertEquals("handler", optional.get(0).params().get(0).name());
+		assertTrue(optional.get(0).params().get(0).type().contains("Consumer"));
+		assertTrue(optional.get(0).params().get(0).type().contains("FixtureEvent"));
+		assertEquals(2, optional.get(1).params().size());
+		assertEquals("target", optional.get(1).params().get(0).name());
+		assertEquals("java.lang.String", optional.get(1).params().get(0).type());
+		var targeted = startup.stream()
+			.filter(method -> method.name().equals("targeted")).toList();
+		assertEquals("java.lang.String", targeted.get(0).params().get(0).type());
+		assertTrue(targeted.get(1).params().get(0).type().endsWith(".Identifier"));
+		var server = KubeGroovyTypingGenerator.describeEventMethods(group.getHandlers().values(), ScriptType.SERVER);
+		assertEquals(List.of("serverOnly"), server.stream().map(KubeGroovyTypingGenerator.EventMethod::name).toList());
+	}
+
+	@Test
+	void eventMethodsCollapseRegistryShapeToGenericMethod() {
+		var group = EventGroup.of("RegistryTestEvents");
+		group.startup("registry", () -> GenericFixtureEvent.class).requiredTarget(EventTargetType.REGISTRY);
+		group.startup("rawRegistry", () -> FixtureEvent.class).requiredTarget(EventTargetType.REGISTRY);
+		var methods = KubeGroovyTypingGenerator.describeEventMethods(group.getHandlers().values(), ScriptType.STARTUP);
+		assertEquals(3, methods.size());
+		var generic = methods.stream().filter(method -> method.name().equals("registry")).toList();
+		assertEquals(1, generic.size());
+		assertEquals(List.of("T"), generic.get(0).typeParams());
+		assertEquals("registry", generic.get(0).params().get(0).name());
+		assertEquals("net.minecraft.resources.ResourceKey<net.minecraft.core.Registry<T>>",
+			generic.get(0).params().get(0).type());
+		assertEquals("consumer", generic.get(0).params().get(1).name());
+		assertTrue(generic.get(0).params().get(1).type().startsWith("java.util.function.Consumer<"));
+		assertTrue(generic.get(0).params().get(1).type().contains("GenericFixtureEvent<T>"));
+		var raw = methods.stream().filter(method -> method.name().equals("rawRegistry")).toList();
+		assertEquals(2, raw.size());
+		assertTrue(raw.stream().allMatch(method -> method.typeParams().isEmpty()));
+		assertEquals("net.minecraft.resources.ResourceKey", raw.get(1).params().get(0).type());
+	}
+
+	@Test
+	void eventMethodsRenderJsonShape() {
+		var methods = Map.of(ScriptType.STARTUP, Map.of("$StartupEvents", List.of(
+			new KubeGroovyTypingGenerator.EventMethod("registry", "void", List.of("T"), List.of(
+				new KubeGroovyTypingGenerator.EventMethodParam("registry",
+					"net.minecraft.resources.ResourceKey<net.minecraft.core.Registry<T>>"),
+				new KubeGroovyTypingGenerator.EventMethodParam("consumer",
+					"java.util.function.Consumer<com.example.RegistryEvent<T>>"))))));
+		var json = KubeGroovyTypingGenerator.renderEventMethodsJson(methods);
+		assertTrue(json.contains("\"$StartupEvents\""));
+		assertTrue(json.contains("\"name\": \"registry\""));
+		assertTrue(json.contains("\"returns\": \"void\""));
+		assertTrue(json.contains("\"typeParams\": [\n          \"T\"\n        ]"));
+		assertTrue(json.contains("ResourceKey<net.minecraft.core.Registry<T>>"));
+		assertTrue(json.contains("\"startup\""));
+		assertTrue(KubeGroovyTypingGenerator.renderEventMethodsJson(null).contains("\"startup\""));
+	}
+
+	static class FixtureEvent implements KubeEvent {
+	}
+
+	static class GenericFixtureEvent<T> implements KubeEvent {
+	}
+
+	@Test
+	void typeTreeParsesNestedGenericsAndArrays() {
+		var simple = TypeTree.parse("java.lang.String");
+		assertEquals("java.lang.String", simple.name());
+		assertTrue(simple.args().isEmpty());
+		assertEquals(0, simple.arrays());
+		var nested = TypeTree.parse("java.util.Map<java.lang.String, java.util.List<T>>");
+		assertEquals("java.util.Map", nested.name());
+		assertEquals(2, nested.args().size());
+		assertEquals("java.lang.String", nested.args().get(0).name());
+		assertEquals("java.util.List", nested.args().get(1).name());
+		assertEquals("T", nested.args().get(1).args().get(0).name());
+		var registry = TypeTree.parse("net.minecraft.resources.ResourceKey<net.minecraft.core.Registry<T>>");
+		assertEquals("net.minecraft.resources.ResourceKey", registry.name());
+		assertEquals("net.minecraft.core.Registry", registry.args().get(0).name());
+		assertEquals("T", registry.args().get(0).args().get(0).name());
+		assertEquals(1, TypeTree.parse("java.lang.String[]").arrays());
+		assertEquals(2, TypeTree.parse("int[][]").arrays());
+		assertEquals("Map", TypeTree.parse("  Map < String , List < T > > ").name());
+	}
+
+	@Test
+	void typeTreeRejectsNonGrammar() {
+		assertEquals(null, TypeTree.parse(null));
+		assertEquals(null, TypeTree.parse(""));
+		assertEquals(null, TypeTree.parse("   "));
+		assertEquals(null, TypeTree.parse("java.util.Map<>"));
+		assertEquals(null, TypeTree.parse("java.util.Map<java.lang.String"));
+		assertEquals(null, TypeTree.parse("java.lang.String>"));
+		assertEquals(null, TypeTree.parse("java.util.Map<java.lang.String,,Integer>"));
+		assertEquals(null, TypeTree.parse("?"));
+		assertEquals(null, TypeTree.parse("? extends Foo"));
+		assertEquals(null, TypeTree.parse("java..lang.String"));
+		assertEquals(null, TypeTree.parse(".String"));
+		assertEquals(null, TypeTree.parse("java.lang.String extra"));
+	}
+
+	@Test
 	void gdslEscapesBindingDataAndUsesScriptContexts() {
 		var hostile = new TypingBinding("addon'\\name", "addon.Type", false, false,
 			dev.uncandango.kubegroovy.script.ScriptType.SERVER);
@@ -93,6 +233,7 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	@Disabled("Retired: GDSL generation is disabled")
 	void eventGdslUsesRegisteredHandlersAndStaysSeparateFromBindings() {
 		var bindingsText = KubeGroovyTypingGenerator.renderGdsl(temp, Map.of());
 		var eventsText = KubeGroovyTypingGenerator.renderEventsGdsl(temp);
@@ -170,15 +311,17 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
-	void generationWritesOutputsAndRefusesManualGdsl() throws Exception {
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
+	void generationWritesOutputsAndLeavesGdslUntouched() throws Exception {
 		var game = temp.resolve("game");
 		var bindings = Map.of(dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.<TypingBinding>of());
 		var first = KubeGroovyTypingGenerator.generate(game, bindings);
 		assertTrue(Files.isRegularFile(first.module()));
 		assertTrue(Files.isRegularFile(first.modules()));
 		assertTrue(Files.isRegularFile(game.resolve(".idea/misc.xml")));
-		assertTrue(Files.isRegularFile(first.gdsl()));
+		// GDSL generation is disabled: the compatibility path is reported but no file is written.
 		assertEquals(game.resolve("kubegroovy/typings/kubegroovy.gdsl").normalize(), first.gdsl());
+		assertFalse(Files.exists(first.gdsl()));
 		assertEquals(game.resolve(".live-plugins/kubegroovy/plugin.kts").normalize(), first.livePlugin());
 		assertTrue(Files.isRegularFile(first.livePlugin()));
 		assertTrue(Files.readString(first.livePlugin()).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
@@ -186,22 +329,21 @@ class KubeGroovyTypingGeneratorTests {
 		var catalog = first.livePlugin().resolveSibling("catalog.json");
 		assertTrue(Files.isRegularFile(catalog));
 		assertTrue(Files.readString(catalog).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
-		assertTrue(Files.isRegularFile(events));
+		assertFalse(Files.exists(events));
 		assertTrue(Files.readString(game.resolve(".idea/misc.xml")).contains("project-jdk-name=\"25\""));
-		var before = Files.readString(first.gdsl());
-		var eventsBefore = Files.readString(events);
 		var catalogBefore = Files.readString(catalog);
 		var second = KubeGroovyTypingGenerator.generate(game, bindings);
 		assertFalse(second.gdslChanged());
 		assertFalse(second.livePluginChanged());
-		assertEquals(before, Files.readString(first.gdsl()));
-		assertEquals(eventsBefore, Files.readString(events));
+		assertFalse(Files.exists(first.gdsl()));
+		assertFalse(Files.exists(events));
 		assertEquals(catalogBefore, Files.readString(catalog));
+		Files.createDirectories(events.getParent());
 		Files.writeString(events, "manual events file");
-		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
+		KubeGroovyTypingGenerator.generate(game, bindings);
 		assertEquals("manual events file", Files.readString(events));
 		Files.writeString(first.gdsl(), "manual file");
-		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
+		KubeGroovyTypingGenerator.generate(game, bindings);
 		assertEquals("manual file", Files.readString(first.gdsl()));
 		var manualPluginGame = temp.resolve("manual-live-plugin-game");
 		var manualPluginResult = KubeGroovyTypingGenerator.generate(manualPluginGame, bindings);
@@ -211,6 +353,7 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void forceGenerationReplacesOnlyManualKubegroovyIml() throws Exception {
 		var game = temp.resolve("force-module-game");
 		var module = game.resolve(".idea/kubegroovy.iml");
@@ -225,12 +368,15 @@ class KubeGroovyTypingGeneratorTests {
 		assertTrue(result.moduleChanged());
 		assertTrue(Files.readString(module).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
 
+		// GDSL generation is disabled: manual GDSL files are left untouched even in force mode.
+		Files.createDirectories(result.gdsl().getParent());
 		Files.writeString(result.gdsl(), "manual GDSL");
-		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings, true));
+		KubeGroovyTypingGenerator.generate(game, bindings, true);
 		assertEquals("manual GDSL", Files.readString(result.gdsl()));
 	}
 
 	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void generatedLivePluginContainsEscapedRuntimeBindingsPerScriptType() throws Exception {
 		var startup = dev.uncandango.kubegroovy.script.ScriptType.STARTUP;
 		var server = dev.uncandango.kubegroovy.script.ScriptType.SERVER;
@@ -267,43 +413,7 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
-	void generatedLivePluginContainsScriptFacingModMembers() throws Exception {
-		var wrappers = wrappersFor(WrapperFixture.class);
-		var mod = new ModGdslGenerator.ModData("fixture_mod", List.of(GeneratorFixture.class, UnboundGeneratorFixture.class), List.of());
-		var startup = dev.uncandango.kubegroovy.script.ScriptType.STARTUP;
-		var binding = new TypingBinding("fixture", GeneratorFixture.class.getName(), false, false, startup);
-		var result = KubeGroovyTypingGenerator.generate(temp.resolve("plugin-mod-members-game"),
-			Map.of(startup, List.of(binding)), List.of(mod), List.of(wrappers));
-		var generated = Files.readString(result.livePlugin());
-		var fixtureType = GeneratorFixture.class.getCanonicalName();
-		var wrapperType = WrapperFixture.class.getCanonicalName();
-
-		assertTrue(generated.contains("private fun kgyMembersChunk0(): List<KubeGroovyScriptMember> = listOf("));
-		assertTrue(generated.contains("KubeGroovyScriptData.members = listOf(kgyMembersChunk0()).flatten()"));
-		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"getId\", \"java.lang.String\", emptyList(), listOf(emptyList()), emptyList(), false, false)"));
-		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"withContext\", \"java.lang.String\", listOf(\"java.lang.String\"), listOf(listOf(\"java.lang.String\")), emptyList(), false, false)"));
-		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"contextOnly\", \"void\", emptyList(), listOf(emptyList()), emptyList(), false, false)"));
-		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"takesWrapper\", \"void\", listOf(\"java.lang.Object\"), listOf(listOf(\"" + wrapperType + "\")), emptyList(), false, false)"));
-		assertTrue(generated.contains("KubeGroovyScriptMember(\"" + fixtureType
-			+ "\", \"GeneratorFixture\", \"" + fixtureType + "\", listOf(\"java.lang.Object\"), listOf(listOf(\"" + wrapperType + "\")), emptyList(), false, true)"));
-		assertTrue(generated.contains("KubeGroovySuppressedMethod(\"" + fixtureType
-			+ "\", \"withContext\", listOf(\"dev.uncandango.kubegroovy.script.bridge.Context\", \"java.lang.String\"))"));
-		assertTrue(generated.contains("KubeGroovySuppressedMethod(\"" + fixtureType
-			+ "\", \"kgy\\u0024getId\", emptyList())"));
-		assertTrue(generated.contains("KubeGroovySuppressedMethod(\"" + fixtureType
-			+ "\", \"hidden\", emptyList())"));
-		assertTrue(generated.contains("KubeGroovyScriptProperty(\"" + fixtureType
-			+ "\", \"id\", \"java.lang.String\", false)"));
-		assertFalse(generated.contains("KubeGroovyScriptMember(\"" + UnboundGeneratorFixture.class.getCanonicalName() + "\""));
-		assertFalse(generated.contains("KubeGroovyScriptMember(\"" + fixtureType + "\", \"hidden\""));
-		assertFalse(generated.contains("KGY_MEMBER_DATA"));
-	}
-
-	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void livePluginCatalogIsSortedRepeatableAndProtectedFromManualOverwrite() throws Exception {
 		var catalog = new KubeGroovyTypingGenerator.LivePluginValueCatalog(List.of(
 			new KubeGroovyTypingGenerator.LivePluginRegistryValues("zmod:later", "example.Later",
@@ -339,25 +449,7 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
-	void livePluginKeepsOriginalTypesWhenWrapperOverloadsShareOneVisibleSignature() throws Exception {
-		var fixture = OverloadedSemanticFixture.class;
-		var wrappers = wrappersFor(WrapperFixture.class, ItemStack.class);
-		var mod = new ModGdslGenerator.ModData("semantic_fixture", List.of(fixture), List.of());
-		var binding = new TypingBinding("semantic", fixture.getName(), false, false,
-			dev.uncandango.kubegroovy.script.ScriptType.STARTUP);
-		var result = KubeGroovyTypingGenerator.generate(temp.resolve("semantic-overload-game"),
-			Map.of(dev.uncandango.kubegroovy.script.ScriptType.STARTUP, List.of(binding)), List.of(mod), List.of(wrappers));
-		var generated = Files.readString(result.livePlugin());
-		var visibleMethods = generated.lines().filter(line -> line.contains("KubeGroovyScriptMember(\"" + fixture.getCanonicalName()
-			+ "\", \"convert\"")).toList();
-		assertEquals(1, visibleMethods.size());
-		var visibleMethod = visibleMethods.getFirst();
-		assertTrue(visibleMethod.contains("listOf(\"java.lang.Object\")"));
-		assertTrue(visibleMethod.contains("net.minecraft.world.item.ItemStack"));
-		assertTrue(visibleMethod.contains(WrapperFixture.class.getCanonicalName()));
-	}
-
-	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void livePluginRegistrySuggestionsUseRuntimeKeysAndFullyQualifiedGenericTypes() throws Exception {
 		var listOfItems = TypeInfo.of(List.class).withParams(TypeInfo.of(net.minecraft.world.item.Item.class));
 		var nestedType = TypeInfo.of(Map.class).withParams(TypeInfo.of(String.class), listOfItems);
@@ -419,6 +511,7 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void livePluginIsInstalledInDetectedIntelliJConfigDirectory() throws Exception {
 		var jetBrains = temp.resolve("JetBrains");
 		Files.createDirectories(jetBrains.resolve("IntelliJIdea2025.3"));
@@ -441,100 +534,159 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
-	void modGdslRemapsNamesDropsContextAddsWrapperOverloadsAndFiltersHiddenMembers() {
-		var wrappers = wrappersFor(WrapperFixture.class);
-		var text = ModGdslGenerator.render(new ModGdslGenerator.ModData("testmod", List.of(GeneratorFixture.class), List.of()), List.of(wrappers));
-
-		assertTrue(text.contains("method(name: 'getId', type: 'java.lang.String')"));
-		assertFalse(text.contains("kgy$getId"));
-		assertFalse(text.contains("method(name: 'originalName'"));
-		assertTrue(text.contains("method(name: 'friendlyName', type: 'java.lang.String')"));
-		assertTrue(text.contains("method(name: 'withContext', type: 'java.lang.String', params: [arg0: 'java.lang.String'])"));
-		assertTrue(text.contains("method(name: 'contextOnly', type: 'void')"));
-		assertFalse(text.contains("dev.uncandango.kubegroovy.script.bridge.Context'"));
-		assertTrue(text.contains("method(name: 'matches', type: 'boolean', params: [arg0: 'net.minecraft.world.item.ItemStack', arg1: 'boolean'])"));
-		assertTrue(text.contains("method(name: 'recipeContextOnly', type: 'void')"));
-		assertFalse(text.contains("RecipeMatchContext"));
-		assertTrue(text.contains("method(name: 'takesWrapper', type: 'void', params: [arg0: 'java.lang.Object'])"));
-		assertTrue(text.contains("method(name: 'wrappedElements', type: 'void', params: [arg0: 'java.util.List<java.lang.Object>'])"));
-		assertTrue(text.contains("method(name: 'finalArray', type: 'void', params: [arg0: 'java.lang.Object[]'])"));
-		assertTrue(text.contains("method(name: 'nonFinalArray', type: 'void', params: [arg0: 'java.util.List<java.lang.String>', arg1: 'int'])"));
-		assertTrue(text.contains("method(name: 'staticFriendly', type: 'void', params: [arg0: 'java.lang.Object'], isStatic: true)"));
-		assertTrue(text.contains("property(name: 'id', type: 'java.lang.String')"));
-		assertFalse(text.contains("hidden"));
-		assertFalse(text.contains("privateMethod"));
-		new GroovyShell().parse(text);
+	void methodAliasesAreCollectedFromRemapAnnotations() {
+		var mod = new MethodAliasGenerator.ModData("testmod", List.of(GeneratorFixture.class), List.of());
+		var aliases = MethodAliasGenerator.methodAliases(List.of(mod));
+		var type = GeneratorFixture.class.getCanonicalName();
+		assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(type, "kgy$getId", "getId")));
+		assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(type, "originalName", "friendlyName")));
+		assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(type, "staticOriginal", "staticFriendly")));
+		assertFalse(aliases.stream().anyMatch(alias -> alias.from().equals("hidden") || alias.from().equals("privateMethod")));
+		// Deterministic, sorted and deduplicated across mods.
+		var doubled = MethodAliasGenerator.methodAliases(List.of(mod, mod,
+			new MethodAliasGenerator.ModData("amod", List.of(GeneratorFixture.class), List.of())));
+		assertEquals(aliases, doubled);
+		var keys = aliases.stream().map(alias -> alias.type() + "\u0000" + alias.from() + "\u0000" + alias.to()).toList();
+		assertEquals(keys.stream().sorted().toList(), keys);
 	}
 
 	@Test
-	void wrapperConstructorsAreGeneratedAndDuplicateSignaturesCollapse() {
-		var wrappers = wrappersFor(WrapperFixture.class);
-		var bridge = new ModGdslGenerator.ReceiverBridge(GeneratorFixture.class,
-			List.of(DuplicateBridgeA.class, DuplicateBridgeB.class), List.of());
-		var text = ModGdslGenerator.render(new ModGdslGenerator.ModData("testmod", List.of(GeneratorFixture.class), List.of(bridge)), List.of(wrappers));
-
-		assertTrue(text.contains("method(name: 'GeneratorFixture', type: '" + GeneratorFixture.class.getName()
-			+ "', params: [arg0: 'java.lang.Object'], constructor: true)"));
-		assertFalse(text.contains("method(name: 'GeneratorFixture', type: '" + GeneratorFixture.class.getName()
-			+ "', params: [arg0: 'java.util.List<java.lang.Object>'], constructor: true)"));
-		assertEquals(1, text.split("constructor: true", -1).length - 1);
-		assertEquals(1, text.split("method\\(name: 'shared', type: 'java.lang.String'", -1).length - 1);
-		assertTrue(text.contains("method(name: 'shared', type: 'java.lang.String')"));
-		new GroovyShell().parse(text);
+	void methodAliasesUseReceiverTypeForBridges() {
+		var bridge = new MethodAliasGenerator.ReceiverBridge(AdvancementNode.class, List.of(AdvancementNodeKGY.class), List.of());
+		var aliases = MethodAliasGenerator.methodAliases(List.of(new MethodAliasGenerator.ModData("kubegroovy", List.of(), List.of(bridge))));
+		var receiver = AdvancementNode.class.getCanonicalName();
+		assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(receiver, "kgy$getId", "getId")));
+		assertFalse(aliases.stream().anyMatch(alias -> alias.type().equals(AdvancementNodeKGY.class.getCanonicalName())));
 	}
 
 	@Test
-	void injectedInterfaceMembersUseTheirActualReceiverAndRemappedNames() {
-		var bridge = new ModGdslGenerator.ReceiverBridge(AdvancementNode.class, List.of(AdvancementNodeKGY.class), List.of());
-		var mod = new ModGdslGenerator.ModData("kubegroovy", List.of(), List.of(bridge));
-		var text = ModGdslGenerator.render(mod, List.of());
-
-		assertTrue(text.contains("contributor(context(ctype: 'net.minecraft.advancements.AdvancementNode'))"));
-		assertTrue(text.contains("method(name: 'getId', type: 'net.minecraft.resources.Identifier')"));
-		assertFalse(text.contains("kgy$getId"));
-		var livePluginApi = ModGdslGenerator.describeForLivePlugin(List.of(mod), List.of(), List.of(AdvancementNode.class.getName()));
-		assertTrue(livePluginApi.members().stream().anyMatch(member -> member.receiverType().equals(AdvancementNode.class.getCanonicalName())
-			&& member.name().equals("getId")));
-		new GroovyShell().parse(text);
+	void methodAliasesJsonFollowsLivePluginTemplate() {
+		var type = GeneratorFixture.class.getCanonicalName();
+		var text = KubeGroovyTypingGenerator.renderMethodAliasesJson(List.of(
+			new MethodAliasGenerator.MethodAlias(type, "originalName", "friendlyName"),
+			new MethodAliasGenerator.MethodAlias("a.Class", "kgy$thing", "thing")));
+		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		assertFalse(parsed.get("hideOriginal").getAsBoolean());
+		var entries = parsed.getAsJsonArray("aliases");
+		assertEquals(2, entries.size());
+		assertEquals("a.Class", entries.get(0).getAsJsonObject().get("class").getAsString());
+		assertEquals("kgy$thing", entries.get(0).getAsJsonObject().get("from").getAsString());
+		assertEquals("thing", entries.get(0).getAsJsonObject().get("to").getAsString());
+		assertEquals(type, entries.get(1).getAsJsonObject().get("class").getAsString());
+		assertTrue(parsed.has("_notes"));
+		assertTrue(text.endsWith("\n"));
 	}
 
 	@Test
-	void unchangedInheritedObjectArrayMethodsAreNotGenerated() {
-		var text = ModGdslGenerator.render(new ModGdslGenerator.ModData("testmod",
-			List.of(KubeEntityEventAssert.class), List.of()), List.of());
+	void objectOverloadsJsonFollowsLivePluginTemplate() {
+		var text = KubeGroovyTypingGenerator.renderObjectOverloadsJson(
+			List.of("net.minecraft.world.item.ItemStack", "a.Class"));
+		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var targets = parsed.getAsJsonArray("targets");
+		assertEquals(2, targets.size());
+		assertEquals("a.Class", targets.get(0).getAsString());
+		assertEquals("net.minecraft.world.item.ItemStack", targets.get(1).getAsString());
+		assertTrue(parsed.get("enumsToObject").getAsBoolean());
+		var wrappers = parsed.getAsJsonArray("wrappers");
+		assertEquals("java.util.Optional", wrappers.get(0).getAsString());
+		assertTrue(wrappers.size() > 0);
+		var rules = parsed.getAsJsonArray("typeRules");
+		assertEquals(3, rules.size());
+		assertEquals("java.util.Map", rules.get(0).getAsJsonObject().get("type").getAsString());
+		assertEquals("keep", rules.get(0).getAsJsonObject().get("action").getAsString());
+		assertEquals("net.minecraft.core.HolderSet", rules.get(2).getAsJsonObject().get("type").getAsString());
+		assertEquals("replace", rules.get(2).getAsJsonObject().get("action").getAsString());
+		assertEquals("java.util.List", rules.get(2).getAsJsonObject().get("replaceWith").getAsString());
+		assertEquals(0, rules.get(2).getAsJsonObject().get("requireEligibleArg").getAsInt());
+		var rewrite = parsed.getAsJsonObject("rewrite");
+		assertEquals("java.lang.Object", rewrite.get("scalar").getAsString());
+		assertEquals("java.lang.Object[]", rewrite.get("array").getAsString());
+		assertEquals("java.util.List<java.lang.Object>", rewrite.get("collection").getAsString());
+		assertTrue(parsed.has("_notes"));
+		assertTrue(text.endsWith("\n"));
+	}
 
-		for (var name : List.of("as", "describedAs", "doesNotHaveToString", "hasToString", "isIn", "isNotIn", "overridingErrorMessage")) {
-			assertFalse(text.contains("method(name: '" + name + "'"), name);
+	@Test
+	void bindingsJsonGroupsVariablesByScriptSide() {
+		var bindings = Map.of(
+			dev.uncandango.kubegroovy.script.ScriptType.STARTUP, List.of(
+				new TypingBinding("$Item", "example.ItemWrapper", true, false,
+					dev.uncandango.kubegroovy.script.ScriptType.STARTUP),
+				new TypingBinding("SECOND", "java.lang.Long", false, false,
+					dev.uncandango.kubegroovy.script.ScriptType.STARTUP)),
+			dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.of(
+				new TypingBinding("$ServerEvents", "dev.uncandango.kubegroovy.event.EventGroupWrapper", false, true,
+					dev.uncandango.kubegroovy.script.ScriptType.SERVER)));
+		var text = KubeGroovyTypingGenerator.renderBindingsJson(bindings);
+		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var startup = parsed.getAsJsonArray("startup");
+		assertEquals(2, startup.size());
+		assertEquals("$Item", startup.get(0).getAsJsonObject().get("name").getAsString());
+		assertEquals("example.ItemWrapper", startup.get(0).getAsJsonObject().get("type").getAsString());
+		assertTrue(startup.get(0).getAsJsonObject().get("classValue").getAsBoolean());
+		assertFalse(startup.get(0).getAsJsonObject().get("eventGroup").getAsBoolean());
+		assertEquals("SECOND", startup.get(1).getAsJsonObject().get("name").getAsString());
+		var server = parsed.getAsJsonArray("server");
+		assertEquals(1, server.size());
+		assertTrue(server.get(0).getAsJsonObject().get("eventGroup").getAsBoolean());
+		assertTrue(parsed.getAsJsonArray("client").isEmpty());
+		assertTrue(parsed.has("_notes"));
+		assertTrue(text.endsWith("\n"));
+	}
+
+	@Test
+	void bundledLivePluginScriptsArePackaged() throws Exception {
+		var scripts = KubeGroovyTypingGenerator.readBundledLivePluginScripts();
+		assertEquals(List.of("bindings", "events", "method-aliases", "object-overload", "type-suggestions"),
+			scripts.keySet().stream().sorted().toList());
+		for (var text : scripts.values()) {
+			assertFalse(text.isBlank());
+			assertTrue(text.contains("registerExtension"));
 		}
-		assertTrue(text.contains("method(name: 'isInstanceOfAny'"));
 	}
 
 	@Test
-	void modIdsProduceSeparateFilesAndRuntimeMissingClassesAreSkipped() throws Exception {
-		var data = new ModGdslGenerator.ModData("shared_fixture", List.of(GeneratorFixture.class), List.of());
-		var generated = ModGdslGenerator.renderAll(List.of(data,
-			new ModGdslGenerator.ModData("second_fixture", List.of(GeneratorFixture.class), List.of())), List.of());
-		assertEquals(List.of("second_fixture", "shared_fixture"), List.copyOf(generated.keySet()));
-		assertEquals(generated.get("shared_fixture").replace("// Mod: shared_fixture", "// Mod: <modid>"),
-			generated.get("second_fixture").replace("// Mod: second_fixture", "// Mod: <modid>"));
-		assertEquals(List.of(String.class), ModGdslGenerator.loadClasses(List.of(String.class.getName(), "missing.runtime.ClientOnlyType"), getClass().getClassLoader()));
+	void livePluginInstallRootsAreDiscoveredFromJetBrainsConfig() throws Exception {
+		var jetBrains = temp.resolve("install-roots-JetBrains");
+		Files.createDirectories(jetBrains.resolve("IntelliJIdea2025.3"));
+		Files.createDirectories(jetBrains.resolve("IdeaIC2026.1"));
+		var empty = KubeGroovyTypingGenerator.findLivePluginInstallRoots(jetBrains);
+		assertTrue(empty.jetBrainsFound());
+		assertTrue(empty.roots().isEmpty());
 
+		Files.createDirectories(jetBrains.resolve("IntelliJIdea2025.3/live-plugins"));
+		Files.createDirectories(jetBrains.resolve("IntelliJIdea2025.3/plugins"));
+		var found = KubeGroovyTypingGenerator.findLivePluginInstallRoots(jetBrains);
+		assertTrue(found.jetBrainsFound());
+		assertEquals(List.of(jetBrains.resolve("IntelliJIdea2025.3/live-plugins").normalize()), found.roots());
+
+		var missing = KubeGroovyTypingGenerator.findLivePluginInstallRoots(temp.resolve("no-such-JetBrains"));
+		assertFalse(missing.jetBrainsFound());
+		assertTrue(missing.roots().isEmpty());
+	}
+
+	@Test
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
+	void modDataSkipsMissingClassesAndGeneratesNoGdsl() throws Exception {
+		var data = new MethodAliasGenerator.ModData("shared_fixture", List.of(GeneratorFixture.class), List.of());
+		assertEquals(List.of(String.class), MethodAliasGenerator.loadClasses(List.of(String.class.getName(), "missing.runtime.ClientOnlyType"), getClass().getClassLoader()));
+
+		// GDSL generation is disabled: per-mod GDSL files are not written by the typing generator.
 		var game = temp.resolve("per-mod-game");
 		var result = KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(data,
-			new ModGdslGenerator.ModData("second_fixture", List.of(GeneratorFixture.class), List.of())), List.of());
+			new MethodAliasGenerator.ModData("second_fixture", List.of(GeneratorFixture.class), List.of())), List.of());
 		var mods = game.resolve("kubegroovy/typings/mods");
-		assertTrue(Files.isRegularFile(mods.resolve("shared_fixture.gdsl")));
-		assertTrue(Files.isRegularFile(mods.resolve("second_fixture.gdsl")));
-		var firstText = Files.readString(mods.resolve("shared_fixture.gdsl"));
+		assertFalse(Files.exists(mods.resolve("shared_fixture.gdsl")));
+		assertFalse(Files.exists(mods.resolve("second_fixture.gdsl")));
 		var second = KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(data,
-			new ModGdslGenerator.ModData("second_fixture", List.of(GeneratorFixture.class), List.of())), List.of());
+			new MethodAliasGenerator.ModData("second_fixture", List.of(GeneratorFixture.class), List.of())), List.of());
 		assertFalse(second.gdslChanged());
-		assertEquals(firstText, Files.readString(mods.resolve("shared_fixture.gdsl")));
+		assertFalse(Files.exists(mods.resolve("shared_fixture.gdsl")));
 		assertTrue(result.gdsl().endsWith("kubegroovy.gdsl"));
 	}
 
 	@Test
-	void largeModGdslValidatesWithoutCompilingOneOversizedGroovyMethod() throws Exception {
+	void largeModAliasCollectionStaysComplete() throws Exception {
 		var sourceFile = temp.resolve("large-fixture-src/generated/LargeTypingFixture.java");
 		var classes = temp.resolve("large-fixture-classes");
 		Files.createDirectories(sourceFile.getParent());
@@ -550,25 +702,18 @@ class KubeGroovyTypingGeneratorTests {
 			"-d", classes.toString(), sourceFile.toString()));
 		try (var classLoader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()}, getClass().getClassLoader())) {
 			var fixture = Class.forName("generated.LargeTypingFixture", false, classLoader);
-			var mod = new ModGdslGenerator.ModData("largefixture", List.of(fixture), List.of());
-			var game = temp.resolve("large-gdsl-game");
-			var startup = dev.uncandango.kubegroovy.script.ScriptType.STARTUP;
-			var binding = new TypingBinding("largeFixture", fixture.getName(), false, false, startup);
-			KubeGroovyTypingGenerator.generate(game, Map.of(startup, List.of(binding)), List.of(mod), List.of());
-			var generated = Files.readString(game.resolve("kubegroovy/typings/mods/largefixture.gdsl"));
-			assertTrue(generated.length() > 65_535);
-			assertTrue(generated.contains("method(name: 'member9999'"));
-			assertFalse(generated.contains("kgy$member"));
-			var generatedPlugin = Files.readString(game.resolve(".live-plugins/kubegroovy/plugin.kts"));
-			assertTrue(generatedPlugin.contains("private fun kgyMembersChunk624(): List<KubeGroovyScriptMember> = listOf("));
-			assertTrue(generatedPlugin.contains("private fun kgySuppressedMethodsChunk624(): List<KubeGroovySuppressedMethod> = listOf("));
-			assertTrue(generatedPlugin.contains("KubeGroovyScriptData.members = listOf(kgyMembersChunk0(), kgyMembersChunk1()"));
-			assertFalse(generatedPlugin.contains("// KGY_MEMBER_DATA"));
+			var mod = new MethodAliasGenerator.ModData("largefixture", List.of(fixture), List.of());
+			var aliases = MethodAliasGenerator.methodAliases(List.of(mod));
+			// Every kgy$-prefixed member yields exactly one stripped alias.
+			assertEquals(10_000, aliases.size());
+			assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(fixture.getCanonicalName(), "kgy$member9999", "member9999")));
+			assertFalse(aliases.stream().anyMatch(alias -> alias.to().contains("kgy$")));
 		}
 	}
 
 	@Test
-	void modGdslCleanupAndManualTargetsRespectGeneratorMarker() throws Exception {
+	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
+	void modGdslFilesAreLeftUntouched() throws Exception {
 		var game = temp.resolve("mod-cleanup-game");
 		var mods = game.resolve("kubegroovy/typings/mods");
 		Files.createDirectories(mods);
@@ -577,38 +722,19 @@ class KubeGroovyTypingGeneratorTests {
 		var manual = mods.resolve("notes.gdsl");
 		Files.writeString(manual, "manual typing notes");
 
+		// GDSL generation is disabled: existing GDSL files are neither pruned nor overwritten.
 		KubeGroovyTypingGenerator.generate(game, Map.of());
-		assertFalse(Files.exists(staleGenerated));
+		assertEquals("// " + KubeGroovyTypingGenerator.GENERATED_MARKER + "\nold", Files.readString(staleGenerated));
 		assertEquals("manual typing notes", Files.readString(manual));
 
 		var conflict = mods.resolve("manualmod.gdsl");
 		Files.writeString(conflict, "manual mod typings");
-		var mod = new ModGdslGenerator.ModData("manualmod", List.of(GeneratorFixture.class), List.of());
-		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(mod), List.of()));
+		var mod = new MethodAliasGenerator.ModData("manualmod", List.of(GeneratorFixture.class), List.of());
+		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(mod), List.of());
 		assertEquals("manual mod typings", Files.readString(conflict));
 	}
 
-	private static TypeWrappers wrappersFor(Class<?>... types) {
-		var wrappers = new TypeWrappers();
-		for (var type : types) wrappers.wrappers.put(type,
-			new TypeWrappers.Entry(dev.uncandango.kubegroovy.script.bridge.TypeWrapperValidator.ALWAYS_VALID, null, List.of()));
-		return wrappers;
-	}
-
 	private static final class WrapperFixture {
-	}
-
-	public static class UnboundGeneratorFixture {
-		public void unrelatedMethod() {
-		}
-	}
-
-	public static class OverloadedSemanticFixture {
-		public void convert(ItemStack item) {
-		}
-
-		public void convert(WrapperFixture wrapper) {
-		}
 	}
 
 	@RemapPrefixForGY("kgy$")
@@ -660,13 +786,5 @@ class KubeGroovyTypingGeneratorTests {
 
 		private void privateMethod() {
 		}
-	}
-
-	public interface DuplicateBridgeA {
-		String shared();
-	}
-
-	public interface DuplicateBridgeB {
-		String shared();
 	}
 }

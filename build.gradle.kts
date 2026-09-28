@@ -126,7 +126,9 @@ val artifactType = Attribute.of("artifactType", String::class.java)
 val fixedManifestType = "jar-fixed-manifest"
 
 tasks.named<Copy>("processResources") {
-	from(layout.projectDirectory.file("plugin/live-plugin/plugin.kts")) {
+	// Retired: plugin/live-plugin/plugin.kts template no longer exists.
+	from(layout.projectDirectory.dir("plugin/live-plugin")) {
+		include("**/*.groovy", "**/*.png", "**/*.svg")
 		into("META-INF/kubegroovy/live-plugin")
 	}
 }

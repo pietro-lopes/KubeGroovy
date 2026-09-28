@@ -3,6 +3,8 @@ package dev.uncandango.kubegroovy.testmod;
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
 import dev.uncandango.kubegroovy.script.BindingRegistry;
+import dev.uncandango.kubegroovy.web.LocalWebServerAPIRegistry;
+import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
 
 public class TestRuntimePlugin implements KubeGroovyPlugin {
 	@Override
@@ -31,5 +33,20 @@ public class TestRuntimePlugin implements KubeGroovyPlugin {
 		filter.allow("dev.uncandango.kubegroovy.script.type.TypeInfo");
 		filter.allow("dev.uncandango.kubegroovy.script.bridge.Context");
 		filter.allow("dev.uncandango.kubegroovy.script.WithScriptContext");
+	}
+
+	@Override
+	public void registerLocalWebServerAPIs(LocalWebServerAPIRegistry registry) {
+		KubeGroovyPlugin.super.registerLocalWebServerAPIs(registry);
+	}
+
+	@Override
+	public void registerLocalWebServer(LocalWebServerRegistry registry) {
+		KubeGroovyPlugin.super.registerLocalWebServer(registry);
+	}
+
+	@Override
+	public void registerLocalWebServerWithAuth(LocalWebServerRegistry registry) {
+		KubeGroovyPlugin.super.registerLocalWebServerWithAuth(registry);
 	}
 }
