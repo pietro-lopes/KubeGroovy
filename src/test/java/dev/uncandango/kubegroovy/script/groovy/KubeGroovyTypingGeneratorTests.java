@@ -646,6 +646,26 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	void bundledBindingsLogosArePackaged() throws Exception {
+		assertNotNull(KubeGroovyTypingGenerator.readBundledBindingsLogoSvg());
+		assertNotNull(KubeGroovyTypingGenerator.readBundledBindingsLogoDarkSvg());
+
+		// The PNG masters are the deterministic lookup fallback: they must decode, and ship at
+		// 32px so the LivePlugin script can bicubic-downscale them to the 16px lookup size.
+		for (var png : new byte[][] {
+			KubeGroovyTypingGenerator.readBundledBindingsLogo(),
+			KubeGroovyTypingGenerator.readBundledBindingsLogoDark() }) {
+			assertNotNull(png);
+			try (var in = new java.io.ByteArrayInputStream(png)) {
+				var image = javax.imageio.ImageIO.read(in);
+				assertNotNull(image);
+				assertEquals(32, image.getWidth());
+				assertEquals(32, image.getHeight());
+			}
+		}
+	}
+
+	@Test
 	void livePluginInstallRootsAreDiscoveredFromJetBrainsConfig() throws Exception {
 		var jetBrains = temp.resolve("install-roots-JetBrains");
 		Files.createDirectories(jetBrains.resolve("IntelliJIdea2025.3"));

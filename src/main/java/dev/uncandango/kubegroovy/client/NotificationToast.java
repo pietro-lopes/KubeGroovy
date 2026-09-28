@@ -135,7 +135,7 @@ public class NotificationToast implements Toast {
 		int tv = (h - text.size() * 10) / 2 + 1;
 
 		for (var i = 0; i < text.size(); i++) {
-			graphics.text(mc.font, text.get(i), xOff + th, yOff + tv + i * 10, 0xFFFFFF, notification.textShadow());
+			graphics.text(mc.font, text.get(i), xOff + th, yOff + tv + i * 10, 0xFFFFFFFF, notification.textShadow());
 		}
 	}
 

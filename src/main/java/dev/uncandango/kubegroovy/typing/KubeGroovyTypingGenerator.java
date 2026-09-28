@@ -464,6 +464,11 @@ public final class KubeGroovyTypingGenerator {
 		return readBundledLivePluginResource("bindings/logo.png");
 	}
 
+	/** Reads the bundled dark-theme bindings logo ({@code logo-dark.png}), or null when absent. */
+	public static byte[] readBundledBindingsLogoDark() throws IOException {
+		return readBundledLivePluginResource("bindings/logo-dark.png");
+	}
+
 	/** Reads the bundled bindings logo ({@code logo.svg}), or null when absent. */
 	public static byte[] readBundledBindingsLogoSvg() throws IOException {
 		return readBundledLivePluginResource("bindings/logo.svg");
@@ -484,6 +489,7 @@ public final class KubeGroovyTypingGenerator {
 		throws IOException {
 		var scripts = readBundledLivePluginScripts();
 		var logo = readBundledBindingsLogo();
+		var logoDark = readBundledBindingsLogoDark();
 		var logoSvg = readBundledBindingsLogoSvg();
 		var logoDarkSvg = readBundledBindingsLogoDarkSvg();
 		var install = findLivePluginInstallRoots();
@@ -502,6 +508,9 @@ public final class KubeGroovyTypingGenerator {
 			}
 			if (logo != null) {
 				writeInstallFile(root, root.resolve("bindings").resolve("logo.png").normalize(), logo);
+			}
+			if (logoDark != null) {
+				writeInstallFile(root, root.resolve("bindings").resolve("logo-dark.png").normalize(), logoDark);
 			}
 			if (logoSvg != null) {
 				writeInstallFile(root, root.resolve("bindings").resolve("logo.svg").normalize(), logoSvg);

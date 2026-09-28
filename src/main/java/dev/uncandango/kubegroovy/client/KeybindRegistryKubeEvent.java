@@ -35,7 +35,7 @@ public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 		for (var b : builders) {
 			out.add(b.categoryId);
 		}
-		return out;
+		return out.stream().distinct().toList();
 	}
 
 	public static class Builder {
@@ -48,7 +48,7 @@ public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 
 		private Builder(String id) {
 			this.id = id;
-			this.categoryId = Identifier.fromNamespaceAndPath("kubegroovy", "KubeGroovy");
+			this.categoryId = Identifier.fromNamespaceAndPath("kubegroovy", "kubegroovy");
 		}
 
 		public Builder conflictContext(KeyConflictContext keyConflictContext) {

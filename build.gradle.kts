@@ -317,8 +317,11 @@ val coverageSummaryJson by tasks.registering {
 
 val coverageClientReport by tasks.registering(JacocoReport::class) {
 	group = "verification"
-	description = "Merges coverage from the JUnit and game-test client JVMs."
-	dependsOn("test", "runGametestClient")
+	description = "Merges coverage from the JUnit and game-test client JVMs. Does not launch the client itself: run runGametestClient first (it stays open until stopped via POST /api/test/stop), then run this task."
+	// NOTE: intentionally no dependsOn runGametestClient. The client is interactive
+	// (it only exits via the test-control stop endpoint), so depending on it would
+	// block automation. Uses whatever jacoco execs already exist.
+	dependsOn("test")
 	sourceSets(sourceSets["main"])
 	classDirectories.setFrom(sourceSets["main"].output.asFileTree.matching {
 		exclude(coverageExcludes)

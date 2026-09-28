@@ -1,0 +1,1 @@
+coverage file asset pack note (client side)

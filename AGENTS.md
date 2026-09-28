@@ -66,6 +66,50 @@ For runtime, event, scripting, or sandbox changes, run `test`, `runGametest`, an
 `build`. Do not claim the game-test suite passed unless the task reports all 51
 holders successful and no script load errors.
 
+### Client game tests
+
+`runGametestClient` launches a GameTest-enabled client (fixtures synced from
+`src/test/kubegroovy`, including `client_scripts/`, `assets/`, and `data/`)
+that auto-joins the `Test World` singleplayer world via quick-play and exposes
+a test-control HTTP API on port `61423` (see
+`src/test/java/dev/uncandango/kubegroovy/testmod/web/TestControlWeb.java`).
+A boot with script errors lands on `KubeGroovyErrorScreen` instead of joining
+the world, so a run that never joins usually means a fixture failed to load;
+check `build/tmp/gametestRuns/gametestClient/logs/kubegroovy/`.
+
+`GET` endpoints need no auth; `POST` endpoints need
+`Authorization: Bearer <auth>` with the token from
+`build/tmp/gametestRuns/gametestClient/kubegroovy/config/web_server.json`.
+
+```powershell
+# 1. Launch (blocks until the client exits).
+.\gradlew.bat runGametestClient
+
+# 2. Wait for the world join (hasPlayer true).
+Invoke-WebRequest http://127.0.0.1:61423/api/test/client
+
+# 3. Optional: clear stale structures/entities, then run the suite.
+$auth = (Get-Content build\tmp\gametestRuns\gametestClient\kubegroovy\config\web_server.json -Raw | ConvertFrom-Json).auth
+$h = @{ Authorization = "Bearer $auth" }
+Invoke-WebRequest http://127.0.0.1:61423/api/test/command -Method Post -Headers $h -Body 'test clearall'
+Invoke-WebRequest http://127.0.0.1:61423/api/test/command -Method Post -Headers $h -Body 'kill @e[type=!player]'
+Invoke-WebRequest http://127.0.0.1:61423/api/test/command -Method Post -Headers $h -Body 'test run testmod:*'
+
+# 4. Poll per-holder verdicts until pending is 0.
+Invoke-WebRequest http://127.0.0.1:61423/api/test/results
+
+# 5. Graceful stop (also flushes the JaCoCo exec), then client coverage.
+Invoke-WebRequest http://127.0.0.1:61423/api/test/stop -Method Post -Headers $h
+.\gradlew.bat coverageClientSummaryJson -x test
+```
+
+Other useful endpoints: `GET /api/test/status`, `GET /api/test/markers`
+(counts plus script-assertion failures and startup markers),
+`GET /api/test/markers/{id}`, `POST /api/test/clear`, and
+`POST /api/test/gamemode`. `client_scripts/` fixtures never load on the
+dedicated server, so client-only holders use
+`@ForEachTest(..., side = Dist.CLIENT)` and are absent from `runGametest`.
+
 ## Working rules
 
 - Follow `.editorconfig` and the style of the surrounding file. Java sources use

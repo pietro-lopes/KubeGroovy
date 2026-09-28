@@ -105,6 +105,7 @@ class BindingsSupport {
     private static long configStamp = -1L
     private static BindingsConfig cached = new BindingsConfig()
     private static File logoFile = null
+    private static File logoDarkFile = null
     private static File logoSvgFile = null
     private static File logoDarkSvgFile = null
     private static Icon logo = null
@@ -126,9 +127,9 @@ class BindingsSupport {
     /**
      * Tells the icon loader where the logo lives. Called once from the
      * script body with LivePlugin's `pluginPath` (the folder this script runs
-     * from). {@code logo.svg} wins when present (vector: the platform
-     * rasterizes it at the display's exact scale, like its own node icons);
-     * {@code logo.png} is the fallback. When both are missing, {@link #logo()}
+     * from). The pre-rendered 32px PNG masters ({@code logo.png} /
+     * {@code logo-dark.png}) are the deterministic fallback: plain Swing with
+     * no platform SVG involvement. When both are missing, {@link #logo()}
      * just returns null and entries render text-only.
      */
     static void setLogoFile(File png) {
@@ -139,6 +140,19 @@ class BindingsSupport {
         } catch (Throwable ignored) {}
     }
 
+    static void setLogoDarkFile(File png) {
+        try {
+            logoDarkFile = png
+            logo = null
+            logoSource = null
+        } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Vector sources for the crisp path ({@link #logo()} attaches the SVG
+     * raw so the platform rasterizes it per paint at the display's exact
+     * scale). PNG masters above remain the fallback.
+     */
     static void setLogoSvgFile(File svg) {
         try {
             logoSvgFile = svg
@@ -156,11 +170,19 @@ class BindingsSupport {
     }
 
     /**
-     * True on a dark IDE theme (same convention as the platform's own
-     * {@code *_dark} icon variants). Look-and-feel name is the fallback so a
-     * renamed/removed API never breaks completion.
+     * True on a dark IDE theme. Panel-background luminance is the primary
+     * signal so old Darcula, New UI Dark, and custom dark themes are all
+     * covered even as LaF names/APIs change; the Darcula checks below are
+     * fallbacks so a renamed/removed API never breaks completion.
      */
     static boolean isDarkUI() {
+        try {
+            java.awt.Color bg = javax.swing.UIManager.getColor("Panel.background")
+            if (bg != null) {
+                double lum = (0.2126 * bg.getRed() + 0.7152 * bg.getGreen() + 0.0722 * bg.getBlue()) / 255.0
+                return lum < 0.5
+            }
+        } catch (Throwable ignored) {}
         try {
             if (com.intellij.util.ui.UIUtil.isUnderDarcula()) return true
         } catch (Throwable ignored) {}
@@ -173,67 +195,87 @@ class BindingsSupport {
 
     /**
      * Loads the logo once and caches it. Never fail completion for art:
-     * null means text-only entry.
+     * null means text-only entry. Failures are never cached, so a later
+     * completion retries (e.g. artwork installed after this script loaded).
+     *
+     * The SVG wins when it resolves: it is attached raw — the same way every
+     * IntelliJ plugin icon is attached — so the platform rasterizes it per
+     * paint at the display's exact scale and rows stay crisp on HiDPI. A
+     * frozen snapshot would stretch and blur there (16px raster on a 250%
+     * display reads as a broken smudge), which is why this method must not
+     * rasterize vectors itself. The 32px PNG masters are the deterministic
+     * fallback when the vector path cannot resolve.
      */
     static Icon logo() {
         try {
             if (logo != null) return logo
-            // 1. Crisp path: SVG rasterized by the platform, then normalized
-            // to the 16x16 lookup size. Normalizing is required, not cosmetic:
-            // findIcon returns a lazy icon (1x1 until painted) whose real
-            // raster is whatever the SVG declares — attaching it raw would
-            // blow up the completion row or paint nothing. Dark themes get
-            // logo-dark.svg: one tonal range cannot survive both Darcula and
-            // light editors (a face matching the background vanishes, leaving
-            // a "slash" of the surviving face).
-            try {
-                boolean dark = isDarkUI()
-                File first = dark ? logoDarkSvgFile : logoSvgFile
-                File second = dark ? logoSvgFile : logoDarkSvgFile
-                for (File candidate : [first, second]) {
-                    try {
-                        if (candidate == null || !candidate.isFile()) continue
-                        Icon rawSvg = IconLoader.findIcon(candidate.toURI().toURL(), true)
-                        if (rawSvg == null) continue
-                        Icon sized = sizedIcon(rawSvg, 16, 16)
-                        if (sized == null) continue
-                        logo = sized
-                        logoSource = candidate.getName()
+            boolean dark = isDarkUI()
+            List<File> svgs = dark ? [logoDarkSvgFile, logoSvgFile] : [logoSvgFile, logoDarkSvgFile]
+            for (File svg : svgs) {
+                try {
+                    Icon v = vectorLogo(svg)
+                    if (v != null) {
+                        logo = v
+                        logoSource = svg.getName()
                         return logo
-                    } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
-            // 2. PNG fallback, progressively downscaled to 16x16.
-            if (logoFile == null || !logoFile.isFile()) return null
-            ImageIcon raw = new ImageIcon(logoFile.getAbsolutePath())
-            if (raw.getIconWidth() <= 0) return null
-            Icon icon = raw
-            if (raw.getIconWidth() != 16 || raw.getIconHeight() != 16) {
-                icon = new ImageIcon(scalePng(raw.getImage(), 16, 16))
+                    }
+                } catch (Throwable ignored) {}
             }
-            logo = icon
-            logoSource = logoFile.getName()
-            return logo
+            List<File> pngs = dark ? [logoDarkFile, logoFile] : [logoFile, logoDarkFile]
+            for (File png : pngs) {
+                try {
+                    Icon p = pngLogo(png)
+                    if (p != null) {
+                        logo = p
+                        logoSource = png.getName()
+                        return logo
+                    }
+                } catch (Throwable ignored) {}
+            }
+            return null
         } catch (Throwable ignored) {
             return null
         }
     }
 
     /**
-     * Eagerly rasterizes an icon (which may be lazy, reporting 1x1 until
-     * painted) and scales the result to {@code w} x {@code h}. Returns null
-     * when the raster is unavailable, so callers fall through to the next
-     * logo source instead of attaching a broken icon.
+     * Returns the SVG icon itself when it synchronously resolves to a sane
+     * lookup size, else null. A 1x1 result means the load failed (the
+     * platform's empty icon); absurd dimensions would blow up the completion
+     * row — both fall through to the PNG masters instead of attaching a
+     * broken icon.
      */
-    static Icon sizedIcon(Icon src, int w, int h) {
+    static Icon vectorLogo(File svg) {
         try {
-            java.awt.Image img = IconLoader.toImage(src, com.intellij.ui.scale.ScaleContext.create())
-            if (img == null) return null
-            int iw = img.getWidth(null)
-            int ih = img.getHeight(null)
-            if (iw <= 0 || ih <= 0) return null
-            if (iw == w && ih == h) return new ImageIcon(img)
-            return new ImageIcon(scalePng(img, w, h))
+            if (svg == null || !svg.isFile()) return null
+            Icon raw = IconLoader.findIcon(svg.toURI().toURL(), true)
+            if (raw == null) return null
+            int w = 0
+            int h = 0
+            try {
+                w = raw.getIconWidth()
+                h = raw.getIconHeight()
+            } catch (Throwable ignored) {
+                return null
+            }
+            if (w < 2 || h < 2 || w > 48 || h > 48) return null
+            return raw
+        } catch (Throwable ignored) {
+            return null
+        }
+    }
+
+    /**
+     * Loads a pre-rendered PNG master (32px), bicubic-downscaled to the
+     * 16x16 lookup size. Returns null when the file is missing/unreadable.
+     */
+    static Icon pngLogo(File png) {
+        try {
+            if (png == null || !png.isFile()) return null
+            ImageIcon raw = new ImageIcon(png.getAbsolutePath())
+            if (raw.getIconWidth() <= 0) return null
+            if (raw.getIconWidth() == 16 && raw.getIconHeight() == 16) return raw
+            return new ImageIcon(scalePng(raw.getImage(), 16, 16))
         } catch (Throwable ignored) {
             return null
         }
@@ -630,6 +672,7 @@ class BindingsCompletionContributor extends CompletionContributor {
 try {
     BindingsSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "bindings.json"))
     BindingsSupport.setLogoFile(new File(pluginPath?.toString() ?: "", "logo.png"))
+    BindingsSupport.setLogoDarkFile(new File(pluginPath?.toString() ?: "", "logo-dark.png"))
     BindingsSupport.setLogoSvgFile(new File(pluginPath?.toString() ?: "", "logo.svg"))
     BindingsSupport.setLogoDarkSvgFile(new File(pluginPath?.toString() ?: "", "logo-dark.svg"))
     // Always-on one-liner so idea.log shows which logo (if any) the rows use.

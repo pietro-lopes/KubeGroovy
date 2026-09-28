@@ -15,6 +15,7 @@
 		<completion.confidence language="Groovy" order="first" implementationClass="dev.uncandango.kubegroovy.intellij.RegistryTargetCompletionConfidence" />
 		<typedHandler implementation="dev.uncandango.kubegroovy.intellij.RegistryTargetTypedHandler" />
 		<annotator language="Groovy" implementationClass="dev.uncandango.kubegroovy.intellij.ScriptBindingAnnotator" />
+		<documentationProvider implementationClass="dev.uncandango.kubegroovy.intellij.InfoDocumentationProvider" />
 	</extensions>
 
 	<extensions defaultExtensionNs="org.intellij.groovy">
