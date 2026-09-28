@@ -84,6 +84,9 @@ neoForge {
 			gameDirectory = gametestClientRunDir.get().asFile
 			sourceSet = sourceSets["test"]
 			programArguments.addAll("--width", "1920", "--height", "1080")
+			// Auto-join the singleplayer world on startup so client game tests can run without manual world selection.
+			// First run only: create and enter a world named exactly "Test World" once, then keep the run dir.
+			programArguments.addAll("--quickPlaySingleplayer", "Test World")
 			systemProperty("neoforge.enableGameTest", "true")
 			systemProperty("neoforge.enabledGameTestNamespaces", "testmod")
 		}
@@ -208,7 +211,7 @@ tasks.matching { it.name == "runGametest" }.configureEach {
 
 tasks.matching { it.name == "runGametestClient" }.configureEach {
 	group = "mod development"
-	description = "Launches a GameTest-enabled client with the test mod; run /test run testmod:* in an integrated world."
+	description = "Launches a GameTest-enabled client that auto-joins the 'Test World' singleplayer world; run /test run testmod:* once in-game."
 	outputs.upToDateWhen { false }
 	dependsOn(copyGameTestClientScripts)
 }
@@ -279,6 +282,65 @@ val coverageSummaryJson by tasks.registering {
 	dependsOn(coverageReport)
 	val csvFile = layout.buildDirectory.file("reports/coverage/coverage.csv")
 	val jsonFile = layout.buildDirectory.file("reports/coverage/coverage-summary.json")
+	inputs.file(csvFile)
+	outputs.file(jsonFile)
+	doLast {
+		val rows = csvFile.get().asFile.readLines().drop(1).filter { it.isNotBlank() }
+		var instrMissed = 0L; var instrCovered = 0L
+		var branchMissed = 0L; var branchCovered = 0L
+		var lineMissed = 0L; var lineCovered = 0L
+		for (row in rows) {
+			val c = row.split(',')
+			if (c.size < 9) continue
+			instrMissed += c[3].toLong(); instrCovered += c[4].toLong()
+			branchMissed += c[5].toLong(); branchCovered += c[6].toLong()
+			lineMissed += c[7].toLong(); lineCovered += c[8].toLong()
+		}
+		fun pct(covered: Long, missed: Long): String {
+			val total = covered + missed
+			val value = if (total == 0L) 0.0 else covered * 100.0 / total
+			return String.format(Locale.ROOT, "%.2f", value)
+		}
+		fun metric(name: String, covered: Long, missed: Long) =
+			"    \"$name\": { \"covered\": $covered, \"missed\": $missed, \"percent\": ${pct(covered, missed)} }"
+		val json = buildString {
+			appendLine("{")
+			appendLine(metric("instruction", instrCovered, instrMissed) + ",")
+			appendLine(metric("branch", branchCovered, branchMissed) + ",")
+			appendLine(metric("line", lineCovered, lineMissed))
+			appendLine("}")
+		}
+		jsonFile.get().asFile.writeText(json)
+		logger.lifecycle("Coverage (instructions): ${pct(instrCovered, instrMissed)}% -> ${jsonFile.get().asFile}")
+	}
+}
+
+val coverageClientReport by tasks.registering(JacocoReport::class) {
+	group = "verification"
+	description = "Merges coverage from the JUnit and game-test client JVMs."
+	dependsOn("test", "runGametestClient")
+	sourceSets(sourceSets["main"])
+	classDirectories.setFrom(sourceSets["main"].output.asFileTree.matching {
+		exclude(coverageExcludes)
+	})
+	executionData(fileTree(layout.buildDirectory) {
+		include("jacoco/test.exec", "jacoco/runGametestClient.exec")
+	})
+	reports {
+		html.required = true
+		csv.required = true
+		xml.required = false
+		html.outputLocation = layout.buildDirectory.dir("reports/coverage-client/html")
+		csv.outputLocation = layout.buildDirectory.file("reports/coverage-client/coverage.csv")
+	}
+}
+
+val coverageClientSummaryJson by tasks.registering {
+	group = "verification"
+	description = "Writes coverage-client/coverage-summary.json from the client JaCoCo CSV report."
+	dependsOn(coverageClientReport)
+	val csvFile = layout.buildDirectory.file("reports/coverage-client/coverage.csv")
+	val jsonFile = layout.buildDirectory.file("reports/coverage-client/coverage-summary.json")
 	inputs.file(csvFile)
 	outputs.file(jsonFile)
 	doLast {

@@ -25,6 +25,7 @@ import org.assertj.core.api.ObjectAssert;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -74,6 +75,23 @@ public class TestRuntime {
 
 	public static boolean passedStartup(String id) {
 		return STARTUP.contains(id);
+	}
+
+	/// Snapshot of marker fire counts, for the test-control web API (`GET /api/test/markers`).
+	public static Map<String, Integer> snapshotCounts() {
+		return Map.copyOf(COUNTS);
+	}
+
+	/// Snapshot of captured script assertion failures by marker id, for the test-control web API.
+	public static Map<String, String> snapshotFailures() {
+		var out = new HashMap<String, String>();
+		FAILURES.forEach((id, error) -> out.put(id, String.valueOf(error.getMessage())));
+		return Map.copyOf(out);
+	}
+
+	/// Snapshot of startup-persistent markers, for the test-control web API.
+	public static Set<String> snapshotStartup() {
+		return Set.copyOf(STARTUP);
 	}
 
 	/// Marks {@code id} reached and runs the script's assertions, capturing any failure they throw so
