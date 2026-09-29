@@ -3,6 +3,9 @@
 //
 // Type-argument suggestions (LivePlugin script).
 //
+// SCOPE
+//   Only .groovy use-sites under kubegroovy/{startup,client,server}_scripts/**.
+//
 // WHAT IT DOES
 //   When the argument at the caret expects a supported type — including via
 //   a sibling overload, e.g. itemStackOverload("") where overloads are
@@ -52,6 +55,7 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
+import org.jetbrains.plugins.groovy.lang.psi.GroovyFile
 import com.intellij.psi.PsiEllipsisType
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiMethod
@@ -85,6 +89,18 @@ import org.jetbrains.plugins.groovy.lang.lexer.GroovyTokenTypes
  * than to crash it.
  */
 class ItemStackSupport {
+    // Check the use-site, never the declaration being resolved. Completion copies
+    // retain their original file; scratch files and unknown contexts fail closed.
+    static String sideForFile(PsiFile file) {
+        if (!(file instanceof GroovyFile)) return null
+        PsiFile original = file.getOriginalFile()
+        if (!(original instanceof GroovyFile)) return null
+        String path = original.getVirtualFile()?.getPath()?.replace('\\', '/')
+        if (path == null || !path.endsWith('.groovy')) return null
+        def match = (path =~ /(?:^|\/)kubegroovy\/(startup|client|server)_scripts\/.+\.groovy$/)
+        return match.find() ? match.group(1) : null
+    }
+
     /**
      * Platform logger. Output lands in idea.log (Help > Show Log in Finder),
      * tagged with "ItemStackSuggestions". Levels: LOG.info / LOG.warn /
@@ -136,20 +152,32 @@ class ItemStackSupport {
     }
 
     /**
-     * Loads icons/<id>.png once, smooth-scales it to the 16x16 lookup size and
-     * caches it. A lookup entry shows an {@code Icon} via
+     * File lookup for a completion id. Registry ids flatten to the exporter
+     * layout ({@code minecraft:apple} -> {@code minecraft__apple.png}, see
+     * ItemIconExporter.escapeKey); legacy short names ({@code apple.png})
+     * still resolve as a fallback. A lookup entry shows an {@code Icon} via
      * {@code LookupElementBuilder.withIcon(...)} — plain Swing, so animated
      * GIF/APNG will NOT animate here; static PNG is the supported route.
      *
      * @return the icon, or null when the file is missing/unreadable (caller
      *         then shows a text-only entry — never fail completion for art).
      */
+    static String iconFileName(String id) {
+        try {
+            String name = id.replace(":", "__").replace("\"", "'").replace("/", "___")
+            return name + ".png"
+        } catch (Throwable ignored) {
+            return id + ".png"
+        }
+    }
+
     static Icon iconFor(String id) {
         try {
             Icon cached = ICONS.get(id)
             if (cached != null) return cached
             if (iconDir == null) return null
-            File f = new File(iconDir, id + ".png")
+            File f = new File(iconDir, iconFileName(id))
+            if (!f.isFile()) f = new File(iconDir, id + ".png")
             if (!f.isFile()) return null
             ImageIcon raw = new ImageIcon(f.getAbsolutePath())
             if (raw.getIconWidth() <= 0) return null
@@ -747,6 +775,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
      * {@code insertString}/{@code replaceString} calls are legal here.
      */
     static final InsertHandler<LookupElement> ITEM_INSERT = { InsertionContext ctx, LookupElement item ->
+        if (ItemStackSupport.sideForFile(ctx.getFile()) == null) return
         String id = null
         try {
             id = item.getLookupString()
@@ -889,6 +918,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
     @Override
     protected void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
         try {
+            if (ItemStackSupport.sideForFile(parameters.getOriginalFile()) == null) return
             PsiElement position = parameters.getPosition()
             int offset = parameters.getOffset()
             Set<String> specs = new HashSet<String>()
@@ -1008,7 +1038,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                 try {
                     Icon icon = ItemStackSupport.iconFor(id)
                     if (icon != null) el = el.withIcon(icon)
-                    else ItemStackSupport.debug("no icon for '" + id + "' (icons/" + id + ".png missing?)")
+                    else ItemStackSupport.debug("no icon for '" + id + "' (icons/" + ItemStackSupport.iconFileName(id) + " missing?)")
                 } catch (Throwable ignored) {}
                 sink.addElement(el)
             }

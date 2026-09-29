@@ -173,6 +173,9 @@ public class BlockEventTests {
 	@EmptyTemplate(value = "5x8x5", floor = true)
 	@TestHolder(value = "block_farmland_trampled", description = "KubeGroovy BlockEvents.farmlandTrampled fires when an entity falls on farmland")
 	static void blockFarmlandTrampled(final DynamicTest test) {
+		// TODO: flaky, investigate or rework. Failed once on runGametestClient (2026-09-28,
+		// "block.farmlandTrampled should have fired", tick 102) and passed on a clean rerun.
+		// Suspect: the no-free-will goat's fall/trample timing vs mob_griefing setup.
 		test.onGameTest(helper -> helper.startSequence(() -> helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL))
 			.thenExecute(() -> TestRuntime.clear("block.farmlandTrampled"))
 			.thenExecute(player -> ((GameRulesKGY) ((ServerLevel) player.level()).getGameRules()).kgy$set("mob_griefing", "true"))

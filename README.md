@@ -47,6 +47,24 @@ Groovy cast behavior.
 
 Scripts run on a sandboxed `GroovyClassLoader` (`ClassCodeExpressionTransformer` + `CompilationCustomizer` + class filter): `System.exit`, `Runtime.exec`, reflection abuse (`setAccessible`), and classloader tricks are blocked.
 
+## Exporting icons
+
+From a client world, run `/kgy export-icons [scale] [mod]` to export item and
+fluid icons together, followed by icons for loaded item, fluid, and block
+tags. The scale defaults to 32 pixels and accepts values from 1 to 128; the
+optional `mod` argument filters item/fluid entries and tag ids by namespace.
+Files are written under `local/kubegroovy/export/icons-<scale>/`, with items
+at `item/<namespace>/<registry-path>.png`, fluids at
+`fluid/<namespace>/<registry-path>.png`, and tags at
+`tags/<item|fluid|block>/<namespace>/<tag-path>.png`.
+
+Tag icons use the first member whose item or fluid icon exists in that output
+directory. Nested tags are resolved to their ordered members, and later
+members are tried when earlier icons are absent. Block members use their item
+variant. The 9×9 `tag_badge.png` texture overlays each icon in the top-right
+corner; members from another namespace can use icons already exported at the
+same scale.
+
 ## Issues and Feedback
 
 If you think you've found a bug with the mod or want to ask for a new feature, feel free to open an issue here on GitHub!

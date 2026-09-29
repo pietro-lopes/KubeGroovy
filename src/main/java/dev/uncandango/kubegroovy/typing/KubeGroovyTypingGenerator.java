@@ -409,7 +409,7 @@ public final class KubeGroovyTypingGenerator {
 
 	/** LivePlugin script folders bundled under {@code META-INF/kubegroovy/live-plugin}. */
 	public static final List<String> BUNDLED_LIVE_PLUGIN_SCRIPTS =
-		List.of("method-aliases", "object-overload", "type-suggestions", "bindings", "events");
+		List.of("method-aliases", "object-overload", "type-suggestions", "bindings", "events", "info-docs");
 
 	/** Reads every bundled {@code plugin.groovy} keyed by its LivePlugin script folder. */
 	public static Map<String, String> readBundledLivePluginScripts() throws IOException {
@@ -694,6 +694,7 @@ public final class KubeGroovyTypingGenerator {
 		wrappers.add("net.minecraft.core.Holder.Reference");
 		wrappers.add("net.minecraft.tags.TagKey");
 		wrappers.add("dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate");
+		wrappers.add("net.minecraft.core.HolderSet");
 		root.add("wrappers", wrappers);
 		root.addProperty("enumsToObject", true);
 		var rules = new JsonArray();

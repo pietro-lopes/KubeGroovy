@@ -515,7 +515,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(HolderSet.class, (dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory) (from, target) -> {
 			var cx = Context.getCurrent();
 			return HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0));
-		}, true);
+		}, false);
 		registry.register(Identifier.class, ID::mc, true);
 		registry.register(KubeIdentifier.class, KubeIdentifier::wrap, true);
 		registry.register(CompoundTag.class, (from, target) -> NBTWrapper.isTagCompound(from), NBTWrapper::wrapCompound, true);

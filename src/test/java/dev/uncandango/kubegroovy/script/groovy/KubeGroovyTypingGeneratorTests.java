@@ -637,7 +637,7 @@ class KubeGroovyTypingGeneratorTests {
 	@Test
 	void bundledLivePluginScriptsArePackaged() throws Exception {
 		var scripts = KubeGroovyTypingGenerator.readBundledLivePluginScripts();
-		assertEquals(List.of("bindings", "events", "method-aliases", "object-overload", "type-suggestions"),
+		assertEquals(List.of("bindings", "events", "info-docs", "method-aliases", "object-overload", "type-suggestions"),
 			scripts.keySet().stream().sorted().toList());
 		for (var text : scripts.values()) {
 			assertFalse(text.isBlank());

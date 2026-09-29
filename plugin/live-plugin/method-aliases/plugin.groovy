@@ -3,6 +3,9 @@
 //
 // Method-alias synthetics (LivePlugin script).
 //
+// SCOPE
+//   Only .groovy use-sites under kubegroovy/{startup,client,server}_scripts/**.
+//
 // WHAT IT DOES
 //   Reads aliases.json (next to this file) and, for each entry, clones every
 //   overload named `from` on the given class under the name `to` with an
@@ -19,7 +22,7 @@
 //
 // LOOKUP / COST
 //   Entries are indexed once per file change into Map<classFQN, List<entry>>;
-//   getAugments bails fast when the class has no entries or nameHint matches
+//   The contributor bails fast when the class has no entries or nameHint matches
 //   nothing. Only own/declared methods are scanned (never getMethods()).
 //
 // RUNNING IT
@@ -32,9 +35,16 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import org.jetbrains.plugins.groovy.lang.psi.GroovyFile
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiType
-import com.intellij.psi.augment.PsiAugmentProvider
+import com.intellij.psi.ResolveState
+import com.intellij.psi.PsiSubstitutor
+import com.intellij.psi.scope.ElementClassHint
+import com.intellij.psi.scope.NameHint
+import com.intellij.psi.scope.PsiScopeProcessor
+import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.params.GrParameter
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightMethodBuilder
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightParameter
@@ -67,6 +77,18 @@ class MethodAliasConfig {
 }
 
 class MethodAliasSupport {
+    // Check the use-site, never the declaration being resolved. Completion copies
+    // retain their original file; scratch files and unknown contexts fail closed.
+    static String sideForFile(PsiFile file) {
+        if (!(file instanceof GroovyFile)) return null
+        PsiFile original = file.getOriginalFile()
+        if (!(original instanceof GroovyFile)) return null
+        String path = original.getVirtualFile()?.getPath()?.replace('\\', '/')
+        if (path == null || !path.endsWith('.groovy')) return null
+        def match = (path =~ /(?:^|\/)kubegroovy\/(startup|client|server)_scripts\/.+\.groovy$/)
+        return match.find() ? match.group(1) : null
+    }
+
     static final Logger LOG = Logger.getInstance("MethodAlias")
     static boolean DEBUG = false
     static final String SYNTHETIC_KIND = "MethodAlias"
@@ -279,18 +301,33 @@ class MethodAliasSupport {
     }
 }
 
-class MethodAliasAugmentProvider extends PsiAugmentProvider implements DumbAware {
+class MethodAliasContributor extends NonCodeMembersContributor implements DumbAware {
     @Override
-    protected List getAugments(PsiElement element, Class type, String nameHint) {
-        if (!(element instanceof PsiClass)) return Collections.emptyList()
-        try {
-            if (!type.isAssignableFrom(PsiMethod.class)) return Collections.emptyList()
-        } catch (Throwable ignored) {
-            return Collections.emptyList()
+    void processDynamicElements(PsiType qualifierType, PsiScopeProcessor processor, PsiElement place, ResolveState state) {
+        if (MethodAliasSupport.sideForFile(place?.getContainingFile()) == null) return
+        def kind = processor.getHint(ElementClassHint.KEY)
+        if (kind != null && !kind.shouldProcess(ElementClassHint.DeclarationKind.METHOD)) return
+        String nameHint = processor.getHint(NameHint.KEY)?.getName(state)
+        // Walk substituted supertypes so inherited and generic methods keep working.
+        List<PsiType> pending = [qualifierType]
+        Set<PsiClass> seen = new HashSet<PsiClass>()
+        while (!pending.isEmpty()) {
+            PsiType current = pending.remove(0)
+            if (!(current instanceof PsiClassType)) continue
+            def resolved = ((PsiClassType) current).resolveGenerics()
+            PsiClass cls = resolved.getElement()
+            if (cls == null || !seen.add(cls)) continue
+            ResolveState memberState = state.put(PsiSubstitutor.KEY, resolved.getSubstitutor())
+            for (PsiMethod method : methodsFor(cls, nameHint)) {
+                if (!processor.execute(method, memberState)) return
+            }
+            pending.addAll(Arrays.asList(current.getSuperTypes()))
         }
+    }
+
+    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint) {
         MethodAliasConfig cfg = MethodAliasSupport.load()
         if (cfg == null || cfg.isEmpty()) return Collections.emptyList()
-        PsiClass cls = (PsiClass) element
         String fqn = null
         try {
             fqn = cls.getQualifiedName()
@@ -349,5 +386,5 @@ class MethodAliasAugmentProvider extends PsiAugmentProvider implements DumbAware
 try {
     MethodAliasSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "aliases.json"))
 } catch (Throwable ignored) {}
-def methodAliasPoint = PsiAugmentProvider.EP_NAME.point
-methodAliasPoint.registerExtension(new MethodAliasAugmentProvider(), pluginDisposable)
+def methodAliasPoint = NonCodeMembersContributor.EP_NAME.point
+methodAliasPoint.registerExtension(new MethodAliasContributor(), pluginDisposable)

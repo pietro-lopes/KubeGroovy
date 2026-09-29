@@ -3,6 +3,9 @@
 //
 // Object-overload synthetics (LivePlugin script).
 //
+// SCOPE
+//   Only .groovy use-sites under kubegroovy/{startup,client,server}_scripts/**.
+//
 // WHAT IT DOES
 //   Reads overloads.json (next to this file) and synthesizes additional
 //   overloads for every method that takes a configured target type: the
@@ -49,6 +52,8 @@ import com.intellij.psi.PsiCapturedWildcardType
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import org.jetbrains.plugins.groovy.lang.psi.GroovyFile
 import com.intellij.psi.PsiElementFactory
 import com.intellij.psi.PsiEllipsisType
 import com.intellij.psi.PsiManager
@@ -56,7 +61,12 @@ import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiTypeParameter
 import com.intellij.psi.PsiWildcardType
-import com.intellij.psi.augment.PsiAugmentProvider
+import com.intellij.psi.ResolveState
+import com.intellij.psi.PsiSubstitutor
+import com.intellij.psi.scope.ElementClassHint
+import com.intellij.psi.scope.NameHint
+import com.intellij.psi.scope.PsiScopeProcessor
+import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.params.GrParameter
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightMethodBuilder
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightParameter
@@ -192,6 +202,18 @@ class OverloadCtx {
 }
 
 class ObjectOverloadSupport {
+    // Check the use-site, never the declaration being resolved. Completion copies
+    // retain their original file; scratch files and unknown contexts fail closed.
+    static String sideForFile(PsiFile file) {
+        if (!(file instanceof GroovyFile)) return null
+        PsiFile original = file.getOriginalFile()
+        if (!(original instanceof GroovyFile)) return null
+        String path = original.getVirtualFile()?.getPath()?.replace('\\', '/')
+        if (path == null || !path.endsWith('.groovy')) return null
+        def match = (path =~ /(?:^|\/)kubegroovy\/(startup|client|server)_scripts\/.+\.groovy$/)
+        return match.find() ? match.group(1) : null
+    }
+
     static final Logger LOG = Logger.getInstance("ObjectOverload")
     static boolean DEBUG = false
     static final String SYNTHETIC_KIND = "ObjectOverloadRewritten"
@@ -1008,18 +1030,34 @@ class ObjectOverloadSupport {
     }
 }
 
-class ObjectOverloadAugmentProvider extends PsiAugmentProvider implements DumbAware {
+class ObjectOverloadContributor extends NonCodeMembersContributor implements DumbAware {
     @Override
-    protected List getAugments(PsiElement element, Class type, String nameHint) {
-        if (!(element instanceof PsiClass)) return Collections.emptyList()
-        try {
-            if (!type.isAssignableFrom(PsiMethod.class)) return Collections.emptyList()
-        } catch (Throwable ignored) {
-            return Collections.emptyList()
+    void processDynamicElements(PsiType qualifierType, PsiScopeProcessor processor, PsiElement place, ResolveState state) {
+        if (ObjectOverloadSupport.sideForFile(place?.getContainingFile()) == null) return
+        def kind = processor.getHint(ElementClassHint.KEY)
+        if (kind != null && !kind.shouldProcess(ElementClassHint.DeclarationKind.METHOD)) return
+        String nameHint = processor.getHint(NameHint.KEY)?.getName(state)
+        // Walk substituted supertypes so inherited and generic methods keep working.
+        List<PsiType> pending = [qualifierType]
+        Set<PsiClass> seen = new HashSet<PsiClass>()
+        while (!pending.isEmpty()) {
+            PsiType current = pending.remove(0)
+            if (!(current instanceof PsiClassType)) continue
+            def resolved = ((PsiClassType) current).resolveGenerics()
+            PsiClass cls = resolved.getElement()
+            if (cls == null || !seen.add(cls)) continue
+            ResolveState memberState = state.put(PsiSubstitutor.KEY, resolved.getSubstitutor())
+            for (PsiMethod method : methodsFor(cls, nameHint)) {
+                if (method.isConstructor() && current != qualifierType) continue
+                if (!processor.execute(method, memberState)) return
+            }
+            pending.addAll(Arrays.asList(current.getSuperTypes()))
         }
+    }
+
+    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint) {
         ObjectOverloadConfig cfg = ObjectOverloadSupport.load()
         if (cfg == null || cfg.isEmpty()) return Collections.emptyList()
-        PsiClass cls = (PsiClass) element
         OverloadCtx c = new OverloadCtx(cfg, cls)
         if (!c.usable()) return Collections.emptyList()
         String classFqn = null
@@ -1109,5 +1147,5 @@ try {
 try {
     ObjectOverloadSupport.setAliasFile(new File(pluginPath?.toString() ?: "", "../method-aliases/aliases.json").getCanonicalFile())
 } catch (Throwable ignored) {}
-def objectOverloadPoint = PsiAugmentProvider.EP_NAME.point
-objectOverloadPoint.registerExtension(new ObjectOverloadAugmentProvider(), pluginDisposable)
+def objectOverloadPoint = NonCodeMembersContributor.EP_NAME.point
+objectOverloadPoint.registerExtension(new ObjectOverloadContributor(), pluginDisposable)

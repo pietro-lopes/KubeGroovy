@@ -1,9 +1,13 @@
 package dev.uncandango.kubegroovy.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.client.KubeGroovyClient;
+import dev.uncandango.kubegroovy.client.icon.ItemIconExportScreen;
+import dev.uncandango.kubegroovy.client.icon.ItemIconExporter;
 import dev.uncandango.kubegroovy.script.data.GeneratedData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSourceStack;
@@ -11,7 +15,9 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.util.Util;
+import org.jspecify.annotations.Nullable;
 
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class KubeGroovyClientCommands {
@@ -35,7 +41,17 @@ public class KubeGroovyClientCommands {
 				.executes(source -> {
 					Util.getPlatform().openPath(KubeGroovyPaths.DIRECTORY);
 					return 1;
-				}));
+				}))
+			.then(Commands.literal("export-icons")
+				.executes(ctx -> exportIcons(ctx.getSource(), ItemIconExporter.DEFAULT_SCALE, null))
+				.then(Commands.argument("scale", IntegerArgumentType.integer(ItemIconExporter.MIN_SCALE, ItemIconExporter.MAX_SCALE))
+					.executes(ctx -> exportIcons(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "scale"), null))
+					.then(Commands.argument("mod", StringArgumentType.string())
+						.executes(ctx -> exportIcons(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "scale"), StringArgumentType.getString(ctx, "mod"))))
+				)
+				.then(Commands.argument("mod", StringArgumentType.string())
+					.executes(ctx -> exportIcons(ctx.getSource(), ItemIconExporter.DEFAULT_SCALE, StringArgumentType.getString(ctx, "mod"))))
+			);
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -57,6 +73,29 @@ public class KubeGroovyClientCommands {
 	private static int reloadLang(CommandSourceStack source) {
 		KubeGroovyClient.reloadClientScripts();
 		reloadResources(Minecraft.getInstance().getLanguageManager());
+		return 1;
+	}
+
+	private static int exportIcons(CommandSourceStack source, int scale, @Nullable String mod) {
+		var mc = Minecraft.getInstance();
+
+		if (mc.level == null || mc.player == null) {
+			source.sendFailure(Component.literal("Join a world first, icons render on the client."));
+			return 0;
+		}
+
+		String namespace = mod == null || mod.isBlank() ? null : mod.strip().toLowerCase(Locale.ROOT);
+		var entries = ItemIconExporter.collectAllEntries(namespace);
+		var tags = ItemIconExporter.collectTagEntries(namespace);
+
+		if (entries.isEmpty() && tags.isEmpty()) {
+			source.sendFailure(Component.literal(namespace == null ? "No items, fluids or tags found!" : "No items, fluids or tags found for mod '" + namespace + "'!"));
+			return 0;
+		}
+
+		var dir = KubeGroovyPaths.dir(ItemIconExporter.outputDir(KubeGroovyPaths.EXPORT, scale));
+		source.sendSuccess(() -> Component.literal("Exporting %d item/fluid icons and %d tag icons at %dpx to %s...".formatted(entries.size(), tags.size(), scale, dir)), false);
+		ItemIconExportScreen.export(entries, tags, dir, scale, message -> source.sendSuccess(() -> message, false), null);
 		return 1;
 	}
 

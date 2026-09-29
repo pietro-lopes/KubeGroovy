@@ -43,6 +43,9 @@ $StartupEvents.registry('fluid') { event ->
 				.addDripstoneDripping(0.25f, "dripping_water", "cauldron", "item.bucket.fill")
 				.renderType('translucent')
 		}
+	event.create('icon_test_tinted_fluid')
+		.stillTexture('minecraft:block/white_concrete')
+		.tint(0xFF2244AA)
 	event.create('coverage_no_bucket', 'thin').noBucket()
 	event.create('coverage_no_block', 'thick').noBlock()
 }
