@@ -78,6 +78,10 @@ import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrTypeCa
 import org.jetbrains.plugins.groovy.lang.psi.api.auxiliary.GrListOrMap
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.literals.GrLiteral
 import org.jetbrains.plugins.groovy.lang.lexer.GroovyTokenTypes
+import groovy.json.JsonSlurper
+import com.intellij.psi.PsiArrayType
+import com.intellij.psi.PsiSubstitutor
+import com.intellij.psi.PsiClassType
 
 /**
  * Static helpers shared by the contributor below. Kept static and stateless
@@ -128,17 +132,154 @@ class ItemStackSupport {
             LOG.info("[itemstack-suggest] " + message)
         } catch (Throwable ignored) {}
     }
-    static final String ITEMSTACK_FQN = "net.minecraft.world.item.ItemStack"
-    static final List<String> IDS = ["apple", "dirt", "stone", "flint_and_steel"]
-    static final List<String> REGISTRY_IDS = ["item", "fluid", "block", "entity_type"]
-    static final String SPEC_ITEMSTACK = "itemstack"
-    static final String SPEC_REGISTRY = "registry"
-    private static final Pattern AS_AFTER = Pattern.compile("as\\s+(net\\.minecraft\\.world\\.item\\.)?ItemStack\\b")
-    private static final Pattern AS_CAST_TEXT = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.]+\\.)?ItemStack\\b")
-    private static final Pattern AS_CAST_TEXT_REGISTRY = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.]+\\.)?(ResourceKey|RegistryKey|Registry)\\b")
-    private static final Pattern AS_AFTER_ANY = Pattern.compile("as\\s+([\\w.]+\\.)?(ItemStack|Registry|ResourceKey|RegistryKey)\\b")
+    private static File configFile = null
+    private static long configStamp = -1L
+    private static Map<String, List<String>> values = [:]
+    private static List<Map> delegates = []
+    private static Map<String, Integer> genericDelegates = [:]
+    private static final Pattern AS_AFTER = Pattern.compile("as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
+    private static final Pattern AS_CAST_TEXT = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
+    private static final Pattern AS_AFTER_ANY = Pattern.compile("as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
     private static final Map<String, Icon> ICONS = new java.util.concurrent.ConcurrentHashMap<String, Icon>()
     private static String iconDir = null
+
+    static synchronized void setConfigFile(File file) {
+        configFile = file
+        configStamp = -1L
+    }
+
+    /** Reload atomically. A malformed update leaves the last valid catalog active. */
+    static synchronized Map loadConfig() {
+        long attemptedStamp = -1L
+        try {
+            if (configFile == null || !configFile.isFile()) return [values: values, delegates: delegates, genericDelegates: genericDelegates]
+            attemptedStamp = configFile.lastModified()
+            if (attemptedStamp == configStamp) return [values: values, delegates: delegates, genericDelegates: genericDelegates]
+            def parsed = new JsonSlurper().parse(configFile)
+            if (!(parsed instanceof Map) || (parsed.schemaVersion as Integer) != 1
+                || !(parsed.values instanceof Map) || !(parsed.delegates instanceof Collection)
+                || !(parsed.genericDelegates instanceof Map)) {
+                configStamp = attemptedStamp
+                return [values: values, delegates: delegates, genericDelegates: genericDelegates]
+            }
+            Map<String, List<String>> nextValues = new LinkedHashMap<String, List<String>>()
+            ((Map) parsed.values).each { k, v ->
+                if (k != null && v instanceof Collection) nextValues.put(normalizeType(k.toString()), ((Collection) v).collect { it == null ? null : it.toString() }.findAll { it != null })
+            }
+            List<Map> nextDelegates = []
+            ((Collection) parsed.delegates).each { d ->
+                if (d instanceof Map && d.source != null && d.target != null) {
+                    nextDelegates.add([source: normalizeType(d.source.toString()), target: normalizeType(d.target.toString()), prefix: d.prefix == null ? "" : d.prefix.toString()])
+                }
+            }
+            Map<String, Integer> nextGeneric = new LinkedHashMap<String, Integer>()
+            ((Map) parsed.genericDelegates).each { k, v ->
+                try { if (k != null && v != null) nextGeneric.put(normalizeType(k.toString()), Integer.valueOf(v.toString())) } catch (Throwable ignored) {}
+            }
+            values = nextValues
+            delegates = nextDelegates
+            genericDelegates = nextGeneric
+            configStamp = attemptedStamp
+        } catch (Throwable t) {
+            if (attemptedStamp >= 0L) configStamp = attemptedStamp
+            debug("suggestion config reload failed; keeping previous catalog (" + t + ")")
+        }
+        return [values: values, delegates: delegates, genericDelegates: genericDelegates]
+    }
+
+    static String normalizeType(String type) {
+        if (type == null) return ""
+        return type.replaceAll("\\s+", "").replace('$', '.')
+    }
+
+    static String psiTypeName(PsiType type) {
+        if (type == null) return null
+        try {
+            if (type instanceof PsiArrayType) return normalizeType(psiTypeName(((PsiArrayType) type).getComponentType()) + "[]")
+            if (type instanceof PsiEllipsisType) return normalizeType(psiTypeName(((PsiEllipsisType) type).getComponentType()) + "[]")
+            if (type instanceof PsiClassType) {
+                PsiClassType ct = (PsiClassType) type
+                PsiClass resolved = ct.resolve()
+                String raw = resolved?.getQualifiedName()
+                if (raw == null) raw = ct.getClassName()
+                if (raw == null) return null
+                PsiType[] args = ct.getParameters()
+                if (args == null || args.length == 0) return normalizeType(raw)
+                List<String> names = []
+                for (PsiType arg : args) {
+                    String n = psiTypeName(arg)
+                    if (n == null) return null
+                    names.add(n)
+                }
+                return normalizeType(raw + "<" + names.join(",") + ">")
+            }
+            String canonical = type.getCanonicalText()
+            return canonical == null ? null : normalizeType(canonical)
+        } catch (Throwable ignored) { return null }
+    }
+
+    static String rawTypeName(String type) {
+        String normalized = normalizeType(type)
+        int generic = normalized.indexOf('<')
+        return generic < 0 ? normalized : normalized.substring(0, generic)
+    }
+
+    static List<String> typeArguments(String type) {
+        String normalized = normalizeType(type)
+        int start = normalized.indexOf('<')
+        int end = normalized.lastIndexOf('>')
+        if (start < 0 || end <= start) return []
+        List<String> result = []
+        int depth = 0
+        int tokenStart = start + 1
+        for (int i = start + 1; i < end; i++) {
+            char c = normalized.charAt(i)
+            if (c == '<') depth++
+            else if (c == '>') depth--
+            else if (c == ',' && depth == 0) { result.add(normalized.substring(tokenStart, i)); tokenStart = i + 1 }
+        }
+        result.add(normalized.substring(tokenStart, end))
+        return result
+    }
+
+    static List<String> suggestionsForType(String requestedType) {
+        Map config = loadConfig()
+        Map<String, List<String>> catalogValues = (Map<String, List<String>>) config.values
+        List<Map> catalogDelegates = (List<Map>) config.delegates
+        Map<String, Integer> generic = (Map<String, Integer>) config.genericDelegates
+        return resolveSuggestions(requestedType, catalogValues, catalogDelegates, generic, new LinkedHashSet<String>())
+    }
+
+    private static List<String> resolveSuggestions(String requestedType, Map<String, List<String>> catalogValues,
+        List<Map> catalogDelegates, Map<String, Integer> generic, Set<String> path) {
+        String type = normalizeType(requestedType)
+        if (type.isEmpty() || path.contains(type)) return []
+        path.add(type)
+        List<String> result = new ArrayList<String>()
+        try {
+            result.addAll(catalogValues.getOrDefault(type, []))
+            String raw = rawTypeName(type)
+            if (raw != type) result.addAll(catalogValues.getOrDefault(raw, []))
+            for (Map rule : catalogDelegates) {
+                String source = normalizeType(rule.source?.toString())
+                if (type == source || raw == source) {
+                    String target = normalizeType(rule.target?.toString())
+                    String prefix = rule.prefix == null ? "" : rule.prefix.toString()
+                    resolveSuggestions(target, catalogValues, catalogDelegates, generic, path).each { result.add(prefix + it) }
+                }
+            }
+            Integer argumentIndex = generic.get(raw)
+            if (argumentIndex != null) {
+                List<String> args = typeArguments(type)
+                if (argumentIndex >= 0 && argumentIndex < args.size() && args[argumentIndex]) {
+                    result.addAll(resolveSuggestions(args[argumentIndex], catalogValues, catalogDelegates, generic, path))
+                }
+            }
+        } finally {
+            path.remove(type)
+        }
+        return result
+    }
 
     /**
      * Tells the icon loader where icons/<id>.png lives. Called once from the
@@ -178,6 +319,7 @@ class ItemStackSupport {
             if (iconDir == null) return null
             File f = new File(iconDir, iconFileName(id))
             if (!f.isFile()) f = new File(iconDir, id + ".png")
+            if (!f.isFile() && id.startsWith("minecraft:")) f = new File(iconDir, id.substring("minecraft:".length()) + ".png")
             if (!f.isFile()) return null
             ImageIcon raw = new ImageIcon(f.getAbsolutePath())
             if (raw.getIconWidth() <= 0) return null
@@ -192,126 +334,26 @@ class ItemStackSupport {
         }
     }
 
-    /**
-     * Is this parameter/declared type exactly ItemStack? Two comparisons because
-     * {@code equalsToText} understands the current file's imports/aliases
-     * ("ItemStack" written short still matches the FQN), while
-     * {@code getCanonicalText} is the dumb always-qualified fallback.
-     * Subclasses deliberately do NOT match — keep it exact and predictable.
-     */
-    static boolean isItemStackType(PsiType type) {
-        if (type == null) return false
-        try {
-            if (type.equalsToText(ITEMSTACK_FQN)) return true
-        } catch (Throwable ignored) {}
-        try {
-            return ITEMSTACK_FQN.equals(type.getCanonicalText())
-        } catch (Throwable ignored) {
-            return false
-        }
-    }
-
-    static PsiClass resolveClass(PsiType type) {
-        try {
-            if (type instanceof PsiClassType) return ((PsiClassType) type).resolve()
-        } catch (Throwable ignored) {}
-        return null
-    }
-
-    static boolean isRegistryClass(PsiClass cls) {
-        if (cls == null) return false
-        try {
-            String name = cls.getName()
-            if (!"Registry".equals(name)) return false
-            String qn = cls.getQualifiedName()
-            if (qn == null) return true
-            if (qn.startsWith("net.minecraft.")) return true
-            return true
-        } catch (Throwable ignored) {
-            return false
-        }
-    }
-
-    static boolean isResourceKeyClass(PsiClass cls) {
-        if (cls == null) return false
-        try {
-            String name = cls.getName()
-            if (!"ResourceKey".equals(name) && !"RegistryKey".equals(name)) return false
-            String qn = cls.getQualifiedName()
-            if (qn == null) return true
-            if (qn.startsWith("net.minecraft.")) return true
-            return true
-        } catch (Throwable ignored) {
-            return false
-        }
-    }
-
-    static boolean isRegistryType(PsiType type) {
-        if (type == null) return false
-        try {
-            PsiClass cls = resolveClass(type)
-            if (cls != null && isRegistryClass(cls)) return true
-        } catch (Throwable ignored) {}
-        try {
-            String canon = type.getCanonicalText()
-            if (canon != null && (canon.contains("Registry<") || canon.endsWith(".Registry") || canon.equals("Registry"))) return true
-        } catch (Throwable ignored) {}
-        return false
-    }
-
-    // WRAPPER EXTENSION POINT (ResourceKey today; Holder / HolderSet /
-    // Holder.Reference later): a wrapper matches when its outer class is a
-    // known wrapper AND its first type argument classifies as the registry
-    // spec. To add a wrapper, extend isResourceKeyOfRegistry (or add an
-    // isXOfRegistry sibling) and call it from classifyType — no other
-    // trigger/insert code changes.
-    static boolean isResourceKeyOfRegistry(PsiType type) {
-        if (type == null) return false
-        try {
-            PsiClass outer = resolveClass(type)
-            if (outer == null || !isResourceKeyClass(outer)) return false
-            PsiType[] args = null
-            try {
-                if (type instanceof PsiClassType) args = ((PsiClassType) type).getParameters()
-            } catch (Throwable ignored) {}
-            if (args == null || args.length == 0) return false
-            for (PsiType a : args) {
-                try {
-                    if (isRegistryType(a)) return true
-                } catch (Throwable ignored) {}
-            }
-            return false
-        } catch (Throwable ignored) {
-            return false
-        }
-    }
-
     static String classifyType(PsiType type) {
-        try {
-            if (isItemStackType(type)) return SPEC_ITEMSTACK
-        } catch (Throwable ignored) {}
-        try {
-            if (isRegistryType(type)) return SPEC_REGISTRY
-        } catch (Throwable ignored) {}
-        try {
-            if (isResourceKeyOfRegistry(type)) return SPEC_REGISTRY
-        } catch (Throwable ignored) {}
-        return null
+        String name = psiTypeName(type)
+        return name != null && !suggestionsForType(name).isEmpty() ? name : null
     }
 
     static List<String> idsForSpec(String spec) {
-        if (SPEC_REGISTRY.equals(spec)) return REGISTRY_IDS
-        return IDS
+        return suggestionsForType(spec)
     }
 
-    static String specForParam(PsiMethod method, int index) {
+    static String specForParam(PsiMethod method, int index, PsiSubstitutor substitutor = null,
+        PsiElement expression = null, PsiElement position = null, int offset = -1) {
         if (method == null || index < 0) return null
         try {
             def params = method.getParameterList()?.getParameters()
             if (params == null || params.length == 0) return null
             if (index < params.length) {
                 try {
-                    String s = classifyType(params[index].getType())
+                    PsiType paramType = params[index].getType()
+                    if (substitutor != null) paramType = substitutor.substitute(paramType)
+                    String s = typeAtArgument(paramType, expression, position, offset)
                     if (s != null) return s
                 } catch (Throwable ignored) {}
             }
@@ -319,6 +361,7 @@ class ItemStackSupport {
                 try {
                     PsiType comp = varargItemType(method)
                     if (comp != null) {
+                        if (substitutor != null) comp = substitutor.substitute(comp)
                         String s = classifyType(comp)
                         if (s != null) return s
                     }
@@ -331,69 +374,149 @@ class ItemStackSupport {
     static String denotesSpec(GrExpression typeExpr) {
         if (typeExpr == null) return null
         try {
-            if (typeExpr instanceof GrReferenceExpression) {
-                def resolved = ((GrReferenceExpression) typeExpr).resolve()
-                if (resolved instanceof PsiClass) {
-                    PsiClass cls = (PsiClass) resolved
-                    try {
-                        if (ITEMSTACK_FQN.equals(cls.getQualifiedName())) return SPEC_ITEMSTACK
-                    } catch (Throwable ignored) {}
-                    if (isRegistryClass(cls)) return SPEC_REGISTRY
-                    if (isResourceKeyClass(cls)) {
-                        try {
-                            String t = typeExpr.getText()
-                            if (t != null && t.contains("Registry")) return SPEC_REGISTRY
-                        } catch (Throwable ignored) {}
-                        return SPEC_REGISTRY
-                    }
-                }
-            }
+            String resolved = psiTypeName(typeExpr.getType())
+            if (resolved != null && !suggestionsForType(resolved).isEmpty()) return resolved
         } catch (Throwable ignored) {}
         try {
-            String rt = typeExpr.getText()?.trim()
-            if (rt != null) {
-                if (rt.equals("ItemStack") || rt.endsWith(".ItemStack") || rt.equals(ITEMSTACK_FQN)) return SPEC_ITEMSTACK
-                if (rt.contains("ResourceKey") || rt.contains("RegistryKey")) {
-                    if (rt.contains("Registry")) return SPEC_REGISTRY
-                    return SPEC_REGISTRY
+            String text = normalizeType(typeExpr.getText())
+            PsiElement resolved = typeExpr instanceof GrReferenceExpression ? ((GrReferenceExpression) typeExpr).resolve() : null
+            if (resolved instanceof PsiClass) {
+                String qn = ((PsiClass) resolved).getQualifiedName()
+                if (qn != null) text = qn + (text.contains("<") ? text.substring(text.indexOf('<')) : "")
+            }
+            if (!suggestionsForType(text).isEmpty()) return text
+        } catch (Throwable ignored) {}
+        return null
+    }
+
+    /** Resolve the scalar type selected inside recursively nested list/map literals. */
+    static String typeAtArgument(PsiType expected, PsiElement expression, PsiElement position, int offset) {
+        if (expected == null) return null
+        try {
+            List<GrListOrMap> containers = []
+            PsiElement e = position
+            while (e != null && e != expression && !(e instanceof PsiFile)) {
+                if (e instanceof GrListOrMap) containers.add((GrListOrMap) e)
+                e = e.getParent()
+            }
+            if (expression instanceof GrListOrMap && !containers.contains(expression)) containers.add((GrListOrMap) expression)
+            Collections.reverse(containers)
+            PsiType selected = expected
+            for (GrListOrMap container : containers) {
+                selected = unwrapSuggestionWrapper(selected)
+                if (selected instanceof PsiArrayType || selected instanceof PsiEllipsisType) {
+                    selected = selected instanceof PsiEllipsisType
+                        ? ((PsiEllipsisType) selected).getComponentType()
+                        : ((PsiArrayType) selected).getComponentType()
+                } else if (isMapType(selected)) {
+                    PsiType mapType = matchingSupertype(selected,
+                        ["java.util.Map", "java.util.SortedMap", "java.util.NavigableMap"] as Set<String>, new LinkedHashSet<String>())
+                    List<String> args = typeArguments(psiTypeName(mapType))
+                    int side = mapSide(container, position, offset)
+                    if (args.size() < 2 || side < 0) return null
+                    selected = typeFromArgument(args[side], mapType, side)
+                } else if (isCollectionType(selected)) {
+                    PsiType collectionType = matchingSupertype(selected,
+                        ["java.util.Collection", "java.lang.Iterable"] as Set<String>, new LinkedHashSet<String>())
+                    List<String> args = typeArguments(psiTypeName(collectionType))
+                    if (args.isEmpty()) return null
+                    selected = typeFromArgument(args[0], collectionType, 0)
+                } else {
+                    return null
                 }
-                if (rt.equals("Registry") || rt.endsWith(".Registry") || rt.contains("Registry<") || rt.contains("Registry ")) return SPEC_REGISTRY
+            }
+            return classifyType(selected)
+        } catch (Throwable ignored) { return null }
+    }
+
+    private static PsiType unwrapSuggestionWrapper(PsiType type) {
+        Map config = loadConfig()
+        Map<String, Integer> generic = (Map<String, Integer>) config.genericDelegates
+        Set<String> path = new LinkedHashSet<String>()
+        PsiType selected = type
+        while (selected != null) {
+            String name = psiTypeName(selected)
+            if (name == null || !path.add(normalizeType(name))) return null
+            Integer index = generic.get(rawTypeName(name))
+            List<String> args = typeArguments(name)
+            if (index == null) return selected
+            if (index < 0 || index >= args.size()) return null
+            selected = typeFromArgument(args[index], selected, index)
+        }
+        return null
+    }
+
+    private static PsiType typeFromArgument(String name, PsiType parent, int index) {
+        try {
+            if (parent instanceof PsiClassType) {
+                PsiType[] params = ((PsiClassType) parent).getParameters()
+                if (index >= 0 && index < params.length) return params[index]
             }
         } catch (Throwable ignored) {}
         return null
     }
 
-    /**
-     * Does parameter {@code index} of this method expect an ItemStack? The
-     * index comes from which argument the caret sits in (see addCompletions).
-     *
-     * <p>Varargs need unwrapping: {@code foo(ItemStack... xs)} declares its
-     * last parameter as an array ({@code ItemStack[]} or an ellipsis type),
-     * so a direct exact-type check fails even though every element — including
-     * elements of a list literal passed as the argument, e.g.
-     * {@code foo(["<caret>"])} — must be an ItemStack. When the caret is at or
-     * past the last parameter, the varargs component type is checked instead.
-     */
-    static boolean isItemStackParam(PsiMethod method, int index) {
-        if (method == null || index < 0) return false
+    private static boolean isMapType(PsiType type) {
+        return matchingSupertype(type,
+            ["java.util.Map", "java.util.SortedMap", "java.util.NavigableMap"] as Set<String>, new LinkedHashSet<String>()) != null
+    }
+
+    private static boolean isCollectionType(PsiType type) {
+        return matchingSupertype(type,
+            ["java.util.Collection", "java.lang.Iterable"] as Set<String>, new LinkedHashSet<String>()) != null
+    }
+
+    private static PsiType matchingSupertype(PsiType type, Set<String> names, Set<String> visited) {
         try {
-            def params = method.getParameterList()?.getParameters()
-            if (params == null || params.length == 0) return false
-            if (index < params.length) {
-                try {
-                    if (isItemStackType(params[index].getType())) return true
-                } catch (Throwable ignored) {}
+            if (!(type instanceof PsiClassType)) return null
+            PsiClass cls = ((PsiClassType) type).resolve()
+            String qn = cls?.getQualifiedName()
+            if (qn == null || !visited.add(psiTypeName(type))) return null
+            if (names.contains(qn)) return type
+            for (PsiType parent : type.getSuperTypes()) {
+                PsiType match = matchingSupertype(parent, names, visited)
+                if (match != null) return match
             }
-            if (index >= params.length - 1) {
-                try {
-                    PsiType comp = varargItemType(method)
-                    if (comp != null && isItemStackType(comp)) return true
-                } catch (Throwable ignored) {}
+        } catch (Throwable ignored) { }
+        return null
+    }
+
+    static int mapSide(GrListOrMap container, PsiElement position, int offset) {
+        try {
+            PsiElement e = position
+            while (e != null && e != container) {
+                String simple = e.getClass().getSimpleName()
+                if (simple.contains("NamedArgument")) {
+                    def value = e.getClass().getMethod("getExpression").invoke(e)
+                    return value != null && value.getTextRange().contains(offset) ? 1 : 0
+                }
+                if (simple.contains("MapEntry")) {
+                    def value = e.getClass().getMethod("getValue").invoke(e)
+                    if (value == null) value = e.getClass().getMethod("getValueExpression").invoke(e)
+                    return value != null && value.getTextRange().contains(offset) ? 1 : 0
+                }
+                e = e.getParent()
             }
-            return false
-        } catch (Throwable ignored) {
-            return false
-        }
+        } catch (Throwable ignored) {}
+        // Fallback for incomplete PSI while the user is typing: the last direct
+        // colon in the current map entry determines whether the caret is in K or V.
+        try {
+            String text = container.getText()
+            int relative = offset - container.getTextRange().getStartOffset()
+            int depth = 0
+            char quote = 0
+            int entryStart = 0
+            for (int i = 0; i < Math.min(relative, text.length()); i++) {
+                char c = text.charAt(i)
+                if (quote != 0) { if (c == quote && (i == 0 || text.charAt(i - 1) != '\\')) quote = 0; continue }
+                if (c == '\'' || c == '"') { quote = c; continue }
+                if (c == '[' || c == '(' || c == '{') depth++
+                else if (c == ']' || c == ')' || c == '}') depth--
+                else if (c == ',' && depth == 1) entryStart = i + 1
+            }
+            int colon = text.indexOf(':', entryStart)
+            return colon >= 0 && colon < relative ? 1 : 0
+        } catch (Throwable ignored) { return -1 }
     }
 
     /**
@@ -425,29 +548,6 @@ class ItemStackSupport {
             }
         } catch (Throwable ignored) {}
         return null
-    }
-
-    /**
-     * Does this expression denote the ItemStack *type* (the right side of an
-     * `as` cast)? First tries a real resolve: a {@code GrReferenceExpression}
-     * pointing at the PsiClass whose qualified name equals the FQN. Falls back
-     * to plain text ("ItemStack", "...ItemStack", or the FQN) for when the
-     * import is missing and resolve therefore fails.
-     */
-    static boolean denotesItemStack(GrExpression typeExpr) {
-        if (typeExpr == null) return false
-        try {
-            if (typeExpr instanceof GrReferenceExpression) {
-                def resolved = ((GrReferenceExpression) typeExpr).resolve()
-                if (resolved instanceof com.intellij.psi.PsiClass
-                    && ITEMSTACK_FQN.equals(((com.intellij.psi.PsiClass) resolved).getQualifiedName())) return true
-            }
-        } catch (Throwable ignored) {}
-        try {
-            String rt = typeExpr.getText()?.trim()
-            if (rt != null && (rt.equals("ItemStack") || rt.endsWith(".ItemStack") || rt.equals(ITEMSTACK_FQN))) return true
-        } catch (Throwable ignored) {}
-        return false
     }
 
     /**
@@ -539,71 +639,60 @@ class ItemStackSupport {
      *       (offset-checked, so a sibling declaration can't false-positive).</li>
      * </ol>
      */
-    static boolean isItemStackCoercedLiteral(PsiElement position, int offset) {
-        GrLiteral lit = null
-        try {
-            lit = PsiTreeUtil.getParentOfType(position, GrLiteral.class, false)
-            if (lit == null || !lit.getTextRange().contains(offset)) return false
-            try {
-                if (!lit.isString()) return false
-            } catch (Throwable ignored) {}
-        } catch (Throwable ignored) {
-            return false
+    static boolean isSupportedCoercedLiteral(PsiElement position, int offset) {
+        return getCoercedSpec(position, offset) != null
+    }
+
+    static String quoteSuggestion(String id) {
+        StringBuilder out = new StringBuilder('"')
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.charAt(i)
+            switch (c) {
+                case '\\': out.append("\\\\"); break
+                case '"': out.append("\\\""); break
+                case '$': out.append('\$'); break
+                case '\n': out.append("\\n"); break
+                case '\r': out.append("\\r"); break
+                case '\t': out.append("\\t"); break
+                default:
+                    if (Character.isISOControl(c)) out.append(String.format("\\u%04x", (int) c))
+                    else out.append(c)
+            }
         }
-        // Shape 1: `"..." as ItemStack` parsed as a binary `as` expression.
+        return out.append('"').toString()
+    }
+
+    static TextRange mapEntryPartRange(PsiElement position, int offset, boolean key) {
         try {
-            PsiElement p = lit.getParent()
-            if (p instanceof GrBinaryExpression
-                && ((GrBinaryExpression) p).getOperationTokenType() == GroovyTokenTypes.kAS) {
-                GrExpression left = ((GrBinaryExpression) p).getLeftOperand()
-                if (left != null && left.getTextRange().contains(offset)) {
-                    return denotesItemStack(((GrBinaryExpression) p).getRightOperand())
+            GrListOrMap map = PsiTreeUtil.getParentOfType(position, GrListOrMap.class, false)
+            if (map == null || !map.isMap()) return null
+            PsiElement e = position
+            while (e != null && e != map) {
+                String simple = e.getClass().getSimpleName()
+                if (simple.contains("NamedArgument")) {
+                    def selected = key ? e.getClass().getMethod("getLabel").invoke(e) : e.getClass().getMethod("getExpression").invoke(e)
+                    if (selected != null && selected.getTextRange().contains(offset)) return selected.getTextRange()
+                    return null
                 }
-                return false
-            }
-        } catch (Throwable ignored) {}
-        // Shape 2: `"..." as ItemStack` parsed as a cast expression.
-        try {
-            PsiElement e = lit
-            for (int i = 0; i < 3 && e != null && !(e instanceof PsiFile); i++) {
-                e = e.getParent()
-                if (e instanceof GrTypeCastExpression) {
-                    GrExpression operand = ((GrTypeCastExpression) e).getOperand()
-                    if (operand == null || !operand.getTextRange().contains(offset)) return false
-                    def castType = ((GrTypeCastExpression) e).getCastTypeElement()
-                    if (castType == null) return false
-                    PsiType t = null
-                    try {
-                        t = castType.getType()
-                        if (t != null && ITEMSTACK_FQN.equals(t.getCanonicalText())) return true
-                    } catch (Throwable ignored) {}
-                    try {
-                        if (t != null && t.equalsToText(ITEMSTACK_FQN)) return true
-                    } catch (Throwable ignored) {}
-                    try {
-                        String rt = castType.getText()?.trim()
-                        if (rt != null && (rt.equals("ItemStack") || rt.endsWith(".ItemStack") || rt.equals(ITEMSTACK_FQN))) return true
-                    } catch (Throwable ignored) {}
-                    return false
+                if (simple.contains("MapEntry")) {
+                    def selected = e.getClass().getMethod(key ? "getKey" : "getValue").invoke(e)
+                    if (selected != null && selected.getTextRange().contains(offset)) return selected.getTextRange()
                 }
-            }
-        } catch (Throwable ignored) {}
-        // Shape 3 (fallback): ancestor text contains `"..." as ItemStack` around the caret.
-        try {
-            PsiElement e = lit
-            for (int i = 0; i < 4 && e != null && !(e instanceof PsiFile); i++) {
-                try {
-                    String text = e.getText()
-                    int base = e.getTextRange().getStartOffset()
-                    Matcher m = AS_CAST_TEXT.matcher(text)
-                    while (m.find()) {
-                        if (base + m.start() <= offset && offset <= base + m.end()) return true
-                    }
-                } catch (Throwable ignored) {}
                 e = e.getParent()
             }
         } catch (Throwable ignored) {}
-        return false
+        return null
+    }
+
+    static TextRange listElementPartRange(PsiElement position, int offset) {
+        try {
+            GrListOrMap list = PsiTreeUtil.getParentOfType(position, GrListOrMap.class, false)
+            if (list == null || list.isMap()) return null
+            PsiElement element = position
+            while (element != null && element.getParent() != list) element = element.getParent()
+            if (element instanceof GrExpression && element.getTextRange().contains(offset)) return element.getTextRange()
+        } catch (Throwable ignored) { }
+        return null
     }
 
     /**
@@ -713,8 +802,8 @@ class ItemStackSupport {
                     try {
                         String rt = castType.getText()?.trim()
                         if (rt != null) {
-                            if (rt.equals("ItemStack") || rt.endsWith(".ItemStack") || rt.equals(ITEMSTACK_FQN)) return SPEC_ITEMSTACK
-                            if (rt.contains("ResourceKey") || rt.contains("RegistryKey") || rt.contains("Registry")) return SPEC_REGISTRY
+                            String textType = normalizeType(rt)
+                            if (!suggestionsForType(textType).isEmpty()) return textType
                         }
                     } catch (Throwable ignored) {}
                     return null
@@ -729,12 +818,12 @@ class ItemStackSupport {
                     int base = e.getTextRange().getStartOffset()
                     Matcher m = AS_CAST_TEXT.matcher(text)
                     while (m.find()) {
-                        if (base + m.start() <= offset && offset <= base + m.end()) return SPEC_ITEMSTACK
+                        if (base + m.start() <= offset && offset <= base + m.end()) {
+                            String textType = normalizeType(m.group(1))
+                            if (!suggestionsForType(textType).isEmpty()) return textType
+                        }
                     }
-                    Matcher r = AS_CAST_TEXT_REGISTRY.matcher(text)
-                    while (r.find()) {
-                        if (base + r.start() <= offset && offset <= base + r.end()) return SPEC_REGISTRY
-                    }
+
                 } catch (Throwable ignored) {}
                 e = e.getParent()
             }
@@ -825,10 +914,51 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
             //    literal, keep the user's cast.
             if (lit != null && ItemStackSupport.asSupportedCastFollows(docText, lit.getTextRange().getEndOffset())) {
                 ItemStackSupport.debug("insert branch=literal-only")
-                String quoted = '"' + id + '"'
+                String quoted = ItemStackSupport.quoteSuggestion(id)
                 TextRange r = lit.getTextRange()
                 doc.replaceString(r.getStartOffset(), r.getEndOffset(), quoted)
                 editor.getCaretModel().moveToOffset(r.getStartOffset() + quoted.length())
+                ctx.commitDocument()
+                return
+            }
+            TextRange mapKey = ItemStackSupport.mapEntryPartRange(position, caret, true)
+            if (mapKey != null) {
+                String quoted = ItemStackSupport.quoteSuggestion(id)
+                doc.replaceString(mapKey.getStartOffset(), mapKey.getEndOffset(), quoted)
+                editor.getCaretModel().moveToOffset(mapKey.getStartOffset() + quoted.length())
+                ctx.commitDocument()
+                return
+            }
+            TextRange mapValue = ItemStackSupport.mapEntryPartRange(position, caret, false)
+            if (mapValue != null) {
+                String quoted = ItemStackSupport.quoteSuggestion(id)
+                doc.replaceString(mapValue.getStartOffset(), mapValue.getEndOffset(), quoted)
+                editor.getCaretModel().moveToOffset(mapValue.getStartOffset() + quoted.length())
+                ctx.commitDocument()
+                return
+            }
+            TextRange listElement = ItemStackSupport.listElementPartRange(position, caret)
+            if (listElement != null) {
+                String quoted = ItemStackSupport.quoteSuggestion(id)
+                doc.replaceString(listElement.getStartOffset(), listElement.getEndOffset(), quoted)
+                editor.getCaretModel().moveToOffset(listElement.getStartOffset() + quoted.length())
+                ctx.commitDocument()
+                return
+            }
+            GrListOrMap activeMap = PsiTreeUtil.getParentOfType(position, GrListOrMap.class, false)
+            if (activeMap != null && activeMap.isMap()) {
+                int mapSide = ItemStackSupport.mapSide(activeMap, position, caret)
+                if ((mapSide == 0 && mapKey == null) || (mapSide == 1 && mapValue == null)) {
+                    String quoted = ItemStackSupport.quoteSuggestion(id)
+                    doc.insertString(caret, quoted)
+                    editor.getCaretModel().moveToOffset(caret + quoted.length())
+                    ctx.commitDocument()
+                    return
+                }
+            } else if (activeMap != null) {
+                String quoted = ItemStackSupport.quoteSuggestion(id)
+                doc.insertString(caret, quoted)
+                editor.getCaretModel().moveToOffset(caret + quoted.length())
                 ctx.commitDocument()
                 return
             }
@@ -855,7 +985,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
             // overload (or the runtime conversion) takes it from there, so no
             // `as ItemStack` is added. Only the literal-only branch above keeps
             // a cast, and that's one the user wrote themselves.
-            String replacement = '"' + id + '"'
+            String replacement = ItemStackSupport.quoteSuggestion(id)
             if (inList) {
                 ItemStackSupport.debug("insert branch=replace-list-item")
                 TextRange r = lit.getTextRange()
@@ -921,7 +1051,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
             if (ItemStackSupport.sideForFile(parameters.getOriginalFile()) == null) return
             PsiElement position = parameters.getPosition()
             int offset = parameters.getOffset()
-            Set<String> specs = new HashSet<String>()
+            List<String> specs = new ArrayList<String>()
             GrCall call = PsiTreeUtil.getParentOfType(position, GrCall.class, false)
             if (call != null) {
                 GrArgumentList argList = null
@@ -948,11 +1078,11 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                     } catch (Throwable ignored) {}
                 }
                 if (index >= 0) {
-                    Set<PsiMethod> seen = new HashSet<PsiMethod>()
+                    Map<PsiMethod, PsiSubstitutor> seen = new LinkedHashMap<PsiMethod, PsiSubstitutor>()
                     try {
                         try {
                             PsiMethod single = call.resolveMethod()
-                            if (single != null) seen.add(single)
+                            if (single != null) seen.put(single, null)
                         } catch (Throwable ignored) {}
                         try {
                             GroovyResolveResult[] variants = call.multiResolveGroovy(false)
@@ -960,15 +1090,20 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                                 for (def v : variants) {
                                     try {
                                         def el = v.getElement()
-                                        if (el instanceof PsiMethod) seen.add((PsiMethod) el)
+                                        if (el instanceof PsiMethod) {
+                                            PsiSubstitutor subst = null
+                                            try { subst = v.getSubstitutor() } catch (Throwable ignored) {}
+                                            if (!seen.containsKey((PsiMethod) el) || subst != null) seen.put((PsiMethod) el, subst)
+                                        }
                                     } catch (Throwable ignored) {}
                                 }
                             }
                         } catch (Throwable ignored) {}
                         ItemStackSupport.debug("index=" + index + " resolved=" + seen.size())
-                        for (PsiMethod m : seen) {
+                        for (def resolved : seen.entrySet()) {
                             try {
-                                String s = ItemStackSupport.specForParam(m, index)
+                                GrExpression argument = index < args.length ? args[index] : null
+                                String s = ItemStackSupport.specForParam(resolved.key, index, resolved.value, argument, position, offset)
                                 if (s != null) specs.add(s)
                             } catch (Throwable ignored) {}
                         }
@@ -1000,7 +1135,8 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                         ItemStackSupport.debug("overloads=" + extra.size())
                         for (PsiMethod m : extra) {
                             try {
-                                String s = ItemStackSupport.specForParam(m, index)
+                                GrExpression argument = index < args.length ? args[index] : null
+                                String s = ItemStackSupport.specForParam(m, index, null, argument, position, offset)
                                 if (s != null) {
                                     ItemStackSupport.debug("match via overload " + m.getName() + m.getParameterList().getText() + " spec=" + s)
                                     specs.add(s)
@@ -1018,7 +1154,10 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                 } catch (Throwable ignored) {}
                 if (specs.isEmpty()) {
                     try {
-                        if (ItemStackSupport.isItemStackCoercedLiteral(position, offset)) specs.add(ItemStackSupport.SPEC_ITEMSTACK)
+                        if (ItemStackSupport.isSupportedCoercedLiteral(position, offset)) {
+                            String coerced = ItemStackSupport.getCoercedSpec(position, offset)
+                            if (coerced != null) specs.add(coerced)
+                        }
                     } catch (Throwable ignored) {}
                 }
             }
@@ -1028,7 +1167,7 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
             for (String s : specs) {
                 try {
                     for (String id : ItemStackSupport.idsForSpec(s)) {
-                        if (!offerIds.contains(id)) offerIds.add(id)
+                        offerIds.add(id)
                     }
                 } catch (Throwable ignored) {}
             }
@@ -1068,6 +1207,7 @@ class ItemStackCompletionContributor extends CompletionContributor {
 // marked @TestOnly upstream but is the established LivePlugin pattern.
 try {
     ItemStackSupport.setIconDir(new File(pluginPath?.toString() ?: "", "icons").getAbsolutePath())
+    ItemStackSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "suggestions.json"))
 } catch (Throwable ignored) {}
 def itemStackDescriptor = new DefaultPluginDescriptor(PluginId.getId("LivePlugin"), ItemStackCompletionContributor.classLoader)
 def itemStackPoint = ExtensionPointName.create("com.intellij.completion.contributor")

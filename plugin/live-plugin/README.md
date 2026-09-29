@@ -27,3 +27,43 @@ LivePlugin registration bodies:
 ```powershell
 .\gradlew.bat -I plugin/live-plugin/tests/fixture-tests.init.gradle :plugin:intellij:test --tests '*LivePluginScopeTest' --no-configuration-cache
 ```
+
+## Type suggestions
+
+The type-suggestions script reads suggestions.json next to its plugin.groovy.
+KubeGroovy writes that catalog to local/kubegroovy/live-plugin/type-suggestions/
+and installs it into each discovered LivePlugin directory when
+/kgy generate-typings runs. Providers execute on the server thread against the
+loaded server KubeGroovyContext; the snapshot is shared by startup, server, and
+client script completions.
+
+Addon plugins can register values and wrapper behavior through
+KubeGroovyPlugin.registerTypeSuggestions:
+
+~~~~java
+@Override
+public void registerTypeSuggestions(TypeSuggestionRegistry reg) {
+    reg.register(Item.class, (cx, typeInfo) -> cx.lookupRegistry(typeInfo, null)
+        .keySet().stream().map(key -> key.identifier().toString()));
+    reg.registerModifierFor(Item.class, TagKey.class, (cx, typeInfo) ->
+        cx.lookupRegistry(typeInfo, null).listTagIds()
+            .map(tag -> tag.location().toString()));
+    reg.registerDelegate(ItemStack.class, Item.class);
+    reg.registerDelegate(Ingredient.class, Item.class);
+    reg.registerDelegate(Ingredient.class,
+        TypeInfo.of(TagKey.class).withParams(TypeInfo.of(Item.class)), "#");
+    reg.registerDelegate(Optional.class);
+    reg.registerDelegate(Holder.class);
+}
+~~~~
+
+Registrations combine in plugin order and retain duplicate strings and encounter
+order. Provider streams are closed after the snapshot is consumed. A provider
+failure stops generation and leaves the previous suggestions file in place.
+
+The generated JSON has schemaVersion, a values object keyed by complete
+TypeInfo.toStringFQN() names, ordered fixed delegates (source, target, and
+prefix), and genericDelegates mapping a one-parameter wrapper FQN to its
+argument index. The IDE resolves these rules recursively, including nested
+Optional<T> and collection/map literal positions. Plain TagKey<T> values have
+no prefix; a delegate such as Ingredient → TagKey<Item> adds #.

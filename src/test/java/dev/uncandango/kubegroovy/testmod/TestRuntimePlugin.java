@@ -2,15 +2,30 @@ package dev.uncandango.kubegroovy.testmod;
 
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
+import dev.uncandango.kubegroovy.plugin.TypeSuggestionRegistry;
 import dev.uncandango.kubegroovy.script.BindingRegistry;
 import dev.uncandango.kubegroovy.testmod.web.TestControlWeb;
 import dev.uncandango.kubegroovy.web.LocalWebServerAPIRegistry;
 import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
 
+import java.util.Objects;
+import java.util.stream.Stream;
+
 public class TestRuntimePlugin implements KubeGroovyPlugin {
 	@Override
 	public void registerBindings(BindingRegistry bindings) {
 		bindings.add("TestRuntime", TestRuntime.class);
+	}
+
+	@Override
+	public void registerTypeSuggestions(TypeSuggestionRegistry registry) {
+		registry.register(TestSuggestionValue.class, (cx, typeInfo) -> {
+			Objects.requireNonNull(cx.getRegistries(), "The addon provider should receive the active script context");
+			return Stream.of("testmod:addon_suggestion");
+		});
+	}
+
+	public static final class TestSuggestionValue {
 	}
 
 	/// Test-only class-filter allowances so script fixtures can reference

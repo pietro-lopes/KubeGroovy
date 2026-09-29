@@ -107,6 +107,10 @@ public interface KubeGroovyPlugin {
 	default void registerTypeDescriptions(TypeDescriptionRegistry registry) {
 	}
 
+	/// Register values offered when a script expression expects a particular type.
+	default void registerTypeSuggestions(TypeSuggestionRegistry registry) {
+	}
+
 	/// Register custom [KubeRecipeFactory] objects for your mod's recipe types.
 	/// This is only necessary if you want to override [KubeRecipe] in your recipe schema.
 	///

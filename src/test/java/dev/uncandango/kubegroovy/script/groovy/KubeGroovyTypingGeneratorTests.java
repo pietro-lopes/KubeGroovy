@@ -15,6 +15,7 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.typing.KubeGroovyTypingGenerator;
 import dev.uncandango.kubegroovy.typing.MethodAliasGenerator;
 import dev.uncandango.kubegroovy.typing.TypingBinding;
+import dev.uncandango.kubegroovy.plugin.TypeSuggestionCatalog;
 import groovy.lang.GroovyShell;
 import net.minecraft.advancements.AdvancementNode;
 import net.minecraft.world.item.ItemStack;
@@ -39,6 +40,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class KubeGroovyTypingGeneratorTests {
 	@TempDir
 	Path temp;
+
+	@Test
+	void typeSuggestionJsonPreservesValueAndDelegateOrderAndDuplicates() {
+		var catalog = new TypeSuggestionCatalog(
+			Map.of("example.Type", List.of("one", "one", "two")),
+			List.of(new TypeSuggestionCatalog.Delegate("example.Wrapper", "example.Type", "#")),
+			Map.of("example.Optional", 0));
+		var text = KubeGroovyTypingGenerator.renderTypeSuggestionsJson(catalog);
+		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		assertEquals(1, parsed.get("schemaVersion").getAsInt());
+		var values = parsed.getAsJsonObject("values").getAsJsonArray("example.Type");
+		assertEquals(3, values.size());
+		assertEquals("one", values.get(0).getAsString());
+		assertEquals("one", values.get(1).getAsString());
+		assertEquals("two", values.get(2).getAsString());
+		assertEquals("#", parsed.getAsJsonArray("delegates").get(0).getAsJsonObject().get("prefix").getAsString());
+		assertEquals(0, parsed.getAsJsonObject("genericDelegates").get("example.Optional").getAsInt());
+		assertTrue(text.endsWith("\n"));
+	}
 
 	@Test
 	void generatedModuleContainsJava25SourcesAndEscapedClasspathRoots() throws Exception {

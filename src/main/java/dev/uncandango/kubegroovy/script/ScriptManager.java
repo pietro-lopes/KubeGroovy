@@ -45,6 +45,7 @@ public class ScriptManager {
 	public final Map<String, ScriptPack> packs;
 	private final ClassFilter classFilter;
 	public KubeGroovyContextFactory contextFactory;
+	public volatile KubeGroovyContext context;
 	public boolean canListenEvents;
 	private volatile Map<String, TypingBinding> typingBindings = Map.of();
 
@@ -76,6 +77,7 @@ public class ScriptManager {
 
 	public void unload() {
 		packs.clear();
+		context = null;
 		scriptType.unload();
 	}
 
@@ -206,6 +208,7 @@ public class ScriptManager {
 		}
 
 		var cx = (KubeGroovyContext) contextFactory.createContext();
+		context = cx;
 
 		//ScopedValue.where(KubeGroovyContext.CURRENT, cx).run(() -> {
 			var i = 0;

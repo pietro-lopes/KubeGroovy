@@ -10,16 +10,26 @@ import dev.uncandango.kubegroovy.event.EventHandler;
 import dev.uncandango.kubegroovy.event.EventTargetType;
 import dev.uncandango.kubegroovy.item.ItemToolMaterials;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ColorWrapper;
+import dev.uncandango.kubegroovy.plugin.TypeSuggestionCatalog;
+import dev.uncandango.kubegroovy.plugin.TypeSuggestionRegistry;
+import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.registry.BuilderType;
 import dev.uncandango.kubegroovy.registry.BuilderTypeRegistryHandler;
 import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.ScriptType;
+import dev.uncandango.kubegroovy.script.KubeGroovyContext;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Holder;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
 import net.minecraft.commands.CommandSourceStack;
@@ -53,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,6 +72,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -113,7 +125,7 @@ public final class KubeGroovyTypingGenerator {
 
 	public record LivePluginValueCatalog(List<LivePluginRegistryValues> registries, List<String> itemAbilities,
 		List<String> toolMaterials, List<String> soundTypes, List<String> colorNames, List<String> soundActions,
-		List<String> stringWrappers) {
+		List<String> stringWrappers, TypeSuggestionCatalog typeSuggestions) {
 		public LivePluginValueCatalog {
 			registries = List.copyOf(registries);
 			itemAbilities = List.copyOf(itemAbilities);
@@ -122,10 +134,19 @@ public final class KubeGroovyTypingGenerator {
 			colorNames = List.copyOf(colorNames);
 			soundActions = List.copyOf(soundActions);
 			stringWrappers = List.copyOf(stringWrappers);
+			typeSuggestions = typeSuggestions == null ? TypeSuggestionCatalog.empty() : typeSuggestions;
+		}
+
+		public LivePluginValueCatalog(List<LivePluginRegistryValues> registries, List<String> itemAbilities,
+			List<String> toolMaterials, List<String> soundTypes, List<String> colorNames, List<String> soundActions,
+			List<String> stringWrappers) {
+			this(registries, itemAbilities, toolMaterials, soundTypes, colorNames, soundActions, stringWrappers,
+				TypeSuggestionCatalog.empty());
 		}
 
 		public static LivePluginValueCatalog empty() {
-			return new LivePluginValueCatalog(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+			return new LivePluginValueCatalog(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+				TypeSuggestionCatalog.empty());
 		}
 	}
 
@@ -139,6 +160,10 @@ public final class KubeGroovyTypingGenerator {
 
 	/** Queues generation, optionally allowing replacement of an unmarked kubegroovy.iml. */
 	public static boolean request(CommandSourceStack source, boolean forceModuleReplacement) {
+		if (!source.getServer().isSameThread()) {
+			source.getServer().execute(() -> request(source, forceModuleReplacement));
+			return true;
+		}
 		if (!RUNNING.compareAndSet(false, true)) {
 			source.sendFailure(net.minecraft.network.chat.Component.literal("KubeGroovy typings are already being generated."));
 			return false;
@@ -293,6 +318,8 @@ public final class KubeGroovyTypingGenerator {
 			.resolve("bindings").resolve("bindings.json").normalize();
 		var eventMethodsFile = gameDir.resolve("local").resolve("kubegroovy").resolve("live-plugin")
 			.resolve("events").resolve("events.json").normalize();
+		var typeSuggestionsFile = gameDir.resolve("local").resolve("kubegroovy").resolve("live-plugin")
+			.resolve("type-suggestions").resolve("suggestions.json").normalize();
 		ensureInside(gameDir, idea);
 		ensureInside(gameDir, module);
 		ensureInside(gameDir, modules);
@@ -306,6 +333,7 @@ public final class KubeGroovyTypingGenerator {
 		ensureInside(gameDir, overloadsFile);
 		ensureInside(gameDir, bindingsFile);
 		ensureInside(gameDir, eventMethodsFile);
+		ensureInside(gameDir, typeSuggestionsFile);
 		ensureNoSymlinkComponents(gameDir, idea);
 		ensureNoSymlinkComponents(gameDir, module);
 		ensureNoSymlinkComponents(gameDir, modules);
@@ -320,6 +348,7 @@ public final class KubeGroovyTypingGenerator {
 		ensureNoSymlinkComponents(gameDir, overloadsFile);
 		ensureNoSymlinkComponents(gameDir, bindingsFile);
 		ensureNoSymlinkComponents(gameDir, eventMethodsFile);
+		ensureNoSymlinkComponents(gameDir, typeSuggestionsFile);
 
 		// Validate every existing target before creating directories or cache files.
 		// GDSL targets are intentionally not guarded: GDSL generation is disabled and existing files are left untouched.
@@ -331,6 +360,7 @@ public final class KubeGroovyTypingGenerator {
 		var overloadsText = renderObjectOverloadsJson(valueCatalog.stringWrappers());
 		var bindingsText = renderBindingsJson(bindings);
 		var eventMethodsText = renderEventMethodsJson(snapshotEventMethods());
+		var typeSuggestionsText = renderTypeSuggestionsJson(valueCatalog.typeSuggestions());
 		String oldModules = Files.exists(modules) ? Files.readString(modules, StandardCharsets.UTF_8) : null;
 		String mergedModules = mergeModules(oldModules);
 		String oldMisc = Files.exists(misc) ? Files.readString(misc, StandardCharsets.UTF_8) : null;
@@ -362,11 +392,14 @@ public final class KubeGroovyTypingGenerator {
 		writeChanged(bindingsFile, bindingsText);
 		Files.createDirectories(eventMethodsFile.getParent());
 		writeChanged(eventMethodsFile, eventMethodsText);
+		Files.createDirectories(typeSuggestionsFile.getParent());
+		writeChanged(typeSuggestionsFile, typeSuggestionsText);
 		var livePluginInstall = installLivePluginScripts(Map.of(
 			"method-aliases/aliases.json", methodAliasesText,
 			"object-overload/overloads.json", overloadsText,
 			"bindings/bindings.json", bindingsText,
-			"events/events.json", eventMethodsText));
+			"events/events.json", eventMethodsText,
+			"type-suggestions/suggestions.json", typeSuggestionsText));
 		boolean modulesChanged = writeChanged(modules, mergedModules);
 		writeChanged(misc, mergedMisc);
 		writeChanged(codeInsightSettings, mergedCodeInsightSettings);
@@ -948,6 +981,32 @@ public final class KubeGroovyTypingGenerator {
 		return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(root) + '\n';
 	}
 
+	public static String renderTypeSuggestionsJson(TypeSuggestionCatalog catalog) {
+		var root = new JsonObject();
+		root.addProperty("schemaVersion", 1);
+		root.addProperty("generatedBy", GENERATED_MARKER);
+		var values = new JsonObject();
+		catalog.values().forEach((type, suggestions) -> {
+			var entries = new JsonArray();
+			suggestions.forEach(entries::add);
+			values.add(type, entries);
+		});
+		root.add("values", values);
+		var delegates = new JsonArray();
+		for (var delegate : catalog.delegates()) {
+			var entry = new JsonObject();
+			entry.addProperty("source", delegate.source());
+			entry.addProperty("target", delegate.target());
+			entry.addProperty("prefix", delegate.prefix());
+			delegates.add(entry);
+		}
+		root.add("delegates", delegates);
+		var genericDelegates = new JsonObject();
+		catalog.genericDelegates().forEach(genericDelegates::addProperty);
+		root.add("genericDelegates", genericDelegates);
+		return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(root) + '\n';
+	}
+
 	private static JsonArray jsonArray(Collection<String> values) {
 		var array = new JsonArray();
 		values.stream().sorted().forEach(array::add);
@@ -971,9 +1030,59 @@ public final class KubeGroovyTypingGenerator {
 		var soundTypes = new TreeSet<>(SoundTypeWrapper.INSTANCE.getMap().keySet());
 		var colorNames = new TreeSet<>(ColorWrapper.MAP.keySet());
 		var stringWrappers = snapshotStringWrapperNames(source);
+		var serverManager = source.getServer().getServerResources().managers().kgy$getServerScriptManager();
+		var context = serverManager == null ? null : serverManager.context;
+		if (context == null) {
+			throw new IllegalStateException("The server KubeGroovy context is unavailable; load server scripts before generating typings");
+		}
 		return new LivePluginValueCatalog(List.copyOf(registries.values()), List.copyOf(itemAbilities),
 			List.copyOf(toolMaterials), List.copyOf(soundTypes), List.copyOf(colorNames), snapshotSoundActionNames(),
-			List.copyOf(stringWrappers));
+			List.copyOf(stringWrappers), snapshotTypeSuggestions(context));
+	}
+
+	private static TypeSuggestionCatalog snapshotTypeSuggestions(KubeGroovyContext context) {
+		var registry = new TypeSuggestionRegistry();
+		registry.setCurrentOwner("KubeGroovy built-ins");
+		var registeredTypes = new LinkedHashSet<TypeInfo>();
+		for (var entry : BuiltInRegistries.REGISTRY.entrySet()) {
+			registerRegistrySuggestions(registry, registeredTypes, entry.getKey());
+		}
+		for (var entry : context.getRegistries().registryAccess().registries().toList()) {
+			registerRegistrySuggestions(registry, registeredTypes, entry.key());
+		}
+		registry.register(Registry.class, (cx, typeInfo) -> cx.getRegistries().registryAccess().registries()
+			.map(entry -> entry.key().identifier().toString()));
+		registry.registerDelegate(ItemStack.class, Item.class);
+		registry.registerDelegate(Ingredient.class, Item.class);
+		registry.registerDelegate(Ingredient.class, TypeInfo.of(TagKey.class).withParams(TypeInfo.of(Item.class)), "#");
+		registry.registerDelegate(Optional.class);
+		registry.registerDelegate(Holder.class);
+		registry.registerDelegate(Holder.Reference.class);
+		registry.registerDelegate(ResourceKey.class);
+
+		for (var plugin : KubeGroovyPlugins.getAll()) {
+			registry.setCurrentOwner(plugin.getClass().getName());
+			try {
+				plugin.registerTypeSuggestions(registry);
+			} catch (Throwable failure) {
+				throw new IllegalStateException("Type suggestion registration failed for plugin "
+					+ plugin.getClass().getName(), failure);
+			}
+		}
+		return registry.resolve(context);
+	}
+
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	private static void registerRegistrySuggestions(TypeSuggestionRegistry suggestions, Set<TypeInfo> registeredTypes,
+		ResourceKey<?> key) {
+		var registryType = RegistryType.ofKey((ResourceKey) key);
+		if (registryType == null || !registeredTypes.add(registryType.type())) return;
+		var elementType = registryType.type();
+		suggestions.register(elementType, (cx, typeInfo) -> cx.lookupRegistry(typeInfo, null).entrySet().stream()
+			.map(entry -> entry.getKey().identifier().toString()));
+		suggestions.registerModifierFor(elementType, TagKey.class,
+			(cx, typeInfo) -> cx.lookupRegistry(typeInfo, null).listTagIds()
+				.map(tag -> tag.location().toString()));
 	}
 
 	private static TreeSet<String> snapshotStringWrapperNames(CommandSourceStack source) {

@@ -1,9 +1,16 @@
 package dev.uncandango.kubegroovy.intellij;
 
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiSubstitutor;
+import com.intellij.psi.PsiType;
+import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
+import org.jetbrains.plugins.groovy.lang.psi.api.auxiliary.GrListOrMap;
 import com.intellij.testFramework.fixtures.BasePlatformTestCase;
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrReferenceExpression;
 import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor;
@@ -11,6 +18,8 @@ import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.util.List;
 
 public final class LivePluginScopeTest extends BasePlatformTestCase {
 	private ClassLoader loadScript(String folder) throws Exception {
@@ -42,6 +51,159 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				assertNull(script[0] + ": " + path, scope.invoke(null, file));
 			}
 			assertNull(scope.invoke(null, new Object[]{null}));
+		}
+	}
+
+	public void testSuggestionCatalogRecursesWithoutDeduplicatingAndKeepsLastValidReload() throws Exception {
+		ClassLoader loader = loadScript("type-suggestions");
+		Class<?> support = loader.loadClass("ItemStackSupport");
+		Path config = Files.createTempFile("kgy-type-suggestions", ".json");
+		try {
+			Files.writeString(config, """
+				{"schemaVersion":1,
+				 "values":{"example.Item":["addon:first","addon:first"],"example.Tag":["addon:tag"],
+				           "example.Exact<example.Item>":["exact-only"],"example.Raw":["raw-type"],
+				           "example.CycleB":["addon:cycle"]},
+				 "delegates":[
+				   {"source":"example.Ingredient","target":"example.Tag","prefix":"#"},
+				   {"source":"example.CycleA","target":"example.CycleB","prefix":""},
+				   {"source":"example.CycleB","target":"example.CycleA","prefix":""}],
+				 "genericDelegates":{"example.Optional":0,"example.Holder":0}}
+				""");
+			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			var nested = (List<String>) support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Optional < example.Holder < example.Item > >");
+			assertEquals(List.of("addon:first", "addon:first"), nested);
+			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Exact<example.Other>"));
+			assertEquals(List.of("raw-type"), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Raw<example.Other>"));
+			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Optional"));
+			assertEquals(List.of("#addon:tag"), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Ingredient"));
+			assertEquals(List.of("addon:cycle"), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.CycleA"));
+			Files.writeString(config, "{ malformed");
+			Files.setLastModifiedTime(config, FileTime.fromMillis(System.currentTimeMillis() + 2000));
+			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("suggestionsForType", String.class)
+				.invoke(null, "example.Item"));
+			assertEquals("\"a\\\"\\\\\\$\\n\"", support.getMethod("quoteSuggestion", String.class)
+				.invoke(null, "a\"\\$\n"));
+		} finally {
+			Files.deleteIfExists(config);
+		}
+	}
+
+	public void testNestedMapAndListPositionsUseTheMatchingGenericType() throws Exception {
+		ClassLoader loader = loadScript("type-suggestions");
+		Class<?> support = loader.loadClass("ItemStackSupport");
+		Path config = Files.createTempFile("kgy-type-suggestions-map", ".json");
+		try {
+			Files.writeString(config, """
+				{"schemaVersion":1,
+				 "values":{"java.lang.String":["key-choice"],"example.Item":["item-choice"]},
+				 "delegates":[],"genericDelegates":{"example.MapTypes.Box":0,"example.MapTypes.Outer":0}}
+				""");
+			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			myFixture.addFileToProject("example/Item.java", "package example; public class Item {}");
+			var types = (PsiJavaFile) myFixture.addFileToProject("example/MapTypes.java",
+				"package example; public class MapTypes { "
+					+ "public static class Box<T> {} public static class Outer<T> {} "
+					+ "public void accept(java.util.Map<String, java.util.List<Item>> x) {} "
+					+ "public void acceptWrapped(Box<Outer<java.util.Map<String, java.util.List<Item>>>> x) {} "
+					+ "public void acceptArray(Item[][] x) {} "
+					+ "public void acceptDirect(java.util.Map<String, Item> x) {} "
+					+ "public <T> void generic(T x) {} "
+					+ "public void overloaded(Object x) {} public void overloaded(Item x) {} "
+					+ "public void varargs(Item... x) {} }");
+			PsiType expected = types.getClasses()[0].findMethodsByName("accept", false)[0]
+				.getParameterList().getParameters()[0].getType();
+			PsiFile file = myFixture.addFileToProject(
+				"kubegroovy/server_scripts/MapSuggestions.groovy",
+				"new example.MapTypes().accept([key: ['leaf']])");
+			var containers = PsiTreeUtil.findChildrenOfType(file, GrListOrMap.class).stream()
+				.sorted(java.util.Comparator.comparingInt(e -> e.getTextRange().getStartOffset())).toList();
+			assertEquals(2, containers.size());
+			String text = file.getText();
+			int keyOffset = text.indexOf("key") + 1;
+			int leafOffset = text.indexOf("leaf") + 1;
+			var keyPosition = file.findElementAt(keyOffset);
+			var leafPosition = file.findElementAt(leafOffset);
+			var typeAtArgument = support.getMethod("typeAtArgument", PsiType.class, PsiElement.class, PsiElement.class, int.class);
+			assertEquals("java.lang.String", typeAtArgument.invoke(null, expected, containers.get(0), keyPosition, keyOffset));
+			assertEquals("example.Item", typeAtArgument.invoke(null, expected, containers.get(0), leafPosition, leafOffset));
+			var mapPartRange = support.getMethod("mapEntryPartRange", PsiElement.class, int.class, boolean.class);
+			var keyRange = (com.intellij.openapi.util.TextRange) mapPartRange.invoke(null, keyPosition, keyOffset, true);
+			assertEquals("key", text.substring(keyRange.getStartOffset(), keyRange.getEndOffset()));
+			assertNull(mapPartRange.invoke(null, leafPosition, leafOffset, true));
+			assertNull(mapPartRange.invoke(null, keyPosition, keyOffset, false));
+			var listPartRange = support.getMethod("listElementPartRange", PsiElement.class, int.class);
+			var leafRange = (com.intellij.openapi.util.TextRange) listPartRange.invoke(null, leafPosition, leafOffset);
+			assertEquals("'leaf'", text.substring(leafRange.getStartOffset(), leafRange.getEndOffset()));
+			assertEquals("new example.MapTypes().accept([\"key-choice\": ['leaf']])",
+				text.substring(0, keyRange.getStartOffset()) + "\"key-choice\"" + text.substring(keyRange.getEndOffset()));
+			assertEquals("new example.MapTypes().accept([key: [\"item-choice\"]])",
+				text.substring(0, leafRange.getStartOffset()) + "\"item-choice\"" + text.substring(leafRange.getEndOffset()));
+
+			PsiType directMapType = types.getClasses()[0].findMethodsByName("acceptDirect", false)[0]
+				.getParameterList().getParameters()[0].getType();
+			PsiFile directMap = myFixture.addFileToProject("kubegroovy/server_scripts/DirectMap.groovy",
+				"new example.MapTypes().acceptDirect([key: 'leaf'])");
+			int directValueOffset = directMap.getText().indexOf("leaf") + 1;
+			PsiElement directValuePosition = directMap.findElementAt(directValueOffset);
+			assertEquals("example.Item", typeAtArgument.invoke(null, directMapType,
+				PsiTreeUtil.findChildrenOfType(directMap, GrListOrMap.class).iterator().next(), directValuePosition, directValueOffset));
+			var directValueRange = (com.intellij.openapi.util.TextRange) mapPartRange.invoke(null, directValuePosition, directValueOffset, false);
+			assertEquals("'leaf'", directMap.getText().substring(directValueRange.getStartOffset(), directValueRange.getEndOffset()));
+
+			PsiType wrappedType = types.getClasses()[0].findMethodsByName("acceptWrapped", false)[0]
+				.getParameterList().getParameters()[0].getType();
+			PsiFile wrappedFile = myFixture.addFileToProject("kubegroovy/server_scripts/WrappedMap.groovy",
+				"new example.MapTypes().acceptWrapped([key: ['leaf']])");
+			var wrappedContainers = PsiTreeUtil.findChildrenOfType(wrappedFile, GrListOrMap.class).stream()
+				.sorted(java.util.Comparator.comparingInt(e -> e.getTextRange().getStartOffset())).toList();
+			int wrappedLeafOffset = wrappedFile.getText().indexOf("leaf") + 1;
+			assertEquals("example.Item", typeAtArgument.invoke(null, wrappedType, wrappedContainers.get(0),
+				wrappedFile.findElementAt(wrappedLeafOffset), wrappedLeafOffset));
+
+			PsiType arrayType = types.getClasses()[0].findMethodsByName("acceptArray", false)[0]
+				.getParameterList().getParameters()[0].getType();
+			PsiFile arrayFile = myFixture.addFileToProject("kubegroovy/server_scripts/ArraySuggestions.groovy",
+				"new example.MapTypes().acceptArray([['leaf']])");
+			var arrayContainers = PsiTreeUtil.findChildrenOfType(arrayFile, GrListOrMap.class).stream()
+				.sorted(java.util.Comparator.comparingInt(e -> e.getTextRange().getStartOffset())).toList();
+			int arrayLeafOffset = arrayFile.getText().indexOf("leaf") + 1;
+			assertEquals("example.Item", typeAtArgument.invoke(null, arrayType, arrayContainers.get(0),
+				arrayFile.findElementAt(arrayLeafOffset), arrayLeafOffset));
+
+			PsiMethod genericMethod = types.getClasses()[0].findMethodsByName("generic", false)[0];
+			PsiClass itemClass = JavaPsiFacade.getInstance(getProject())
+				.findClass("example.Item", GlobalSearchScope.allScope(getProject()));
+			PsiSubstitutor substitutor = PsiSubstitutor.EMPTY.put(genericMethod.getTypeParameters()[0],
+				JavaPsiFacade.getElementFactory(getProject()).createType(itemClass));
+			var specForParam = support.getMethod("specForParam", PsiMethod.class, int.class, PsiSubstitutor.class,
+				PsiElement.class, PsiElement.class, int.class);
+			assertEquals("example.Item", specForParam.invoke(null, genericMethod, 0, substitutor, null, null, -1));
+
+			PsiFile castFile = myFixture.addFileToProject("kubegroovy/server_scripts/CastSuggestions.groovy",
+				"def value = 'leaf' as example.Item");
+			int castOffset = castFile.getText().indexOf("leaf") + 1;
+			assertEquals("example.Item", support.getMethod("getCoercedSpec", PsiElement.class, int.class)
+				.invoke(null, castFile.findElementAt(castOffset), castOffset));
+
+			PsiFile overloadFile = myFixture.addFileToProject("kubegroovy/server_scripts/OverloadSuggestions.groovy",
+				"new example.MapTypes().overloaded('leaf')");
+			GrReferenceExpression overloadRef = PsiTreeUtil.findChildrenOfType(overloadFile, GrReferenceExpression.class).stream()
+				.filter(ref -> "overloaded".equals(ref.getReferenceName())).findFirst().orElseThrow();
+			var overloads = (List<PsiMethod>) support.getMethod("classOverloads", GrReferenceExpression.class,
+				java.util.Collection.class, String.class).invoke(null, overloadRef, List.of(), "overloaded");
+			assertEquals(true, overloads.stream().anyMatch(method -> method.getParameterList().getParameters()[0]
+				.getType().equalsToText("example.Item")));
+			PsiMethod varargs = types.getClasses()[0].findMethodsByName("varargs", false)[0];
+			assertEquals("example.Item", specForParam.invoke(null, varargs, 0, null, null, null, -1));
+		} finally {
+			Files.deleteIfExists(config);
 		}
 	}
 

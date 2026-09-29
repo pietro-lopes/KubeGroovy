@@ -22,6 +22,7 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding, Map<St
 		if (value != null) {
 //			try {
 			if (value instanceof Class<?> clazz) {
+				context.kgyFactory.manager.getClassFilter().allow(clazz);
 				autoimports.put("$" + name, clazz);
 			}	else if (value instanceof EventGroupWrapper) {
 					binding.setVariable("$" + name, value);

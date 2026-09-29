@@ -50,6 +50,7 @@
 + dev.uncandango.kubegroovy
 - dev.uncandango.kubegroovy.script
 - dev.uncandango.kubegroovy.plugin
++ dev.uncandango.kubegroovy.plugin.builtin.wrapper.TextWrapper
 - dev.uncandango.kubegroovy.core
 
 # Minecraft
