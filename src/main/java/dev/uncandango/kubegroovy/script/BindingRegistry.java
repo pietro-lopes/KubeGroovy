@@ -4,11 +4,13 @@ import dev.uncandango.kubegroovy.event.EventGroupWrapper;
 import groovy.lang.Binding;
 import net.minecraft.util.StringUtil;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
-public record BindingRegistry(KubeGroovyContext context, Binding binding) {
+public record BindingRegistry(KubeGroovyContext context, Binding binding, Map<String, Class<?>> autoimports) {
 	public BindingRegistry(KubeGroovyContext context) {
-		this(context, context == null ? new Binding() : context.binding);
+		this(context, context == null ? new Binding() : context.binding, new HashMap<>());
 	}
 
 	public ScriptType type() {
@@ -19,7 +21,9 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding) {
 	public void add(String name, Object value) {
 		if (value != null) {
 //			try {
-				if (value instanceof Class<?> || value instanceof EventGroupWrapper) {
+			if (value instanceof Class<?> clazz) {
+				autoimports.put("$" + name, clazz);
+			}	else if (value instanceof EventGroupWrapper) {
 					binding.setVariable("$" + name, value);
 				} else {
 					if (Character.isUpperCase(name.charAt(0))) {

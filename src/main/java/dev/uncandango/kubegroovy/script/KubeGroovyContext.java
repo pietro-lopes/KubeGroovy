@@ -43,6 +43,7 @@ public class KubeGroovyContext extends Context {
 	public final KubeGroovyContextFactory kgyFactory;
 //	public final Scriptable topLevelScope;
 	public final Binding binding;
+	public final Map<String, Class<?>> autoImports = new HashMap<>();
 	public final GroovyScriptEngine engine;
 	//private @Nullable Map<String, Either<NativeJavaClass, Boolean>> javaClassCache;
 
@@ -53,18 +54,8 @@ public class KubeGroovyContext extends Context {
 		KubeGroovyMetaClassCreationHandle.refreshInjectedTypes();
 		KubeGroovyMetaClassCreationHandle.refresh(RegistryKubeEvent.class);
 		this.binding = new Binding();
-		var parent = KubeGroovy.class.getClassLoader();
-		var config = KubeGroovyClassLoader.makeConfig(factory.manager, factory.getTypeWrappers());
-		var loader = new KubeGroovyClassLoader(parent, factory.manager, config);
-		try {
-			this.engine = new GroovyScriptEngine(factory.manager.scriptType.path.toString(), loader);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
 
-//		this.topLevelScope = new ScriptableObject();
-
-		var bindingsEvent = new BindingRegistry(this, binding);
+		var bindingsEvent = new BindingRegistry(this, binding, autoImports);
 
 		for (var plugin : KubeGroovyPlugins.getAll()) {
 			try {
@@ -80,9 +71,26 @@ public class KubeGroovyContext extends Context {
 			getConsole().error("Failed to register sided bindings", t);
 		}
 
+		var parent = KubeGroovy.class.getClassLoader();
+
 		// Publish a value-only snapshot. Typing generation consumes this snapshot
 		// and never replays plugin binding hooks.
-		factory.manager.captureTypingBindings((Map<String, Object>) binding.getVariables());
+		Map<String, Object> mergedMap = new HashMap<>();
+		mergedMap.putAll(binding.getVariables());
+		mergedMap.putAll(autoImports);
+		factory.manager.captureTypingBindings(mergedMap);
+
+		var config = KubeGroovyClassLoader.makeConfig(factory.manager, factory.getTypeWrappers());
+		var loader = new KubeGroovyClassLoader(parent, factory.manager, config);
+		try {
+			this.engine = new GroovyScriptEngine(factory.manager.scriptType.path.toString(), loader);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+
+
+
 	}
 
 	public boolean visibleToScripts(String fullClassName, ClassVisibilityContext type) {

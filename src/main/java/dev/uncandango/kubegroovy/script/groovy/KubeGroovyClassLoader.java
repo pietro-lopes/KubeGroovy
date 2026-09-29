@@ -34,6 +34,11 @@ public class KubeGroovyClassLoader extends GroovyClassLoader {
 		var imports = new ImportCustomizer();
 		// Common static helpers available without qualification in scripts
 		// (kept minimal for now; bindings provide console/events/etc.)
+		for (var typeBinding : manager.getTypingBindings()) {
+			if (typeBinding.classValue() && manager.scriptType == typeBinding.scriptType()) {
+				imports.addImport(typeBinding.name(), typeBinding.typeName());
+			}
+		}
 		config.addCompilationCustomizers(imports);
 
 		ClassFilter filter = manager == null ? null : manager.getClassFilter();

@@ -115,7 +115,7 @@ public interface MinecraftClientKGY extends MinecraftEnvironmentKGY {
 		if (key != null && !key.isUnbound() && key.isConflictContextAndModifierActive()) {
 			if (key.getKey().getType() == InputConstants.Type.KEYSYM) {
 				return kgy$isKeyDown(key.getKey().getValue());
-			} else if (key.getKey().getType() == InputConstants.Type.MOUSE) {
+			} else if (key.getKey().getType() == InputConstants.Type.MOUSE && key.getKey().getValue() >= 0) {
 				return GLFW.glfwGetMouseButton(kgy$self().getWindow().handle(), key.getKey().getValue()) == GLFW.GLFW_TRUE;
 			}
 		}
