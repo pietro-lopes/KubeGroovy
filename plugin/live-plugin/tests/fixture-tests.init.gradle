@@ -1,9 +1,0 @@
-// Reuse the existing IDE test runtime without changing the native plugin.
-gradle.projectsEvaluated {
-    def ide = gradle.rootProject.findProject(':plugin:intellij')
-    if (ide == null) return
-    ide.sourceSets.test.java.srcDir(gradle.rootProject.file('plugin/live-plugin/tests'))
-    ide.tasks.named('test') {
-        inputs.files(ide.fileTree('../live-plugin') { include '*/plugin.groovy' })
-    }
-}

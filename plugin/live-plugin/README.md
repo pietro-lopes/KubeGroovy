@@ -21,12 +21,18 @@ After updating the scripts, run each folder's `install.bat` and reload the six
 scripts in LivePlugin. Restart IDEA once after replacing the old global augment
 providers to clear any existing resolution caches.
 
-IDE fixture regressions load these actual scripts without executing their
-LivePlugin registration bodies:
+The standalone IDE fixture project loads these actual scripts without executing
+their LivePlugin registration bodies. It uses the IDE's Groovy runtime and an
+SDK from the fixture JVM; versions are pinned in the root `gradle.properties`.
 
 ```powershell
-.\gradlew.bat -I plugin/live-plugin/tests/fixture-tests.init.gradle :plugin:intellij:test --tests '*LivePluginScopeTest' --no-configuration-cache
+.\gradlew.bat -p plugin/live-plugin/tests test --no-configuration-cache
 ```
+
+Set `INTELLIJ_HOME` to use an installed IDEA instead of downloading the pinned
+version. The fixture project has its own build and test host, separate from the
+mod build. It covers script scoping, catalog reloads, container/generic types,
+icon caches, and actual completion selection and document insertion.
 
 ## Type suggestions
 
@@ -36,6 +42,22 @@ and installs it into each discovered LivePlugin directory when
 /kgy generate-typings runs. Providers execute on the server thread against the
 loaded server KubeGroovyContext; the snapshot is shared by startup, server, and
 client script completions.
+
+The implementation stays in one script for generated installation. Its
+`TypeSuggestionSupport` helpers handle scope, type-name syntax and diagnostics;
+`TypeSuggestionCatalog` publishes immutable snapshots; `TypeSuggestionPsi`
+infers types against one snapshot; and `TypeSuggestionIcons` owns icon loading
+and caches. `TypeSuggestionInsertion` and its insert handler select a document
+range and replace it with a quoted ID. The completion provider coordinates these
+helpers. Keep reflection for differing map-entry PSI shapes in the PSI adapter.
+
+The insert handler commits the document before querying PSI and after editing
+it. A tracked range preserves the selected argument or container part while
+IntelliJ inserts lookup text, including any surrounding quotes and explicit
+casts. IDs are escaped as Groovy string literals, including dollar signs and
+control characters.
+Catalog snapshots retain the last valid configuration on a malformed update;
+their generation isolates type-dependent icon caches during concurrent reloads.
 
 Addon plugins can register values and wrapper behavior through
 KubeGroovyPlugin.registerTypeSuggestions:

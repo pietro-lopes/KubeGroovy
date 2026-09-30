@@ -12,7 +12,8 @@ if not exist "%OUT%" mkdir "%OUT%"
 
 set "CP=%INTELLIJ_HOME%\lib\*;%INTELLIJ_HOME%\lib\modules\*;%LIVEPLUGIN_LIB%\*;%INTELLIJ_HOME%\plugins\Groovy\lib\Groovy.jar;%INTELLIJ_HOME%\plugins\java\lib\*"
 
-java -cp "%INTELLIJ_HOME%\lib\groovy.jar" org.codehaus.groovy.tools.FileSystemCompiler -cp "%CP%" -d "%OUT%" "%~dp0plugin.groovy"
+rem Groovy's decompiled AST also resolves superclasses through the compiler JVM.
+java -cp "%CP%" org.codehaus.groovy.tools.FileSystemCompiler -cp "%CP%" -d "%OUT%" "%~dp0plugin.groovy"
 if errorlevel 1 (
   echo COMPILE FAILED
   exit /b 1

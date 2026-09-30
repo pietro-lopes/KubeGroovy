@@ -1,0 +1,155 @@
+package dev.uncandango.kubegroovy.intellij;
+
+import com.intellij.codeInsight.CodeInsightSettings;
+import com.intellij.codeInsight.completion.CompletionContributorEP;
+import com.intellij.codeInsight.completion.CompletionType;
+import com.intellij.codeInsight.lookup.Lookup;
+import com.intellij.codeInsight.lookup.LookupElement;
+import com.intellij.openapi.extensions.DefaultPluginDescriptor;
+import com.intellij.openapi.extensions.ExtensionPointName;
+import com.intellij.openapi.extensions.LoadingOrder;
+import com.intellij.openapi.extensions.PluginId;
+import com.intellij.openapi.util.Disposer;
+import com.intellij.psi.PsiFile;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+/** Exercises the actual contributor and insert handler, rather than assembling replacements from helper ranges. */
+public final class TypeSuggestionCompletionTest extends LivePluginTestCase {
+	private ClassLoader loader;
+	private Path config;
+	private int fileNumber;
+
+	@Override
+	protected void setUp() throws Exception {
+		super.setUp();
+		loader = loadScript("type-suggestions");
+		config = Files.createTempFile("kgy-completion-fixture", ".json");
+		writeCatalog(Map.of("example.Item", List.of("addon:apple", "addon:stone"),
+			"java.lang.String", List.of("keyChoice", "otherKey")));
+		var descriptor = new DefaultPluginDescriptor(PluginId.getId("LivePlugin"), loader);
+		ExtensionPointName.<CompletionContributorEP>create("com.intellij.completion.contributor").getPoint()
+			.registerExtension(new CompletionContributorEP("Groovy", "TypeSuggestionCompletionContributor", descriptor),
+				LoadingOrder.FIRST, getTestRootDisposable());
+		boolean autoComplete = CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION;
+		CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = false;
+		Disposer.register(getTestRootDisposable(), () ->
+			CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = autoComplete);
+		myFixture.addFileToProject("example/Item.java", "package example; public class Item {}");
+		myFixture.addFileToProject("example/Target.java", """
+			package example;
+			public class Target {
+				public void accept(Item item) {}
+				public void overloaded(Object item) {}
+				public void overloaded(Item item) {}
+				public void list(java.util.List<Item> items) {}
+				public void map(java.util.Map<String, Item> items) {}
+				public void nested(java.util.Map<String, java.util.List<Item>> items) {}
+				public void array(Item[][] items) {}
+				public void varargs(Item... items) {}
+			}
+			""");
+		myFixture.addFileToProject("example/Child.java", "package example; public class Child extends Target {}");
+	}
+
+	@Override
+	protected void tearDown() throws Exception {
+		try {
+			if (config != null) Files.deleteIfExists(config);
+		} finally {
+			super.tearDown();
+		}
+	}
+
+	private void writeCatalog(Map<String, List<String>> values) throws Exception {
+		String json = (String) Class.forName("groovy.json.JsonOutput").getMethod("toJson", Object.class)
+			.invoke(null, Map.of("schemaVersion", 1, "values", values, "delegates", List.of(),
+				"genericDelegates", Map.of("java.util.Optional", 0)));
+		Files.writeString(config, json);
+		setSuggestionConfig(loader, config.toFile());
+	}
+
+	private LookupElement[] complete(String path, String text) {
+		int offset = text.indexOf("<caret>");
+		assertTrue("Caret marker required", offset >= 0);
+		PsiFile file = myFixture.addFileToProject(path, text.replace("<caret>", ""));
+		myFixture.configureFromExistingVirtualFile(file.getVirtualFile());
+		myFixture.getEditor().getCaretModel().moveToOffset(offset);
+		return myFixture.complete(CompletionType.BASIC);
+	}
+
+	private void choose(String source, String id, String expected) {
+		LookupElement[] elements = complete("kubegroovy/server_scripts/Completion" + fileNumber++ + ".groovy", source);
+		assertNotNull("Expected a completion popup", elements);
+		LookupElement selected = Arrays.stream(elements).filter(item -> id.equals(item.getObject()))
+			.findFirst().orElseThrow(() -> new AssertionError("Missing " + id + " in " +
+				source + ": " + Arrays.stream(elements).limit(20).map(LookupElement::getLookupString).toList()));
+		myFixture.getLookup().setCurrentItem(selected);
+		myFixture.finishLookup(Lookup.NORMAL_SELECT_CHAR);
+		assertEquals(expected.replace("<caret>", ""), myFixture.getEditor().getDocument().getText());
+		assertEquals(expected.indexOf("<caret>"), myFixture.getEditor().getCaretModel().getOffset());
+	}
+
+	public void testArgumentsAndEmptySlotsInsertExactlyOneQuotedId() {
+		choose("new example.Target().accept('<caret>')", "addon:apple",
+			"new example.Target().accept(\"addon:apple\"<caret>)");
+		choose("new example.Target().accept(\"<caret>\")", "addon:apple",
+			"new example.Target().accept(\"addon:apple\"<caret>)");
+		choose("new example.Target().accept(<caret>)", "addon:apple",
+			"new example.Target().accept(\"addon:apple\"<caret>)");
+		choose("new example.Target().varargs('first', <caret>)", "addon:apple",
+			"new example.Target().varargs('first', \"addon:apple\"<caret>)");
+	}
+
+	public void testSiblingOverloadSuggestionsAlsoWorkForInheritedMethods() {
+		choose("new example.Target().overloaded('<caret>')", "addon:apple",
+			"new example.Target().overloaded(\"addon:apple\"<caret>)");
+		choose("new example.Child().overloaded('<caret>')", "addon:apple",
+			"new example.Child().overloaded(\"addon:apple\"<caret>)");
+	}
+
+	public void testNestedContainerInsertionPreservesOtherEntries() {
+		choose("new example.Target().list(['<caret>', 'keep'])", "addon:apple",
+			"new example.Target().list([\"addon:apple\"<caret>, 'keep'])");
+		choose("new example.Target().map([key: '<caret>', keep: 'keep'])", "addon:apple",
+			"new example.Target().map([key: \"addon:apple\"<caret>, keep: 'keep'])");
+		choose("new example.Target().map([ke<caret>: 'keep', other: 'keep'])", "keyChoice",
+			"new example.Target().map([\"keyChoice\"<caret>: 'keep', other: 'keep'])");
+		choose("new example.Target().nested([key: ['<caret>', 'keep'], other: ['keep']])", "addon:apple",
+			"new example.Target().nested([key: [\"addon:apple\"<caret>, 'keep'], other: ['keep']])");
+		choose("new example.Target().array([['<caret>', 'keep']])", "addon:apple",
+			"new example.Target().array([[\"addon:apple\"<caret>, 'keep']])");
+	}
+
+	public void testEmptyContainersPreserveTheirDelimiters() {
+		choose("new example.Target().list([<caret>])", "addon:apple",
+			"new example.Target().list([\"addon:apple\"<caret>])");
+		choose("new example.Target().map([key: <caret>])", "addon:apple",
+			"new example.Target().map([key: \"addon:apple\"<caret>])");
+	}
+
+	public void testExplicitCastsAndLiteralPrefixesAreRetained() {
+		choose("def value = '<caret>' as example.Item", "addon:apple",
+			"def value = \"addon:apple\"<caret> as example.Item");
+		choose("def value = '<caret>' as Optional<example.Item>", "addon:apple",
+			"def value = \"addon:apple\"<caret> as Optional<example.Item>");
+		choose("new example.Target().accept('addon:a<caret>')", "addon:apple",
+			"new example.Target().accept(\"addon:apple\"<caret>)");
+	}
+
+	public void testQuotesBackslashesDollarsAndControlsStayInsideOneLiteral() throws Exception {
+		String id = "a\"\\$\n\r\t\u0001";
+		writeCatalog(Map.of("example.Item", List.of(id)));
+		choose("new example.Target().accept('<caret>')", id,
+			"new example.Target().accept(\"a\\\"\\\\\\$\\n\\r\\t\\u0001\"<caret>)");
+	}
+
+	public void testContributorDoesNotOfferIdsOutsideScriptRoots() {
+		LookupElement[] elements = complete("src/Unrelated.groovy", "new example.Target().accept('<caret>')");
+		assertTrue(elements == null || Arrays.stream(elements).noneMatch(item -> item.getLookupString().startsWith("addon:")));
+	}
+}

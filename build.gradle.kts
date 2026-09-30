@@ -132,6 +132,7 @@ tasks.named<Copy>("processResources") {
 	// Retired: plugin/live-plugin/plugin.kts template no longer exists.
 	from(layout.projectDirectory.dir("plugin/live-plugin")) {
 		include("**/*.groovy", "**/*.png", "**/*.svg")
+		exclude("tests/**")
 		into("META-INF/kubegroovy/live-plugin")
 	}
 }

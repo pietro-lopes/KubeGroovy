@@ -11,7 +11,6 @@ import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.plugins.groovy.lang.psi.api.auxiliary.GrListOrMap;
-import com.intellij.testFramework.fixtures.BasePlatformTestCase;
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrReferenceExpression;
 import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor;
 
@@ -24,20 +23,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-public final class LivePluginScopeTest extends BasePlatformTestCase {
-	private ClassLoader loadScript(String folder) throws Exception {
-		Class<?> loaderType = Class.forName("groovy.lang.GroovyClassLoader");
-		ClassLoader loader = (ClassLoader) loaderType.getConstructor(ClassLoader.class).newInstance(getClass().getClassLoader());
-		Path script = Path.of("../live-plugin", folder, "plugin.groovy");
-		loaderType.getMethod("parseClass", File.class).invoke(loader, script.toFile());
-		return loader;
-	}
-
+public final class LivePluginScopeTest extends LivePluginTestCase {
 	public void testEveryScriptUsesExactGroovyScope() throws Exception {
 		String[][] scripts = {
 			{"bindings", "BindingsSupport"}, {"events", "EventMethodSupport"},
 			{"method-aliases", "MethodAliasSupport"}, {"object-overload", "ObjectOverloadSupport"},
-			{"type-suggestions", "ItemStackSupport"}, {"info-docs", "InfoDocSupport"}
+			{"type-suggestions", "TypeSuggestionSupport"}, {"info-docs", "InfoDocSupport"}
 		};
 		for (String[] script : scripts) {
 			var scope = loadScript(script[0]).loadClass(script[1]).getMethod("sideForFile", PsiFile.class);
@@ -59,7 +50,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 
 	public void testSuggestionCatalogRecursesWithoutDeduplicatingAndKeepsLastValidReload() throws Exception {
 		ClassLoader loader = loadScript("type-suggestions");
-		Class<?> support = loader.loadClass("ItemStackSupport");
+		Class<?> insertion = loader.loadClass("TypeSuggestionInsertion");
 		Path config = Files.createTempFile("kgy-type-suggestions", ".json");
 		try {
 			Files.writeString(config, """
@@ -75,51 +66,38 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				   {"source":"example.CycleB","target":"example.CycleA","prefix":""}],
 				 "genericDelegates":{"java.util.Optional":0,"example.Holder":0}}
 				""");
-			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
-			var nested = (List<String>) support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "java.util.Optional < example.Holder < example.Item > >");
+			setSuggestionConfig(loader, config.toFile());
+			var nested = suggestions(loader, "java.util.Optional < example.Holder < example.Item > >");
 			assertEquals(List.of("addon:first", "addon:first"), nested);
-			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Exact<example.Other>"));
-			assertEquals(List.of("raw-type"), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Raw<example.Other>"));
-			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "java.util.Optional"));
-			assertEquals(List.of("#addon:tag"), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Ingredient"));
-			assertEquals(List.of("addon:cycle"), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.CycleA"));
+			assertEquals(List.of(), suggestions(loader, "example.Exact<example.Other>"));
+			assertEquals(List.of("raw-type"), suggestions(loader, "example.Raw<example.Other>"));
+			assertEquals(List.of(), suggestions(loader, "java.util.Optional"));
+			assertEquals(List.of("#addon:tag"), suggestions(loader, "example.Ingredient"));
+			assertEquals(List.of("addon:cycle"), suggestions(loader, "example.CycleA"));
 			PsiFile castFieldFile = myFixture.addFileToProject("kubegroovy/server_scripts/ItemStackFieldCast.groovy",
 				"def itemStackField = \"\" as ItemStack");
 			int castOffset = castFieldFile.getText().indexOf("\"\"") + 1;
-			String castSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
-				.invoke(null, castFieldFile.findElementAt(castOffset), castOffset);
+			String castSpec = coercedSpec(loader, castFieldFile.findElementAt(castOffset), castOffset);
 			assertEquals("example.ItemStack", castSpec);
-			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("idsForSpec", String.class)
-				.invoke(null, castSpec));
-			assertEquals(true, support.getMethod("asSupportedCastFollows", String.class, int.class)
+			assertEquals(List.of("addon:first", "addon:first"), suggestions(loader, castSpec));
+			assertEquals(true, insertion.getMethod("hasFollowingCast", String.class, int.class)
 				.invoke(null, castFieldFile.getText(), castFieldFile.getText().indexOf("\"\"") + 2));
 			PsiFile optionalItemFile = myFixture.addFileToProject("kubegroovy/server_scripts/OptionalItemCast.groovy",
 				"def item = \"\" as Optional<Item>");
 			int optionalItemOffset = optionalItemFile.getText().indexOf("\"\"") + 1;
-			String optionalItemSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
-				.invoke(null, optionalItemFile.findElementAt(optionalItemOffset), optionalItemOffset);
+			String optionalItemSpec = coercedSpec(loader, optionalItemFile.findElementAt(optionalItemOffset), optionalItemOffset);
 			assertEquals("java.util.Optional<example.Item>", optionalItemSpec);
-			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("idsForSpec", String.class)
-				.invoke(null, optionalItemSpec));
+			assertEquals(List.of("addon:first", "addon:first"), suggestions(loader, optionalItemSpec));
 			PsiFile itemTagFile = myFixture.addFileToProject("kubegroovy/server_scripts/ItemTagCast.groovy",
 				"def itemTag = \"\" as TagKey<Item>");
 			int itemTagOffset = itemTagFile.getText().indexOf("\"\"") + 1;
-			String itemTagSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
-				.invoke(null, itemTagFile.findElementAt(itemTagOffset), itemTagOffset);
+			String itemTagSpec = coercedSpec(loader, itemTagFile.findElementAt(itemTagOffset), itemTagOffset);
 			assertEquals("example.TagKey<example.Item>", itemTagSpec);
-			assertEquals(List.of("addon:item-tag"), support.getMethod("idsForSpec", String.class)
-				.invoke(null, itemTagSpec));
+			assertEquals(List.of("addon:item-tag"), suggestions(loader, itemTagSpec));
 			Files.writeString(config, "{ malformed");
 			Files.setLastModifiedTime(config, FileTime.fromMillis(System.currentTimeMillis() + 2000));
-			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Item"));
-			assertEquals("\"a\\\"\\\\\\$\\n\"", support.getMethod("quoteSuggestion", String.class)
+			assertEquals(List.of("addon:first", "addon:first"), suggestions(loader, "example.Item"));
+			assertEquals("\"a\\\"\\\\\\$\\n\"", insertion.getMethod("quoteSuggestion", String.class)
 				.invoke(null, "a\"\\$\n"));
 		} finally {
 			Files.deleteIfExists(config);
@@ -128,7 +106,8 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 
 	public void testNestedMapAndListPositionsUseTheMatchingGenericType() throws Exception {
 		ClassLoader loader = loadScript("type-suggestions");
-		Class<?> support = loader.loadClass("ItemStackSupport");
+		Class<?> support = loader.loadClass("TypeSuggestionPsi");
+		Class<?> insertion = loader.loadClass("TypeSuggestionInsertion");
 		Path config = Files.createTempFile("kgy-type-suggestions-map", ".json");
 		try {
 			Files.writeString(config, """
@@ -136,7 +115,8 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				 "values":{"java.lang.String":["key-choice"],"example.Item":["item-choice"]},
 				 "delegates":[],"genericDelegates":{"example.MapTypes.Box":0,"example.MapTypes.Outer":0}}
 				""");
-			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			setSuggestionConfig(loader, config.toFile());
+			Object resolver = support.getConstructor().newInstance();
 			myFixture.addFileToProject("example/Item.java", "package example; public class Item {}");
 			var types = (PsiJavaFile) myFixture.addFileToProject("example/MapTypes.java",
 				"package example; public class MapTypes { "
@@ -162,14 +142,14 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			var keyPosition = file.findElementAt(keyOffset);
 			var leafPosition = file.findElementAt(leafOffset);
 			var typeAtArgument = support.getMethod("typeAtArgument", PsiType.class, PsiElement.class, PsiElement.class, int.class);
-			assertEquals("java.lang.String", typeAtArgument.invoke(null, expected, containers.get(0), keyPosition, keyOffset));
-			assertEquals("example.Item", typeAtArgument.invoke(null, expected, containers.get(0), leafPosition, leafOffset));
-			var mapPartRange = support.getMethod("mapEntryPartRange", PsiElement.class, int.class, boolean.class);
+			assertEquals("java.lang.String", typeAtArgument.invoke(resolver, expected, containers.get(0), keyPosition, keyOffset));
+			assertEquals("example.Item", typeAtArgument.invoke(resolver, expected, containers.get(0), leafPosition, leafOffset));
+			var mapPartRange = insertion.getMethod("mapEntryPartRange", PsiElement.class, int.class, boolean.class);
 			var keyRange = (com.intellij.openapi.util.TextRange) mapPartRange.invoke(null, keyPosition, keyOffset, true);
 			assertEquals("key", text.substring(keyRange.getStartOffset(), keyRange.getEndOffset()));
 			assertNull(mapPartRange.invoke(null, leafPosition, leafOffset, true));
 			assertNull(mapPartRange.invoke(null, keyPosition, keyOffset, false));
-			var listPartRange = support.getMethod("listElementPartRange", PsiElement.class, int.class);
+			var listPartRange = insertion.getMethod("listElementPartRange", PsiElement.class, int.class);
 			var leafRange = (com.intellij.openapi.util.TextRange) listPartRange.invoke(null, leafPosition, leafOffset);
 			assertEquals("'leaf'", text.substring(leafRange.getStartOffset(), leafRange.getEndOffset()));
 			assertEquals("new example.MapTypes().accept([\"key-choice\": ['leaf']])",
@@ -183,7 +163,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				"new example.MapTypes().acceptDirect([key: 'leaf'])");
 			int directValueOffset = directMap.getText().indexOf("leaf") + 1;
 			PsiElement directValuePosition = directMap.findElementAt(directValueOffset);
-			assertEquals("example.Item", typeAtArgument.invoke(null, directMapType,
+			assertEquals("example.Item", typeAtArgument.invoke(resolver, directMapType,
 				PsiTreeUtil.findChildrenOfType(directMap, GrListOrMap.class).iterator().next(), directValuePosition, directValueOffset));
 			var directValueRange = (com.intellij.openapi.util.TextRange) mapPartRange.invoke(null, directValuePosition, directValueOffset, false);
 			assertEquals("'leaf'", directMap.getText().substring(directValueRange.getStartOffset(), directValueRange.getEndOffset()));
@@ -195,7 +175,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			var wrappedContainers = PsiTreeUtil.findChildrenOfType(wrappedFile, GrListOrMap.class).stream()
 				.sorted(java.util.Comparator.comparingInt(e -> e.getTextRange().getStartOffset())).toList();
 			int wrappedLeafOffset = wrappedFile.getText().indexOf("leaf") + 1;
-			assertEquals("example.Item", typeAtArgument.invoke(null, wrappedType, wrappedContainers.get(0),
+			assertEquals("example.Item", typeAtArgument.invoke(resolver, wrappedType, wrappedContainers.get(0),
 				wrappedFile.findElementAt(wrappedLeafOffset), wrappedLeafOffset));
 
 			PsiType arrayType = types.getClasses()[0].findMethodsByName("acceptArray", false)[0]
@@ -205,7 +185,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			var arrayContainers = PsiTreeUtil.findChildrenOfType(arrayFile, GrListOrMap.class).stream()
 				.sorted(java.util.Comparator.comparingInt(e -> e.getTextRange().getStartOffset())).toList();
 			int arrayLeafOffset = arrayFile.getText().indexOf("leaf") + 1;
-			assertEquals("example.Item", typeAtArgument.invoke(null, arrayType, arrayContainers.get(0),
+			assertEquals("example.Item", typeAtArgument.invoke(resolver, arrayType, arrayContainers.get(0),
 				arrayFile.findElementAt(arrayLeafOffset), arrayLeafOffset));
 
 			PsiMethod genericMethod = types.getClasses()[0].findMethodsByName("generic", false)[0];
@@ -215,13 +195,12 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				JavaPsiFacade.getElementFactory(getProject()).createType(itemClass));
 			var specForParam = support.getMethod("specForParam", PsiMethod.class, int.class, PsiSubstitutor.class,
 				PsiElement.class, PsiElement.class, int.class);
-			assertEquals("example.Item", specForParam.invoke(null, genericMethod, 0, substitutor, null, null, -1));
+			assertEquals("example.Item", specForParam.invoke(resolver, genericMethod, 0, substitutor, null, null, -1));
 
 			PsiFile castFile = myFixture.addFileToProject("kubegroovy/server_scripts/CastSuggestions.groovy",
 				"def value = 'leaf' as example.Item");
 			int castOffset = castFile.getText().indexOf("leaf") + 1;
-			assertEquals("example.Item", support.getMethod("getCoercedSpec", PsiElement.class, int.class)
-				.invoke(null, castFile.findElementAt(castOffset), castOffset));
+			assertEquals("example.Item", coercedSpec(loader, castFile.findElementAt(castOffset), castOffset));
 
 			PsiFile overloadFile = myFixture.addFileToProject("kubegroovy/server_scripts/OverloadSuggestions.groovy",
 				"new example.MapTypes().overloaded('leaf')");
@@ -232,7 +211,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			assertEquals(true, overloads.stream().anyMatch(method -> method.getParameterList().getParameters()[0]
 				.getType().equalsToText("example.Item")));
 			PsiMethod varargs = types.getClasses()[0].findMethodsByName("varargs", false)[0];
-			assertEquals("example.Item", specForParam.invoke(null, varargs, 0, null, null, null, -1));
+			assertEquals("example.Item", specForParam.invoke(resolver, varargs, 0, null, null, null, -1));
 		} finally {
 			Files.deleteIfExists(config);
 		}
@@ -240,7 +219,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 
 	public void testSuggestionIconsUseProjectExportsTagFoldersAndBindingsLogoFallback() throws Exception {
 		ClassLoader loader = loadScript("type-suggestions");
-		Class<?> support = loader.loadClass("ItemStackSupport");
+		Class<?> support = loader.loadClass("TypeSuggestionIcons");
 		Path config = Files.createTempFile("kgy-type-suggestion-icons", ".json");
 		Path projectRoot = Files.createTempDirectory("kgy-type-suggestion-project");
 		Path livePlugins = Files.createTempDirectory("kgy-type-suggestion-live-plugins");
@@ -252,7 +231,7 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 				   {"source":"net.minecraft.world.item.crafting.Ingredient","target":"net.minecraft.tags.TagKey<net.minecraft.world.item.Item>","prefix":"#"}],
 				 "genericDelegates":{"java.util.Optional":0,"net.minecraft.resources.ResourceKey":0}}
 				""");
-			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			setSuggestionConfig(loader, config.toFile());
 			var relativePath = support.getMethod("exportedIconRelativePath", String.class, String.class);
 			assertEquals("item/minecraft/stone.png", relativePath.invoke(null,
 				"minecraft:stone", "net.minecraft.world.item.Item"));
@@ -312,6 +291,29 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			Object refreshedIcon = iconFor.invoke(null, "testmod:missing",
 				List.of("example.Unmatched"), projectRoot.toFile());
 			assertNotSame(fallbackIcon, refreshedIcon);
+
+			Object previousCatalog = suggestionCatalog(loader);
+			List<String> ingredient = List.of("net.minecraft.world.item.crafting.Ingredient");
+			assertSame(resolvedItemIcon, iconFor.invoke(null, "minecraft:stone", ingredient, projectRoot.toFile()));
+			Path fluidIcon = projectRoot.resolve("local/kubegroovy/export/icons-32/fluid/minecraft/stone.png");
+			Files.createDirectories(fluidIcon.getParent());
+			javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
+				java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", fluidIcon.toFile());
+			Files.writeString(config, """
+				{"schemaVersion":1,"values":{},
+				 "delegates":[{"source":"net.minecraft.world.item.crafting.Ingredient",
+				               "target":"net.minecraft.world.level.material.Fluid","prefix":""}],"genericDelegates":{}}
+				""");
+			Files.setLastModifiedTime(config, FileTime.fromMillis(System.currentTimeMillis() + 2000));
+			Object reloadedIcon = iconFor.invoke(null, "minecraft:stone", ingredient, projectRoot.toFile());
+			assertNotSame(resolvedItemIcon, reloadedIcon);
+			assertSame(reloadedIcon, iconFor.invoke(null, "minecraft:stone",
+				List.of("net.minecraft.world.level.material.Fluid"), projectRoot.toFile()));
+			var iconForSnapshot = support.getMethod("iconFor", String.class, java.util.Collection.class,
+				File.class, previousCatalog.getClass());
+			assertSame(resolvedItemIcon, iconForSnapshot.invoke(null, "minecraft:stone", ingredient,
+				projectRoot.toFile(), previousCatalog));
+			assertSame(reloadedIcon, iconFor.invoke(null, "minecraft:stone", ingredient, projectRoot.toFile()));
 		} finally {
 			Files.deleteIfExists(config);
 			for (Path directory : List.of(projectRoot, livePlugins)) {
@@ -324,9 +326,46 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 		}
 	}
 
+	public void testPublishedCatalogsRemainImmutableAcrossReloads() throws Exception {
+		ClassLoader loader = loadScript("type-suggestions");
+		Path config = Files.createTempFile("kgy-snapshot-fixture", ".json");
+		try {
+			Files.writeString(config, """
+				{"schemaVersion":1,"values":{"example.Item":["old","old"]},"delegates":[],"genericDelegates":{}}
+				""");
+			setSuggestionConfig(loader, config.toFile());
+			Object first = suggestionCatalog(loader);
+			Map<?, ?> values = (Map<?, ?>) first.getClass().getMethod("getValues").invoke(first);
+			try {
+				values.clear();
+				fail("Published values must be immutable");
+			} catch (UnsupportedOperationException expected) {
+				// A consumer cannot mutate a snapshot used by other completion callbacks.
+			}
+			try {
+				((List<?>) values.get("example.Item")).clear();
+				fail("Published value lists must be immutable");
+			} catch (UnsupportedOperationException expected) {
+				// The collection boundary is immutable too.
+			}
+			Files.writeString(config, """
+				{"schemaVersion":1,"values":{"example.Item":["new"]},"delegates":[],"genericDelegates":{}}
+				""");
+			Files.setLastModifiedTime(config, FileTime.fromMillis(System.currentTimeMillis() + 2000));
+			Object second = suggestionCatalog(loader);
+			assertNotSame(first, second);
+			assertSame(second, suggestionCatalog(loader));
+			assertEquals(List.of("new"), suggestions(loader, "example.Item"));
+			assertEquals(List.of("old", "old"), first.getClass().getMethod("suggestionsForType", String.class)
+				.invoke(first, "example.Item"));
+		} finally {
+			Files.deleteIfExists(config);
+		}
+	}
+
 	public void testSuggestionIconPreloaderLoadsItemFluidBlockAndTagFolders() throws Exception {
 		ClassLoader loader = loadScript("type-suggestions");
-		Class<?> support = loader.loadClass("ItemStackSupport");
+		Class<?> support = loader.loadClass("TypeSuggestionIcons");
 		Path projectRoot = Files.createTempDirectory("kgy-type-suggestion-preload");
 		List<Path> icons = List.of(
 			projectRoot.resolve("local/kubegroovy/export/icons-32/item/minecraft/stone.png"),

@@ -1,0 +1,9 @@
+<idea-plugin>
+	<id>dev.uncandango.kubegroovy.live-plugin-fixtures</id>
+	<name>KubeGroovy LivePlugin fixtures</name>
+	<vendor>uncandango</vendor>
+	<description>Test host for the bundled LivePlugin scripts.</description>
+	<depends>com.intellij.modules.platform</depends>
+	<depends>com.intellij.java</depends>
+	<depends>org.intellij.groovy</depends>
+</idea-plugin>
