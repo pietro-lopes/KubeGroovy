@@ -47,6 +47,16 @@ $ClientEvents.tick { event ->
 			$TestRuntime.assertThat(event.client != null).isTrue()
 			$TestRuntime.assertThat(event.player != null).isTrue()
 		}
+		$TestRuntime.check('client.core.inputGuards') {
+			def mc = event.client
+			$TestRuntime.assertThat(mc.getCurrentWorldName()).isEqualTo('Singleplayer')
+			$TestRuntime.assertThat(mc.isKeyDown(-1)).isFalse()
+			$TestRuntime.assertThat(mc.isKeyBindDown('coverage_wrapper_missing_xyz')).isFalse()
+			$TestRuntime.assertThat(mc.getKeyBindPressedTicks('coverage_wrapper_missing_xyz')).isEqualTo(-1)
+			$TestRuntime.assertThat(mc.isKeyBindDown('coverage_wrapper_key')).isFalse()
+			$TestRuntime.assertThat(mc.getKeyBindPressedTicks('coverage_wrapper_key')).isEqualTo(-1)
+			$TestRuntime.assertThat(mc.isKeyMappingDown(null)).isFalse()
+		}
 		// Exercise scheduler + Client + GLFWInput bindings once the world is ticking.
 		// NOTE: $Client is usually absent (lazy binding resolves once at mod init
 		// when Minecraft is still null), so use event.client instead.

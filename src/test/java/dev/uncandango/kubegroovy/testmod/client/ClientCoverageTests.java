@@ -1,7 +1,12 @@
 package dev.uncandango.kubegroovy.testmod.client;
 
+import dev.uncandango.kubegroovy.client.model.KubeGroovyConditionalCallbackProperty;
 import dev.uncandango.kubegroovy.testmod.TestRuntime;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.testframework.DynamicTest;
 import net.neoforged.testframework.annotation.ForEachTest;
@@ -62,6 +67,7 @@ public class ClientCoverageTests {
 		"client.loggedOut.fields",
 		"client.tick",
 		"client.tick.fields",
+		"client.core.inputGuards",
 		"client.bindings",
 		"client.events.direct",
 		"client.formatNumber",
@@ -216,6 +222,24 @@ public class ClientCoverageTests {
 	@TestHolder(value = "client_wrappers", description = "Client wrapper fixtures fired on the client")
 	static void clientWrappers(final DynamicTest test) {
 		assertClientMarkers(test, WRAPPER_IDS);
+	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "client_model_callback_effects", description = "Java model properties evaluate the callback registered by Groovy")
+	static void clientModelCallbackEffects(final DynamicTest test) {
+		test.onGameTest(helper -> helper.startSequence()
+			.thenExecute(() -> assertVerified(helper, "client.wrapper.modelRegistry"))
+			.thenExecute(() -> assertj(helper, () -> {
+				var property = new KubeGroovyConditionalCallbackProperty(Identifier.parse("kubegroovy:coverage_seed_conditional"));
+				var stack = new ItemStack(Items.DIAMOND);
+				assertThat(property.get(stack, null, null, 7, ItemDisplayContext.GUI)).isTrue();
+				assertThat(property.get(stack, null, null, 8, ItemDisplayContext.GUI)).isFalse();
+				var missing = new KubeGroovyConditionalCallbackProperty(Identifier.parse("kubegroovy:coverage_missing_conditional"));
+				assertThat(missing.get(stack, null, null, 7, ItemDisplayContext.GUI)).isFalse();
+				assertThat(property.type()).isSameAs(KubeGroovyConditionalCallbackProperty.MAP_CODEC);
+			}))
+			.thenSucceed());
 	}
 
 	@GameTest

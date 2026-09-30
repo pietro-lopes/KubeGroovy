@@ -3,9 +3,12 @@ package dev.uncandango.kubegroovy.testmod.coverage;
 import dev.uncandango.kubegroovy.core.WithPersistentData;
 import dev.uncandango.kubegroovy.testmod.TestRuntime;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.neoforged.testframework.DynamicTest;
@@ -25,6 +28,48 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ForEachTest(groups = "kubegroovy.coverage")
 public class CoverageGapTests {
 	private static final BlockPos ENTITY_POS = new BlockPos(1, 2, 1);
+
+	@GameTest
+	@EmptyTemplate(floor = true)
+	@TestHolder(value = "coverage_core_mutations", description = "Groovy core helpers mutate player state, attributes, equipment, and item components")
+	static void coreMutations(final DynamicTest test) {
+		test.onGameTest(helper -> {
+			var player = helper.makeTickingMockServerPlayerInCorner(GameType.SURVIVAL);
+			helper.startSequence()
+				.thenExecute(() -> {
+					TestRuntime.clear("coverage.core.mutations");
+					helper.getLevel().getServer().getCommands()
+						.performPrefixedCommand(player.createCommandSourceStack(), "coverage_core_mutations");
+					assertFired(helper, "coverage.core.mutations");
+					assertVerified(helper, "coverage.core.mutations");
+					// Read back before another tick can change motion, food, or equipment.
+					assertj(helper, () -> {
+						assertThat(player.getInventory().getSelectedSlot()).isEqualTo(2);
+						assertThat(player.getFoodData().getFoodLevel()).isEqualTo(12);
+						assertThat(player.getFoodData().getSaturationLevel()).isEqualTo(3.0f);
+						assertThat(player.totalExperience).isEqualTo(17);
+						assertThat(player.getAttributeBaseValue(Attributes.MAX_HEALTH)).isEqualTo(30.0d);
+						assertThat(player.getAttributeBaseValue(Attributes.MOVEMENT_SPEED)).isEqualTo(0.2d);
+						assertThat(player.getAttributeValue(Attributes.MOVEMENT_SPEED)).isBetween(0.399d, 0.401d);
+						assertThat(player.getYRot()).isEqualTo(90.0f);
+						assertThat(player.getXRot()).isEqualTo(-60.0f);
+						assertThat(player.getDeltaMovement().x).isEqualTo(0.25d);
+						assertThat(player.getDeltaMovement().y).isEqualTo(0.5d);
+						assertThat(player.getDeltaMovement().z).isEqualTo(-0.25d);
+						assertThat(player.getPersistentData().getIntOr("coverage_core_mutations", 0)).isEqualTo(7);
+						assertThat(player.getMainHandItem().getItem()).isEqualTo(Items.DIAMOND);
+						assertThat(player.getMainHandItem().getCount()).isEqualTo(3);
+						assertThat(player.getMainHandItem().get(DataComponents.CUSTOM_NAME).getString()).isEqualTo("Core coverage diamond");
+						assertThat(player.getOffhandItem().getItem()).isEqualTo(Items.STICK);
+						assertThat(player.getOffhandItem().has(DataComponents.CUSTOM_NAME)).isFalse();
+						assertThat(player.getItemBySlot(EquipmentSlot.HEAD).getItem()).isEqualTo(Items.IRON_HELMET);
+						assertThat(player.containerMenu.getCarried().getItem()).isEqualTo(Items.EMERALD);
+						assertThat(player.containerMenu.getCarried().getCount()).isEqualTo(2);
+					});
+				})
+				.thenSucceed();
+		});
+	}
 
 	@GameTest
 	@EmptyTemplate(floor = true)

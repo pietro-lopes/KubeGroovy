@@ -27,6 +27,13 @@ import java.util.Objects;
 @Mixin(ItemStack.class)
 @RemapPrefixForGY("kgy$")
 public abstract class ItemStackMixin implements ItemStackKGY {
+	// A concrete implementation also supplies the covariant bridge used by
+	// MutableDataComponentHolder, whose injected defaults otherwise conflict.
+	@Override
+	@HideFromGY
+	public ItemStack kgy$self() {
+		return (ItemStack) (Object) this;
+	}
 
 	@Shadow
 	@Final

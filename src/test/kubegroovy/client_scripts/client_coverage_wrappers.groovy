@@ -285,6 +285,8 @@ $TestRuntime.check('client.wrapper.modelRegistry') {
 	KubeGroovyModelPropertyRegistry.putConditional(id, { stack, level, entity, seed, ctx -> true })
 	$TestRuntime.assertThat(KubeGroovyModelPropertyRegistry.getConditional(id) != null).isTrue()
 	$TestRuntime.assertThat(KubeGroovyModelPropertyRegistry.getConditional('kubegroovy:coverage_missing_conditional') == null).isTrue()
+	KubeGroovyModelPropertyRegistry.putConditional('kubegroovy:coverage_seed_conditional',
+		{ stack, level, entity, seed, ctx -> seed == 7 })
 }
 
 $TestRuntime.check('client.wrapper.clientProps') {
