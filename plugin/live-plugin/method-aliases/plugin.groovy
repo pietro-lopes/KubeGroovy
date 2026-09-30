@@ -7,7 +7,8 @@
 //   Only .groovy use-sites under kubegroovy/{startup,client,server}_scripts/**.
 //
 // WHAT IT DOES
-//   Reads aliases.json (next to this file) and, for each entry, clones every
+//   Reads the project's local/kubegroovy/live-plugin/method-aliases/aliases.json
+//   and, for each entry, clones every
 //   overload named `from` on the given class under the name `to` with an
 //   identical signature. The aliases exist at runtime (bridge mapping); this
 //   only teaches the editor so alias calls resolve, complete, and show in
@@ -15,7 +16,7 @@
 //   erased signature exists, the real one wins and no synthetic is made.
 //   Constructors are skipped.
 //
-//   object-overload reads aliases.json as well (sibling folder) so its
+//   object-overload reads the same project-local aliases.json so its
 //   Object-rewritten signatures are emitted under alias names too — neither
 //   provider can see the other's synthetics, so the cross product is computed
 //   from the shared file, not from augment output.
@@ -26,7 +27,7 @@
 //   nothing. Only own/declared methods are scanned (never getMethods()).
 //
 // RUNNING IT
-//   compile.bat checks it compiles; install.bat copies script + json to
+//   compile.bat checks it compiles; install.bat copies the script to
 //   LivePlugin; reload it from the LivePlugin tool window.
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -93,8 +94,8 @@ class MethodAliasSupport {
     static boolean DEBUG = false
     static final String SYNTHETIC_KIND = "MethodAlias"
     private static File configFile = null
-    private static long configStamp = -1L
-    private static MethodAliasConfig cached = new MethodAliasConfig()
+    private static final Map<File, String> configStamps = new HashMap<>()
+    private static final Map<File, MethodAliasConfig> configs = new HashMap<>()
 
     static void debug(String message) {
         if (!DEBUG) return
@@ -109,14 +110,22 @@ class MethodAliasSupport {
         } catch (Throwable ignored) {}
     }
 
-    static synchronized MethodAliasConfig load() {
+    static File configFileFor(PsiElement place) {
+        if (configFile != null) return configFile
+        String root = place?.getProject()?.getBasePath()
+        return root == null || root.isBlank() ? null : new File(root, "local/kubegroovy/live-plugin/method-aliases/aliases.json")
+    }
+
+    static synchronized MethodAliasConfig load(PsiElement place = null) {
+        File source = configFileFor(place)
+        MethodAliasConfig cached = configs.get(source) ?: new MethodAliasConfig()
         try {
-            if (configFile == null || !configFile.isFile()) return cached
-            long stamp = configFile.lastModified()
-            if (stamp == configStamp) return cached
+            if (source == null || !source.isFile()) return cached
+            String stamp = source.lastModified() + ":" + source.length()
+            if (stamp == configStamps.get(source)) return cached
             Map parsed = null
             try {
-                Object o = new ObjectMapper().readValue(configFile, Map.class)
+                Object o = new ObjectMapper().readValue(source, Map.class)
                 if (o instanceof Map) parsed = (Map) o
             } catch (Throwable t) {
                 debug("config parse failed, keeping last good (" + t + ")")
@@ -152,7 +161,8 @@ class MethodAliasSupport {
                 }
             } catch (Throwable ignored) {}
             cached = next
-            configStamp = stamp
+            configs.put(source, next)
+            configStamps.put(source, stamp)
             debug("config loaded classes=" + next.byClass.size())
         } catch (Throwable ignored) {}
         return cached
@@ -318,15 +328,15 @@ class MethodAliasContributor extends NonCodeMembersContributor implements DumbAw
             PsiClass cls = resolved.getElement()
             if (cls == null || !seen.add(cls)) continue
             ResolveState memberState = state.put(PsiSubstitutor.KEY, resolved.getSubstitutor())
-            for (PsiMethod method : methodsFor(cls, nameHint)) {
+            for (PsiMethod method : methodsFor(cls, nameHint, place)) {
                 if (!processor.execute(method, memberState)) return
             }
             pending.addAll(Arrays.asList(current.getSuperTypes()))
         }
     }
 
-    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint) {
-        MethodAliasConfig cfg = MethodAliasSupport.load()
+    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint, PsiElement place) {
+        MethodAliasConfig cfg = MethodAliasSupport.load(place)
         if (cfg == null || cfg.isEmpty()) return Collections.emptyList()
         String fqn = null
         try {
@@ -383,8 +393,5 @@ class MethodAliasContributor extends NonCodeMembersContributor implements DumbAw
 }
 
 // --- LivePlugin registration (unregistered automatically via pluginDisposable) ---
-try {
-    MethodAliasSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "aliases.json"))
-} catch (Throwable ignored) {}
 def methodAliasPoint = NonCodeMembersContributor.EP_NAME.point
 methodAliasPoint.registerExtension(new MethodAliasContributor(), pluginDisposable)

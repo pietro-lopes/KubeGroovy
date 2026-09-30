@@ -7,7 +7,8 @@
 //   Only .groovy use-sites under kubegroovy/{startup,client,server}_scripts/**.
 //
 // WHAT IT DOES
-//   Reads overloads.json (next to this file) and synthesizes additional
+//   Reads the project's local/kubegroovy/live-plugin/object-overload/overloads.json
+//   and synthesizes additional
 //   overloads for every method that takes a configured target type: the
 //   matching parameter is rewritten to Object / Object[] / List<Object>
 //   (per param shape), so string ids resolve at edit time, e.g.
@@ -23,7 +24,7 @@
 //               gated by requireEligibleArg resolving to a target).
 //   If nothing in a method's params rewrites, or the rewritten signature
 //   collides with a real overload, no synthetic is made (real code wins).
-//   Alias-aware: the sibling method-aliases/aliases.json is indexed too, so
+//   Alias-aware: the project's method-aliases/aliases.json is indexed too, so
 //   rewritten signatures are emitted under alias names as well
 //   (alias x rewrite cross product — neither provider sees the other's
 //   synthetics, so it is computed from the shared file).
@@ -40,7 +41,7 @@
 //   False prefilter positives only cost time; the resolve path decides.
 //
 // RUNNING IT
-//   compile.bat checks it compiles; install.bat copies script + json to
+//   compile.bat checks it compiles; install.bat copies the script to
 //   LivePlugin; reload it from the LivePlugin tool window.
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -218,15 +219,15 @@ class ObjectOverloadSupport {
     static boolean DEBUG = false
     static final String SYNTHETIC_KIND = "ObjectOverloadRewritten"
     private static File configFile = null
-    private static long configStamp = -1L
-    private static ObjectOverloadConfig cached = new ObjectOverloadConfig()
-    // Alias index: classFQN -> (aliasName -> realName), from the sibling
+    private static final Map<File, String> configStamps = new HashMap<>()
+    private static final Map<File, ObjectOverloadConfig> configs = new HashMap<>()
+    // Alias index: classFQN -> (aliasName -> realName), from the project's
     // method-aliases/aliases.json. Neither provider sees the other's
     // synthetics, so the alias x rewrite cross product is computed from this
     // shared file instead of from augment output.
     private static File aliasFile = null
-    private static long aliasStamp = -1L
-    private static Map<String, Map<String, String>> aliasIndex = new LinkedHashMap<String, Map<String, String>>()
+    private static final Map<File, String> aliasStamps = new HashMap<>()
+    private static final Map<File, Map<String, Map<String, String>>> aliasIndexes = new HashMap<>()
 
     static void debug(String message) {
         if (!DEBUG) return
@@ -258,14 +259,22 @@ class ObjectOverloadSupport {
      * Load (or reload on modification) overloads.json. Any failure keeps
      * serving the last good config — resolution must never break.
      */
-    static synchronized ObjectOverloadConfig load() {
+    static File configFileFor(PsiElement place) {
+        if (configFile != null) return configFile
+        String root = place?.getProject()?.getBasePath()
+        return root == null || root.isBlank() ? null : new File(root, "local/kubegroovy/live-plugin/object-overload/overloads.json")
+    }
+
+    static synchronized ObjectOverloadConfig load(PsiElement place = null) {
+        File source = configFileFor(place)
+        ObjectOverloadConfig cached = configs.get(source) ?: new ObjectOverloadConfig()
         try {
-            if (configFile == null || !configFile.isFile()) return cached
-            long stamp = configFile.lastModified()
-            if (stamp == configStamp) return cached
+            if (source == null || !source.isFile()) return cached
+            String stamp = source.lastModified() + ":" + source.length()
+            if (stamp == configStamps.get(source)) return cached
             Map parsed = null
             try {
-                Object o = new ObjectMapper().readValue(configFile, Map.class)
+                Object o = new ObjectMapper().readValue(source, Map.class)
                 if (o instanceof Map) parsed = (Map) o
             } catch (Throwable t) {
                 debug("config parse failed, keeping last good (" + t + ")")
@@ -356,7 +365,8 @@ class ObjectOverloadSupport {
                 } catch (Throwable ignored) {}
             }
             cached = next
-            configStamp = stamp
+            configs.put(source, next)
+            configStamps.put(source, stamp)
             debug("config loaded targets=" + next.targets.size() + " wrappers=" + next.wrappers.size() + " rules=" + next.rules.size())
         } catch (Throwable ignored) {}
         return cached
@@ -369,18 +379,26 @@ class ObjectOverloadSupport {
     }
 
     /**
-     * Load (or reload on modification) the sibling aliases.json into
+     * Load (or reload on modification) the project's aliases.json into
      * classFQN -> (alias -> real). Absent/broken file means no aliases —
      * never fail resolution over it.
      */
-    static synchronized Map<String, Map<String, String>> aliasLoad() {
+    static File aliasFileFor(PsiElement place) {
+        if (aliasFile != null) return aliasFile
+        String root = place?.getProject()?.getBasePath()
+        return root == null || root.isBlank() ? null : new File(root, "local/kubegroovy/live-plugin/method-aliases/aliases.json")
+    }
+
+    static synchronized Map<String, Map<String, String>> aliasLoad(PsiElement place = null) {
+        File source = aliasFileFor(place)
+        Map<String, Map<String, String>> aliasIndex = aliasIndexes.get(source) ?: new LinkedHashMap<>()
         try {
-            if (aliasFile == null || !aliasFile.isFile()) return aliasIndex
-            long stamp = aliasFile.lastModified()
-            if (stamp == aliasStamp) return aliasIndex
+            if (source == null || !source.isFile()) return aliasIndex
+            String stamp = source.lastModified() + ":" + source.length()
+            if (stamp == aliasStamps.get(source)) return aliasIndex
             Map parsed = null
             try {
-                Object o = new ObjectMapper().readValue(aliasFile, Map.class)
+                Object o = new ObjectMapper().readValue(source, Map.class)
                 if (o instanceof Map) parsed = (Map) o
             } catch (Throwable t) {
                 debug("alias parse failed, keeping last good (" + t + ")")
@@ -415,15 +433,16 @@ class ObjectOverloadSupport {
                 }
             } catch (Throwable ignored) {}
             aliasIndex = next
-            aliasStamp = stamp
+            aliasIndexes.put(source, next)
+            aliasStamps.put(source, stamp)
             debug("alias index loaded classes=" + next.size())
         } catch (Throwable ignored) {}
         return aliasIndex
     }
 
-    static Map<String, String> aliasesFor(String classFqn) {
+    static Map<String, String> aliasesFor(String classFqn, PsiElement place = null) {
         try {
-            Map<String, String> m = aliasLoad().get(classFqn)
+            Map<String, String> m = aliasLoad(place).get(classFqn)
             return m != null ? m : Collections.emptyMap()
         } catch (Throwable ignored) {
             return Collections.emptyMap()
@@ -1047,7 +1066,7 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
             PsiClass cls = resolved.getElement()
             if (cls == null || !seen.add(cls)) continue
             ResolveState memberState = state.put(PsiSubstitutor.KEY, resolved.getSubstitutor())
-            for (PsiMethod method : methodsFor(cls, nameHint)) {
+            for (PsiMethod method : methodsFor(cls, nameHint, place)) {
                 if (method.isConstructor() && current != qualifierType) continue
                 if (!processor.execute(method, memberState)) return
             }
@@ -1055,8 +1074,8 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
         }
     }
 
-    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint) {
-        ObjectOverloadConfig cfg = ObjectOverloadSupport.load()
+    private static List<PsiMethod> methodsFor(PsiClass cls, String nameHint, PsiElement place) {
+        ObjectOverloadConfig cfg = ObjectOverloadSupport.load(place)
         if (cfg == null || cfg.isEmpty()) return Collections.emptyList()
         OverloadCtx c = new OverloadCtx(cfg, cls)
         if (!c.usable()) return Collections.emptyList()
@@ -1064,7 +1083,7 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
         try {
             classFqn = cls.getQualifiedName()
         } catch (Throwable ignored) {}
-        Map<String, String> byAlias = ObjectOverloadSupport.aliasesFor(classFqn)
+        Map<String, String> byAlias = ObjectOverloadSupport.aliasesFor(classFqn, place)
         List<PsiMethod> own
         try {
             own = ObjectOverloadSupport.ownMethods(cls)
@@ -1141,11 +1160,5 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
 }
 
 // --- LivePlugin registration (unregistered automatically via pluginDisposable) ---
-try {
-    ObjectOverloadSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "overloads.json"))
-} catch (Throwable ignored) {}
-try {
-    ObjectOverloadSupport.setAliasFile(new File(pluginPath?.toString() ?: "", "../method-aliases/aliases.json").getCanonicalFile())
-} catch (Throwable ignored) {}
 def objectOverloadPoint = NonCodeMembersContributor.EP_NAME.point
 objectOverloadPoint.registerExtension(new ObjectOverloadContributor(), pluginDisposable)

@@ -179,33 +179,48 @@ class TypeSuggestionSupport {
 }
 
 /**
- * Owns the watched JSON file and publishes immutable catalogs under a single lock.
+ * Watches each project's local JSON file and publishes immutable catalogs under a single lock.
  * Invalid or missing updates retain the last valid snapshot. Each snapshot preserves
  * registration order and duplicates and can be used throughout one completion request.
  */
 @CompileStatic
 class TypeSuggestionCatalog {
 	private static File configFile
-	private static long configStamp = -1L
-	private static Snapshot current = new Snapshot(0L, [:], [], [:])
+	private static final Snapshot EMPTY = new Snapshot(0L, [:], [], [:])
+	private static final Map<File, String> configStamps = new HashMap<>()
+	private static final Map<File, Snapshot> configs = new HashMap<>()
+	// Type-dependent icon caches use this generation across all projects.
+	private static long nextGeneration = 1L
 
 	static synchronized void setConfigFile(File file) {
 		configFile = file
-		configStamp = -1L
+		configStamps.remove(file)
 	}
 
-	/** Attempts each file timestamp once, including malformed updates. */
-	static synchronized Snapshot loadConfig() {
-		if (configFile == null || !configFile.isFile()) return current
-		long stamp = configFile.lastModified()
-		if (stamp == configStamp) return current
+	static File configFileFor(PsiElement place) {
+		if (configFile != null) return configFile
+		String root = place?.getProject()?.getBasePath()
+		return root == null || root.isBlank() ? null : new File(root, "local/kubegroovy/live-plugin/type-suggestions/suggestions.json")
+	}
+
+	/** Attempts each timestamp/length revision once, including malformed updates. */
+	static synchronized Snapshot loadConfig(PsiElement place = null) {
+		File source = configFileFor(place)
+		Snapshot current = configs.get(source) ?: EMPTY
+		if (source == null || !source.isFile()) return current
+		String stamp = source.lastModified() + ":" + source.length()
+		if (stamp == configStamps.get(source)) return current
 		try {
-			Snapshot parsed = parse(new JsonSlurper().parse(configFile), current.generation + 1L)
-			if (parsed != null) current = parsed
+			Snapshot parsed = parse(new JsonSlurper().parse(source), nextGeneration)
+			if (parsed != null) {
+				current = parsed
+				configs.put(source, parsed)
+				nextGeneration++
+			}
 		} catch (IOException | groovy.json.JsonException error) {
 			debug("suggestion config reload failed; keeping previous catalog (" + error + ")")
 		} finally {
-			configStamp = stamp
+			configStamps.put(source, stamp)
 		}
 		return current
 	}
@@ -1544,7 +1559,7 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 	protected void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
 		long started = System.nanoTime()
 		if (sideForFile(parameters.getOriginalFile()) == null) return
-		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig()
+		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig(parameters.getOriginalFile())
 		PsiElement position = parameters.getPosition()
 		int offset = parameters.getOffset()
 		long inferenceStarted = System.nanoTime()
@@ -1599,7 +1614,6 @@ class TypeSuggestionCompletionContributor extends CompletionContributor {
 
 // LivePlugin executes only this body. Disposal unregisters the contributor on reload.
 TypeSuggestionIcons.setIconDir(new File(pluginPath?.toString() ?: "", "icons").getAbsolutePath())
-TypeSuggestionCatalog.setConfigFile(new File(pluginPath?.toString() ?: "", "suggestions.json"))
 TypeSuggestionIcons.preloadOpenProjects()
 def descriptor = new DefaultPluginDescriptor(PluginId.getId("LivePlugin"), TypeSuggestionCompletionContributor.classLoader)
 ExtensionPointName.create("com.intellij.completion.contributor").point.registerExtension(

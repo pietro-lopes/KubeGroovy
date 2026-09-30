@@ -1,6 +1,6 @@
 @echo off
 setlocal
-rem Force-copy this plugin (script + icons) into the LivePlugin folder.
+rem Force-copy this plugin (script + icons) into the LivePlugin folder. JSON stays in the project.
 rem Usage: install.bat  (exit code 0 = OK)
 
 set "DEST=C:\Users\Pietro\AppData\Roaming\JetBrains\IntelliJIdea2025.3\live-plugins\object-overload"
@@ -11,7 +11,7 @@ rem quote. Strip it first.
 set "SRC=%~dp0"
 set "SRC=%SRC:~0,-1%"
 
-robocopy "%SRC%" "%DEST%" /E /XD out /XF *.bat /NFL /NDL /NJH /NJS
+robocopy "%SRC%" "%DEST%" /E /XD out /XF *.bat *.json /NFL /NDL /NJH /NJS
 if errorlevel 8 (
   echo INSTALL FAILED
   exit /b 1

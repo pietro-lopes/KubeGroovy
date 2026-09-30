@@ -21,8 +21,9 @@ import java.util.function.Function;
 
 /// Collection and path helpers for item, fluid and tag icon exports. Rendering lives in
 /// [ItemIconExportScreen]; the per-frame capture loop there is adapted from
-/// IconExporter by CyclopsMC (MIT licensed): render one entry per frame,
-/// screenshot the main target, crop, chroma-key the background, save.
+/// IconExporter by CyclopsMC (MIT licensed): screenshot the main target,
+/// crop, chroma-key the background, save. KubeGroovy batches up to 64 entries
+/// into a grid for each screenshot.
 public class ItemIconExporter {
 	public static final int DEFAULT_SCALE = 32;
 	public static final int MIN_SCALE = 1;

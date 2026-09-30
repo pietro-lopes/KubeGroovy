@@ -21,6 +21,18 @@ After updating the scripts, run each folder's `install.bat` and reload the six
 scripts in LivePlugin. Restart IDEA once after replacing the old global augment
 providers to clear any existing resolution caches.
 
+Generated catalogs are read directly from the current IntelliJ project's
+`local/kubegroovy/live-plugin/<script>/` directory, using the same project root as
+exported icons. `/kgy generate-typings` writes the five JSON files there and
+installs only scripts and logo assets into the discovered JetBrains LivePlugin
+folders. The manual installers also skip JSON files. Existing JSON copies in
+JetBrains folders are ignored.
+
+Each project has its own cached catalogs. Updates are observed on the next
+completion or resolution request without reloading the plugin. Missing or
+malformed updates retain only that project's last valid catalog; a project
+without a generated catalog starts empty.
+
 The standalone IDE fixture project loads these actual scripts without executing
 their LivePlugin registration bodies. It uses the IDE's Groovy runtime and an
 SDK from the fixture JVM; versions are pinned in the root `gradle.properties`.
@@ -36,10 +48,9 @@ icon caches, and actual completion selection and document insertion.
 
 ## Type suggestions
 
-The type-suggestions script reads suggestions.json next to its plugin.groovy.
-KubeGroovy writes that catalog to local/kubegroovy/live-plugin/type-suggestions/
-and installs it into each discovered LivePlugin directory when
-/kgy generate-typings runs. Providers execute on the server thread against the
+The type-suggestions script reads
+`local/kubegroovy/live-plugin/type-suggestions/suggestions.json` directly from
+the current project. Providers execute on the server thread against the
 loaded server KubeGroovyContext; the snapshot is shared by startup, server, and
 client script completions.
 
@@ -111,3 +122,26 @@ Newly exported, updated, or removed icons are observed on the next completion
 without reloading the plugin. Timing logs separate type inference and icon work
 and report both considered and matching suggestions. Run `/kgy export-icons` in
 a client world to refresh the project exports.
+
+## Icon export throughput
+
+The exporter draws up to 64 items and fluids into separate 16-unit GUI cells,
+flushes the GUI renderer once, and takes one screenshot for the batch. Each cell
+is clipped to prevent oversized models from bleeding into neighboring icons.
+The grid uses up to eight columns and is recomputed each frame to fit the
+framebuffer and requested output size, including after a window resize. Output
+paths, sizes, fluid tints, and chroma-keyed transparency stay the same.
+
+PNG cropping and encoding run on Minecraft's IO pool. At most two batches can be
+waiting for readback or saving, which bounds memory use and applies backpressure
+when disk writes fall behind. Tag overlays start only after every base PNG write
+has completed; they process up to 64 tags per frame within a four-millisecond
+budget. A failed icon write does not abort its neighbors. Closing the export
+screen cancels the remaining work, and late callbacks cannot change its result.
+
+Completion logs report elapsed time and the number of screenshot batches.
+Batching reduces the number of full-framebuffer captures by up to 64 times;
+rendering and PNG encoding still cost time, so this is not an overall speedup
+guarantee. JVM tests cover grid bounds and resized framebuffers. The client
+`icon_export` holder checks representative sizes, mixed entries across rows and
+batches, exact item pixels, fluid tints, tag ordering, and an unwritable PNG.

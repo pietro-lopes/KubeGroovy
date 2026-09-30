@@ -417,12 +417,7 @@ public final class KubeGroovyTypingGenerator {
 		writeChanged(eventMethodsFile, eventMethodsText);
 		Files.createDirectories(typeSuggestionsFile.getParent());
 		writeChanged(typeSuggestionsFile, typeSuggestionsText);
-		var livePluginInstall = installLivePluginScripts(Map.of(
-			"method-aliases/aliases.json", methodAliasesText,
-			"object-overload/overloads.json", overloadsText,
-			"bindings/bindings.json", bindingsText,
-			"events/events.json", eventMethodsText,
-			"type-suggestions/suggestions.json", typeSuggestionsText));
+		var livePluginInstall = installLivePluginScripts();
 		boolean modulesChanged = writeChanged(modules, mergedModules);
 		writeChanged(misc, mergedMisc);
 		writeChanged(codeInsightSettings, mergedCodeInsightSettings);
@@ -536,12 +531,13 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	/**
-	 * Installs the bundled {@code plugin.groovy} files plus freshly generated
-	 * JSON configs (keyed by {@code <script>/<file>.json} relative path) into
-	 * every discovered {@code live-plugins} folder. Installed copies are managed
+	 * Installs the bundled {@code plugin.groovy} files and logos into every
+	 * discovered {@code live-plugins} folder. The scripts read generated JSON
+	 * directly from the current project's {@code local/kubegroovy/live-plugin}.
+	 * Installed copies are managed
 	 * output and are overwritten; symlinks are never followed or replaced.
 	 */
-	private static LivePluginInstall installLivePluginScripts(Map<String, String> generatedJsons)
+	private static LivePluginInstall installLivePluginScripts()
 		throws IOException {
 		var scripts = readBundledLivePluginScripts();
 		var logo = readBundledBindingsLogo();
@@ -573,9 +569,6 @@ public final class KubeGroovyTypingGenerator {
 			}
 			if (logoDarkSvg != null) {
 				writeInstallFile(root, root.resolve("bindings").resolve("logo-dark.svg").normalize(), logoDarkSvg);
-			}
-			for (var json : generatedJsons.entrySet()) {
-				writeInstallFile(root, root.resolve(json.getKey()).normalize(), json.getValue());
 			}
 		}
 		KubeGroovy.LOGGER.info("Installed KubeGroovy LivePlugin scripts into {} IntelliJ config(s).", install.roots().size());

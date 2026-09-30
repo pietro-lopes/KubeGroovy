@@ -52,6 +52,7 @@ public class ItemIconExportTests {
 		Identifier.parse("kubegroovy:icon_test_tinted_fluid"));
 
 	private static final int[] SCALES = {1, 16, 17, 32, 128};
+	private static final int BATCH_ICON_COUNT = 65;
 
 	private static final AtomicBoolean DONE = new AtomicBoolean(false);
 	private static final AtomicReference<ItemIconExportScreen.Result> RESULT = new AtomicReference<>();
@@ -60,7 +61,7 @@ public class ItemIconExportTests {
 
 	@GameTest
 	@EmptyTemplate
-	@TestHolder(value = "icon_export", description = "Item and fluid icon export renders PNGs for a fixed stack set")
+	@TestHolder(value = "icon_export", description = "Batched item, fluid and tag PNG export preserves pixels and isolates write failures")
 	static void iconExport(final DynamicTest test) {
 		test.onGameTest(helper -> {
 			var sequence = helper.startSequence()
@@ -75,6 +76,9 @@ public class ItemIconExportTests {
 				sequence.thenExecute(() -> assertj(helper, () -> startExport(scale)))
 					.thenWaitUntil(() -> assertj(helper, () -> assertExport(scale)));
 			}
+
+			sequence.thenExecute(() -> assertj(helper, ItemIconExportTests::startBatchedExport))
+				.thenWaitUntil(() -> assertj(helper, ItemIconExportTests::assertBatchedExport));
 
 			sequence.thenExecute(() -> assertj(helper, () -> startCrossNamespaceTagOnlyExport()))
 				.thenWaitUntil(() -> assertj(helper, ItemIconExportTests::assertCrossNamespaceTagOnlyExport));
@@ -195,6 +199,77 @@ public class ItemIconExportTests {
 			findTag(tags, TagType.ITEM, "kubegroovy:icon_export/item/empty"),
 			findTag(tags, TagType.FLUID, "kubegroovy:icon_export/fluid/fixture"),
 			findTag(tags, TagType.BLOCK, "kubegroovy:icon_export/block/fallback"));
+	}
+
+	private static Identifier batchId(int index) {
+		return Identifier.parse("kubegroovy:icon_export_batch/cell_" + index);
+	}
+
+	private static TagEntry batchTag() {
+		return new TagEntry(Identifier.parse("kubegroovy:icon_export/item/batched"), TagType.ITEM, List.of(batchId(BATCH_ICON_COUNT - 1)));
+	}
+
+	private static void startBatchedExport() {
+		assertThat(ItemIconExportScreen.isRunning()).as("previous export finished").isFalse();
+		dir = KubeGroovyPaths.dir(KubeGroovyPaths.EXPORT.resolve("icons-test").resolve("scale-128"));
+		var entries = new ArrayList<ItemIconExportScreen.ExportEntry>();
+		for (int i = 0; i < BATCH_ICON_COUNT; i++) {
+			int kind = i % (IDS.size() + FLUID_IDS.size());
+			var id = batchId(i);
+			ItemIconExportScreen.ExportEntry entry = kind < IDS.size()
+				? new ItemIconExportScreen.Entry(id, stackOf(IDS.get(kind)))
+				: new ItemIconExportScreen.FluidEntry(id, fluidStackOf(FLUID_IDS.get(kind - IDS.size())));
+			deleteQuietly(ItemIconExporter.resolve(dir, entry));
+			entries.add(entry);
+			if (i == 9) {
+				// An unwritable destination in the middle of a batch must not prevent
+				// later cells or subsequent batches from saving successfully.
+				var badId = Identifier.parse("kubegroovy:icon_export_batch/write_failure");
+				Path badFile = ItemIconExporter.resolve(dir, badId);
+				deleteQuietly(badFile);
+				try {
+					Files.createDirectories(badFile);
+				} catch (Exception ex) {
+					throw new AssertionError("Cannot prepare write-failure fixture", ex);
+				}
+				entries.add(new ItemIconExportScreen.Entry(badId, new ItemStack(Items.STONE)));
+			}
+		}
+		deleteQuietly(ItemIconExporter.tagResolve(dir, batchTag()));
+		DONE.set(false);
+		RESULT.set(null);
+		COMPLETION.set(null);
+		ItemIconExportScreen.export(entries, List.of(batchTag()), dir, 128, message -> COMPLETION.set(message.getString()), result -> {
+			RESULT.set(result);
+			DONE.set(true);
+		});
+	}
+
+	private static void assertBatchedExport() {
+		assertThat(DONE.get()).as("mixed export crosses rows and screenshot batches").isTrue();
+		assertThat(RESULT.get()).isNotNull();
+		assertThat(RESULT.get().exported()).isEqualTo(BATCH_ICON_COUNT + 1);
+		assertThat(RESULT.get().failed()).as("only the unwritable PNG fails").isEqualTo(1);
+		for (int i = 0; i < BATCH_ICON_COUNT; i++) {
+			int kind = i % (IDS.size() + FLUID_IDS.size());
+			if (kind < IDS.size()) {
+				Path file = ItemIconExporter.resolve(dir, batchId(i));
+				assertPngWritten(file, batchId(i), 128, true);
+				// Static item models must match their reference icon pixel for pixel,
+				// including chroma-keyed transparency, regardless of their grid cell.
+				try (var reference = NativeImage.read(readQuietly(ItemIconExporter.resolve(dir, IDS.get(kind))));
+					 var actual = NativeImage.read(readQuietly(file))) {
+					assertThat(actual.getPixelsABGR()).as("batch cell %d", i).containsExactly(reference.getPixelsABGR());
+				} catch (Exception ex) {
+					throw new AssertionError("Failed comparing batch cell " + i, ex);
+				}
+			} else {
+				// Fluid textures animate between captures; verify coverage and the
+				// custom stack tint rather than comparing different animation frames.
+				assertPngWritten(ItemIconExporter.fluidResolve(dir, batchId(i)), FLUID_IDS.get(kind - IDS.size()), 128, true);
+			}
+		}
+		assertTagIcon(batchTag(), batchId(BATCH_ICON_COUNT - 1), 128);
 	}
 
 	private static void assertExport(int scale) {
@@ -371,7 +446,7 @@ public class ItemIconExportTests {
 					}
 				}
 
-				assertThat(visiblePixels).as("visible fluid pixels " + id).isGreaterThan(0);
+				assertThat(visiblePixels).as("visible pixels " + id).isGreaterThan(0);
 				assertThat(hasExpectedCustomTint).as("NeoForge stack tint applied " + id).isTrue();
 			}
 		} catch (Exception ex) {

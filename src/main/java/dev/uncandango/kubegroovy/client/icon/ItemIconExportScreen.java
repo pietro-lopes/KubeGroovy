@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.fog.FogRenderer;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.fluid.FluidTintSource;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -22,15 +23,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /// Renders item and fluid icons to PNG files, then overlays tag badges on the
-/// corresponding saved member icons. Base rendering fills a magic-color rect,
-/// draws the stack, flushes, screenshots the main target, resizes the cell,
-/// chroma-keys the background, and saves. The capture loop is adapted from
-/// IconExporter by CyclopsMC (MIT licensed); the tag composition, queue, error
+/// corresponding saved member icons. Base rendering fills magic-color cells,
+/// draws up to 64 stacks, flushes once, and screenshots the main target. An IO
+/// worker crops, resizes, chroma-keys, and saves each cell. The capture technique
+/// is adapted from IconExporter by CyclopsMC (MIT licensed); batching, tag composition, queue, error
 /// accounting, and filename layout are KubeGroovy's own. Items draw through
 /// `fakeItem`; fluids draw their still-texture sprite tinted by the model.
 /// Client thread only: open through [ItemIconExportScreen#export], which
@@ -41,6 +43,9 @@ public class ItemIconExportScreen extends Screen {
 	/// RGB value avoids blending with the world behind the GUI and is unlikely
 	/// to occur in a real icon.
 	private static final int BACKGROUND_COLOR = 0xFF12FE34;
+	private static final int MAX_PENDING_BATCHES = 2;
+	private static final long TAG_FRAME_BUDGET_NANOS = 4_000_000L;
+	private static final long STALL_TIMEOUT_NANOS = 30_000_000_000L;
 	private static final Identifier TAG_BADGE = Identifier.fromNamespaceAndPath("jei", "textures/gui/sprites/icons/tag_badge.png");
 	private static volatile boolean running = false;
 
@@ -57,6 +62,9 @@ public class ItemIconExportScreen extends Screen {
 	public record Result(int exported, int failed, Path dir) {
 	}
 
+	private record CaptureCell(ExportEntry entry, int pixelX, int pixelY) {
+	}
+
 	private final ArrayDeque<ExportEntry> queue;
 	private final ArrayDeque<ItemIconExporter.TagEntry> tagQueue;
 	private final int total;
@@ -71,9 +79,12 @@ public class ItemIconExportScreen extends Screen {
 	private @Nullable NativeImage tagBadge;
 	private @Nullable IOException tagBadgeLoadError;
 	private boolean tagBadgeLoadAttempted = false;
-	private boolean finished = false;
+	private volatile boolean finished = false;
+	private final long startedNanos = System.nanoTime();
+	private int pendingBatches = 0;
+	private int captureCount = 0;
 	private int lastReported = 0;
-	private int stalledFrames = 0;
+	private long stalledSinceNanos = 0;
 
 	public static boolean isRunning() {
 		return running && Minecraft.getInstance().screen instanceof ItemIconExportScreen;
@@ -137,31 +148,32 @@ public class ItemIconExportScreen extends Screen {
 			return;
 		}
 
-		var entry = queue.poll();
-
-		if (entry == null) {
-			if (inFlight.get() == 0) {
-				var tag = tagQueue.poll();
-
-				if (tag == null) {
-					finish();
-				} else {
-					stalledFrames = 0;
-					exportTag(tag);
-					reportProgress();
-				}
-			} else if (++stalledFrames > 600) {
-				// A screenshot callback that never lands must not wedge the UI
-				// forever: count the stuck shots as failed and close out.
-				failed.addAndGet(inFlight.getAndSet(0));
+		reportProgress();
+		if (inFlight.get() != 0 && (queue.isEmpty() || pendingBatches >= MAX_PENDING_BATCHES)) {
+			long now = System.nanoTime();
+			if (stalledSinceNanos == 0) {
+				stalledSinceNanos = now;
+			} else if (now - stalledSinceNanos > STALL_TIMEOUT_NANOS) {
+				// Bound both GPU readbacks and PNG workers, including callbacks
+				// that never arrive. Use elapsed time so a high frame rate cannot
+				// time out a busy IO worker. Late completions cannot change the result.
+				failRemaining();
 				finish();
 			}
-
 			return;
 		}
 
-		stalledFrames = 0;
-		renderNext(graphics, entry);
+		stalledSinceNanos = 0;
+		if (!queue.isEmpty()) {
+			renderBatch(graphics);
+		} else {
+			long deadline = System.nanoTime() + TAG_FRAME_BUDGET_NANOS;
+			for (int i = 0; i < IconExportBatch.MAX_ICONS && !tagQueue.isEmpty(); i++) {
+				exportTag(tagQueue.remove());
+				if (System.nanoTime() >= deadline) break;
+			}
+			if (tagQueue.isEmpty()) finish();
+		}
 		reportProgress();
 	}
 
@@ -174,54 +186,129 @@ public class ItemIconExportScreen extends Screen {
 		}
 	}
 
-	private void renderNext(GuiGraphicsExtractor graphics, ExportEntry entry) {
+	private void renderBatch(GuiGraphicsExtractor graphics) {
 		var mc = Minecraft.getInstance();
 		// The GUI renders in integer multiples of the natural 16-unit icon
 		// size. Render the whole cell, then resize it to the requested output.
 		int exportGuiScale = ItemIconExporter.renderGuiScale(scale);
 		int renderSize = exportGuiScale * 16;
+		var target = mc.getMainRenderTarget();
 		var windowState = mc.gameRenderer.getGameRenderState().windowRenderState;
+		var layout = IconExportBatch.fit(Math.min(target.width, windowState.width), Math.min(target.height, windowState.height), renderSize);
+		if (layout.capacity() == 0) {
+			feedback.accept(Component.literal("Window is too small to export icons at this size."));
+			failRemaining();
+			finish();
+			return;
+		}
+
+		var cells = new ArrayList<CaptureCell>(layout.capacity());
 		int originalGuiScale = windowState.guiScale;
 
 		try {
 			windowState.guiScale = exportGuiScale;
-			graphics.fill(0, 0, 16, 16, BACKGROUND_COLOR);
-
-			if (entry instanceof FluidEntry fluid) {
-				renderFluid(graphics, fluid.fluid());
-			} else if (entry instanceof Entry item) {
-				graphics.fakeItem(item.stack(), 0, 0);
+			for (int i = 0; i < layout.capacity() && !queue.isEmpty(); i++) {
+				var entry = queue.remove();
+				int pixelX = layout.pixelX(i);
+				int pixelY = layout.pixelY(i);
+				try {
+					renderCell(graphics, entry, pixelX / exportGuiScale, pixelY / exportGuiScale);
+					cells.add(new CaptureCell(entry, pixelX, pixelY));
+				} catch (Exception ex) {
+					failed.incrementAndGet();
+					KubeGroovy.LOGGER.warn("Failed to render icon for {}: {}", entry.id(), ex.toString());
+				}
+			}
+			if (cells.isEmpty()) {
+				mc.gameRenderer.getGameRenderState().guiRenderState.reset();
+				return;
 			}
 
 			var renderers = (GameRendererKGY) mc.gameRenderer;
 			renderers.kgy$getGuiRenderer().render(renderers.kgy$getFogRenderer().getBuffer(FogRenderer.FogMode.NONE));
 		} catch (Exception ex) {
-			failed.incrementAndGet();
-			KubeGroovy.LOGGER.warn("Failed to render icon for {}: {}", entry.id(), ex.toString());
+			failed.addAndGet(cells.size());
+			mc.gameRenderer.getGameRenderState().guiRenderState.reset();
+			KubeGroovy.LOGGER.warn("Failed to render icon batch: {}", ex.toString());
 			return;
 		} finally {
 			windowState.guiScale = originalGuiScale;
 		}
 
-		inFlight.incrementAndGet();
-		Screenshot.takeScreenshot(mc.getMainRenderTarget(), full -> {
-			try {
-				saveIcon(entry, full, renderSize);
-				exported.incrementAndGet();
-			} catch (Exception ex) {
-				failed.incrementAndGet();
-				KubeGroovy.LOGGER.warn("Failed to save icon for {}: {}", entry.id(), ex.toString());
-			} finally {
-				full.close();
-				inFlight.decrementAndGet();
+		inFlight.addAndGet(cells.size());
+		pendingBatches++;
+		captureCount++;
+		try {
+			Screenshot.takeScreenshot(target, full -> {
+				if (finished) {
+					full.close();
+					return;
+				}
+				try {
+					Util.ioPool().execute(() -> saveBatch(mc, cells, full, renderSize));
+				} catch (Exception ex) {
+					full.close();
+					mc.execute(() -> completeBatch(cells.size(), 0, cells.size()));
+					KubeGroovy.LOGGER.warn("Failed to schedule icon batch save: {}", ex.toString());
+				}
+			});
+		} catch (Exception ex) {
+			completeBatch(cells.size(), 0, cells.size());
+			KubeGroovy.LOGGER.warn("Failed to capture icon batch: {}", ex.toString());
+		}
+	}
+
+	private static void renderCell(GuiGraphicsExtractor graphics, ExportEntry entry, int x, int y) {
+		// Oversized models must not draw into a neighboring cell.
+		graphics.enableScissor(x, y, x + 16, y + 16);
+		try {
+			graphics.fill(x, y, x + 16, y + 16, BACKGROUND_COLOR);
+			if (entry instanceof FluidEntry fluid) {
+				renderFluid(graphics, fluid.fluid(), x, y);
+			} else if (entry instanceof Entry item) {
+				graphics.fakeItem(item.stack(), x, y);
 			}
-		});
+		} finally {
+			graphics.disableScissor();
+		}
+	}
+
+	private void saveBatch(Minecraft mc, List<CaptureCell> cells, NativeImage full, int renderSize) {
+		int saved = 0;
+		int errors = 0;
+		try {
+			for (var cell : cells) {
+				if (finished) break;
+				try {
+					saveIcon(cell, full, renderSize);
+					saved++;
+				} catch (Exception ex) {
+					errors++;
+					KubeGroovy.LOGGER.warn("Failed to save icon for {}: {}", cell.entry().id(), ex.toString());
+				}
+			}
+		} finally {
+			full.close();
+		}
+		int successful = saved;
+		int unsuccessful = errors;
+		mc.execute(() -> completeBatch(cells.size(), successful, unsuccessful));
+	}
+
+	/// All accounting stays on the client thread, including worker completions.
+	private void completeBatch(int size, int saved, int errors) {
+		if (finished) return;
+		exported.addAndGet(saved);
+		failed.addAndGet(errors);
+		inFlight.addAndGet(-size);
+		pendingBatches--;
+		stalledSinceNanos = 0;
 	}
 
 	/// Draws the fluid's still texture stretched over the 16x16 export cell,
 	/// tinted by its fluid model. Alpha is forced opaque so the
 	/// chroma-keyed background never bleeds through translucent tints.
-	private static void renderFluid(GuiGraphicsExtractor graphics, FluidStack stack) {
+	private static void renderFluid(GuiGraphicsExtractor graphics, FluidStack stack, int x, int y) {
 		var mc = Minecraft.getInstance();
 		var fluidState = stack.getFluid().defaultFluidState();
 		FluidModel fluidModel = mc.getModelManager().getFluidStateModelSet().get(fluidState);
@@ -232,7 +319,7 @@ public class ItemIconExportScreen extends Screen {
 				? tintSource.colorInWorld(fluidState.createLegacyBlock(), mc.level, mc.player.blockPosition())
 				: tintSource != null ? tintSource.color(fluidState.createLegacyBlock()) : 0xFFFFFFFF) | 0xFF000000;
 		var sprite = fluidModel.stillMaterial().sprite();
-		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, 0, 0, 16, 16, tint);
+		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, 16, 16, tint);
 	}
 
 	private void exportTag(ItemIconExporter.TagEntry entry) {
@@ -353,20 +440,20 @@ public class ItemIconExportScreen extends Screen {
 		return (int) Math.round((source * sourceAlpha + destination * destinationContribution) / outputAlpha);
 	}
 
-	private void saveIcon(ExportEntry entry, NativeImage full, int renderSize) throws IOException {
-		if (full.getWidth() < renderSize || full.getHeight() < renderSize) {
+	private void saveIcon(CaptureCell cell, NativeImage full, int renderSize) throws IOException {
+		if (full.getWidth() < cell.pixelX() + renderSize || full.getHeight() < cell.pixelY() + renderSize) {
 			throw new IOException("Framebuffer %dx%d smaller than rendered icon %d".formatted(full.getWidth(), full.getHeight(), renderSize));
 		}
 
-		var file = ItemIconExporter.resolve(outDir, entry);
+		var file = ItemIconExporter.resolve(outDir, cell.entry());
 		Files.createDirectories(file.getParent());
 
 		try (var image = new NativeImage(scale, scale, false)) {
 			for (int y = 0; y < scale; y++) {
-				int sourceY = (int) ((y + 0.5D) * renderSize / scale);
+				int sourceY = cell.pixelY() + (int) ((y + 0.5D) * renderSize / scale);
 
 				for (int x = 0; x < scale; x++) {
-					int sourceX = (int) ((x + 0.5D) * renderSize / scale);
+					int sourceX = cell.pixelX() + (int) ((x + 0.5D) * renderSize / scale);
 					int pixel = full.getPixel(sourceX, sourceY);
 					image.setPixel(x, y, pixel == BACKGROUND_COLOR ? 0 : pixel);
 				}
@@ -377,6 +464,25 @@ public class ItemIconExportScreen extends Screen {
 	}
 
 	private void finish() {
+		finish(true);
+	}
+
+	@Override
+	public void removed() {
+		if (!finished) {
+			failRemaining();
+			finish(false);
+		}
+	}
+
+	private void failRemaining() {
+		failed.addAndGet(queue.size() + tagQueue.size() + inFlight.getAndSet(0));
+		queue.clear();
+		tagQueue.clear();
+		pendingBatches = 0;
+	}
+
+	private void finish(boolean closeScreen) {
 		if (finished) {
 			return;
 		}
@@ -386,6 +492,8 @@ public class ItemIconExportScreen extends Screen {
 
 		var result = new Result(exported.get(), failed.get(), outDir);
 		int skipped = skippedTags.get();
+		KubeGroovy.LOGGER.info("Icon export completed in {} ms ({} screenshot batches, {} icons, {} failures).",
+			(System.nanoTime() - startedNanos) / 1_000_000L, captureCount, result.exported(), result.failed());
 		feedback.accept(Component.literal("Exported %d icons (%d failed, %d tag%s skipped) to %s.".formatted(result.exported(), result.failed(), skipped, skipped == 1 ? "" : "s", outDir)));
 
 		if (onDone != null) {
@@ -398,7 +506,7 @@ public class ItemIconExportScreen extends Screen {
 
 		var mc = Minecraft.getInstance();
 
-		if (mc.screen == this) {
+		if (closeScreen && mc.screen == this) {
 			mc.setScreen(null);
 		}
 
