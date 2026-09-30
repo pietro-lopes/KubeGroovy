@@ -1,9 +1,8 @@
 import net.minecraft.world.entity.LivingEntity
-import net.minecraft.world.item.ItemStack
 
 $EntityEvents.spawned('minecraft:zombie') { event ->
 	if (event.entity instanceof LivingEntity le) {
-		le.setMainHandItem('minecraft:iron_sword' as ItemStack)
+		le.setMainHandItem('minecraft:iron_sword')
 	}
 	$TestRuntime.pass('entity.behavior.zombie')
 }

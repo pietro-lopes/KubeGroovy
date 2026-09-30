@@ -1,13 +1,8 @@
-import net.minecraft.core.Holder
-import net.minecraft.core.component.DataComponentType
-import net.minecraft.core.component.DataComponents
+import dev.uncandango.kubegroovy.item.custom.ShearsItemBuilder
+import dev.uncandango.kubegroovy.item.MutableToolTier
 import net.minecraft.network.chat.Component
-import net.minecraft.world.effect.MobEffect
-import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.ToolMaterial
-import dev.uncandango.kubegroovy.item.MutableToolTier
-import dev.uncandango.kubegroovy.item.custom.ShearsItemBuilder
 
 // Every public item/food/behavior method has a direct DSL call in this fixture.
 $StartupEvents.registry('item') { event ->
@@ -18,8 +13,8 @@ $StartupEvents.registry('item') { event ->
 		.texture(['layer0'], 'kubegroovy:item/coverage_item_layer')
 		.textures([layer0: 'kubegroovy:item/coverage_item', layer1: 'kubegroovy:item/coverage_item_overlay'])
 		.parentModel('minecraft:item/generated')
-		.modelGenerator { model -> model.parent('minecraft:item/generated') }
-		.component("custom_name" as DataComponentType<?>, Component.literal('Coverage'))
+		.modelGenerator { model -> model.parent('minecraft:item/generated'); model.textures([layer0: 'kubegroovy:item/coverage_item', particle: 'kubegroovy:item/coverage_item']) }
+		.component("custom_name", Component.literal('Coverage'))
 		.maxStackSize(32).unstackable().maxDamage(42).burnTime(40)
 		.containerItem('minecraft:bucket')
 		.subtypes { stack -> [stack] }
@@ -32,8 +27,8 @@ $StartupEvents.registry('item') { event ->
 				.alwaysEdible(false).alwaysEdible()
 				.eatSeconds(1.2f).fastToEat()
 				.usingConvertsTo(ItemStack.EMPTY)
-				.effect("luck" as Holder<MobEffect>, 20, 0, 1.0f)
-				.removeEffect("luck" as Holder<MobEffect>)
+				.effect("luck", 20, 0, 1.0f)
+				.removeEffect("luck")
 				.eaten { eaten -> }
 			food.getUsingConvertsTo()
 			food.getEatSeconds()

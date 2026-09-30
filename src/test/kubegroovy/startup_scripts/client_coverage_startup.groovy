@@ -1,7 +1,9 @@
 // requires client
-import dev.uncandango.kubegroovy.util.KubeIdentifier
+import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.Identifier
+import net.neoforged.neoforge.client.settings.KeyConflictContext
+import net.neoforged.neoforge.client.settings.KeyModifier
 
 // Startup-scope client registry coverage. Skipped on dedicated servers via `requires client`,
 // fires on the game-test client during RegisterRenderers / RegisterMenuScreens / RegisterKeyMappings.
@@ -13,10 +15,10 @@ $KeyBindEvents.registry { event ->
 	event.register('coverage_key_b').defaultKey('key.keyboard.b').category('coverage').gui()
 	event.register('coverage_key_c', 'key.mouse.left').mouseInputType().category('coverage_mouse')
 	event.register('coverage_key_d', 'key.keyboard.g').scanCodeInputType().category('coverage_scan')
-	event.register('coverage_key_e').inputType(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM).category('coverage_input')
+	event.register('coverage_key_e').inputType(InputConstants.Type.KEYSYM).category('coverage_input')
 	def chained = event.register('coverage_key_f', 'key.keyboard.h')
-	chained.conflictContext(net.neoforged.neoforge.client.settings.KeyConflictContext.UNIVERSAL)
-	chained.modifier(net.neoforged.neoforge.client.settings.KeyModifier.SHIFT)
+	chained.conflictContext(KeyConflictContext.UNIVERSAL)
+	chained.modifier(KeyModifier.SHIFT)
 	chained.category('coverage_mod')
 	// Unknown key name resolves to -1: covers the unmapped-default branch.
 	event.register('coverage_key_unknown_default', 'not.a.real.key').category('coverage')
@@ -66,6 +68,6 @@ $ClientEvents.menuScreenRegistry { event ->
 
 $ItemEvents.modelProperties { event ->
 	$TestRuntime.passStartup('client.modelProperties')
-	event.register('kubegroovy:coverage_cb' as KubeIdentifier, { stack, level, entity, seed, ctx -> true })
-	event.registerAll('kubegroovy:coverage_cb_all' as KubeIdentifier, { stack, level, entity, seed, ctx -> false })
+	event.register('kubegroovy:coverage_cb', { stack, level, entity, seed, ctx -> true })
+	event.registerAll('kubegroovy:coverage_cb_all', { stack, level, entity, seed, ctx -> false })
 }

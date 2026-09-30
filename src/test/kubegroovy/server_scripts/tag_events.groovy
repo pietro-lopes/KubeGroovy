@@ -1,4 +1,3 @@
-import net.minecraft.resources.Identifier
 
 $ServerEvents.tags('item') { event ->
 	$TestRuntime.check('tags.item.wiki') {

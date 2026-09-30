@@ -1,11 +1,13 @@
 import dev.uncandango.kubegroovy.script.bridge.Context
+import dev.uncandango.kubegroovy.testmod.binding.BindingTests
 import dev.uncandango.kubegroovy.testmod.TestRuntime
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
+import net.minecraft.network.chat.MutableComponent
 import net.minecraft.server.MinecraftServer
-import net.minecraft.server.TickTask
+import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
-import net.minecraft.resources.Identifier
 import org.assertj.core.api.Assertions
 
 import java.util.concurrent.CompletableFuture
@@ -15,7 +17,7 @@ import java.util.concurrent.TimeUnit
 
 def stackOf = { value, count = null ->
 	def stack = value as ItemStack
-	if (count != null) stack.setCount(count as int)
+	if (count != null) stack.setCount(count)
 	stack
 }
 
@@ -39,7 +41,7 @@ $TestRuntime.check('binding.text.builders') {
 }
 
 $TestRuntime.check('binding.text.styled') {
-	def styled = ([text: 'hi', bold: true, color: 'red'] as net.minecraft.network.chat.MutableComponent)
+	def styled = ([text: 'hi', bold: true, color: 'red'] as MutableComponent)
 	$TestRuntime.assertThat(styled.getString()).isEqualTo('hi')
 	$TestRuntime.assertThat(styled.getStyle().isBold()).isTrue()
 	$TestRuntime.assertThat(styled.getStyle().getColor() != null).isTrue()
@@ -109,29 +111,29 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat($Item.getEmpty().isEmpty()).as('Item.getEmpty').isTrue()
 		$TestRuntime.assertThat($Item.isItem(stackOf('minecraft:diamond'))).as('Item.isItem(ItemStack)').isTrue()
 		$TestRuntime.assertThat($Item.isItem('minecraft:diamond')).as('Item.isItem(String)').isFalse()
-		$TestRuntime.assertThat($Item.exists('minecraft:diamond' as Identifier)).as('Item.exists(diamond)').isTrue()
-		$TestRuntime.assertThat($Item.exists('minecraft:totally_not_a_real_item' as Identifier)).as('Item.exists(missing)').isFalse()
+		$TestRuntime.assertThat($Item.exists('minecraft:diamond')).as('Item.exists(diamond)').isTrue()
+		$TestRuntime.assertThat($Item.exists('minecraft:totally_not_a_real_item')).as('Item.exists(missing)').isFalse()
 	}
 	$TestRuntime.check('binding.ingredient.match') {
-		def diamonds = 'minecraft:diamond' as net.minecraft.world.item.crafting.Ingredient
+		def diamonds = 'minecraft:diamond' as Ingredient
 		$TestRuntime.assertThat(diamonds.test(stackOf('minecraft:diamond'))).isTrue()
 		$TestRuntime.assertThat(diamonds.test(stackOf('minecraft:dirt'))).isFalse()
 	}
 	$TestRuntime.check('binding.ingredient.tag') {
-		def planks = '#minecraft:planks' as net.minecraft.world.item.crafting.Ingredient
+		def planks = '#minecraft:planks' as Ingredient
 		$TestRuntime.assertThat(planks.test(stackOf('minecraft:oak_planks'))).isTrue()
 		$TestRuntime.assertThat(planks.test(stackOf('minecraft:diamond'))).isFalse()
 	}
 	$TestRuntime.check('binding.ingredient.compound') {
-		def either = ['minecraft:diamond', 'minecraft:dirt'] as net.minecraft.world.item.crafting.Ingredient
+		def either = ['minecraft:diamond', 'minecraft:dirt'] as Ingredient
 		$TestRuntime.assertThat(either.test(stackOf('minecraft:diamond'))).isTrue()
 		$TestRuntime.assertThat(either.test(stackOf('minecraft:dirt'))).isTrue()
 		$TestRuntime.assertThat(either.test(stackOf('minecraft:stone'))).isFalse()
 	}
 	$TestRuntime.check('binding.ingredient.meta') {
-		$TestRuntime.assertThat($Ingredient.isIngredient('minecraft:diamond' as net.minecraft.world.item.crafting.Ingredient)).isTrue()
+		$TestRuntime.assertThat($Ingredient.isIngredient('minecraft:diamond' as Ingredient)).isTrue()
 		$TestRuntime.assertThat($Ingredient.isIngredient('minecraft:diamond')).isFalse()
-		$TestRuntime.assertThat(('minecraft:diamond' as net.minecraft.world.item.crafting.Ingredient).first.id).isEqualTo('minecraft:diamond')
+		$TestRuntime.assertThat(('minecraft:diamond' as Ingredient).first.id).isEqualTo('minecraft:diamond')
 	}
 	$TestRuntime.check('binding.context') {
 		def context = Context.getCurrent();
@@ -141,16 +143,16 @@ $ServerEvents.tick { event ->
 		//def outerCx = Context.getCurrent()
 		//$TestRuntime.assertThat(outerCx).as("outer context").isNotNull()
 		def tasks = [
-				$Utils.runAsync({-> $TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context via Utils.runAsync propagation").isNotNull() }),
-				CompletableFuture.runAsync({-> $TestRuntime.assertThat(dev.uncandango.kubegroovy.testmod.binding.BindingTests.checkContext()).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
+				$Utils.runAsync({-> $TestRuntime.assertThat(BindingTests.checkContext()).as("context via Utils.runAsync propagation").isNotNull() }),
+				CompletableFuture.runAsync({-> $TestRuntime.assertThat(BindingTests.checkContext()).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
 		].toArray(CompletableFuture[]::new)
 		CompletableFuture.allOf(tasks).join();
 	}
 	$TestRuntime.check('binding.context_async2') {
 		MinecraftServer server = event.server
-		server.executeBlocking([run: {$TestRuntime.assertThat("minecraft:diamond" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on execute blocking").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
+		server.executeBlocking([run: {$TestRuntime.assertThat("minecraft:diamond" as RegistryPredicate<Item>).as("context on execute blocking").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
 		// this test pass but polutes log with error that I can't suppress :pepesad:
-//		def task = server.submitAsync([run: {$TestRuntime.assertThat("invalid:item" as RegistryPredicate<net.minecraft.world.item.Item>).as("context on submit async").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
+//		def task = server.submitAsync([run: {$TestRuntime.assertThat("invalid:item" as RegistryPredicate<Item>).as("context on submit async").isInstanceOf(RegistryHolderPredicate)}] as Runnable)
 //		while (!task.isDone()) {
 //		}
 //		Assertions.assertThat(task).isCompletedExceptionally()

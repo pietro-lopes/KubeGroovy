@@ -1,14 +1,23 @@
+import dev.uncandango.kubegroovy.client.BlockTintFunctionWrapper
 import dev.uncandango.kubegroovy.client.DebugInfoKubeEvent
+import dev.uncandango.kubegroovy.client.icon.ItemKubeIcon
+import dev.uncandango.kubegroovy.client.icon.KubeIconRenderer
+import dev.uncandango.kubegroovy.client.icon.TextureKubeIcon
+import dev.uncandango.kubegroovy.client.ItemTintFunctionWrapper
 import dev.uncandango.kubegroovy.client.KubeGroovyClient
 import dev.uncandango.kubegroovy.client.KubeGroovyKeybinds
-import dev.uncandango.kubegroovy.color.KubeColor
-import dev.uncandango.kubegroovy.util.KubeIdentifier
-import net.minecraft.core.particles.ParticleOptions
+import dev.uncandango.kubegroovy.client.KubeSessionData
+import dev.uncandango.kubegroovy.client.NotificationToast
+import dev.uncandango.kubegroovy.text.tooltip.TooltipRequirements
+import dev.uncandango.kubegroovy.util.NotificationToastData
+import dev.uncandango.kubegroovy.util.Tristate
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.resources.Identifier
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.crafting.Ingredient
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.phys.Vec3
+
+import java.util.Optional
 
 // Client lifecycle + targeted client events. Loaded only on the client (client_scripts),
 // so client-only imports and bindings are safe here.
@@ -50,12 +59,12 @@ $ClientEvents.tick { event ->
 		} catch (Throwable ignored) {
 		}
 		try {
-			def timeoutId = setTimeout({ se -> $TestRuntime.pass('client.timeout') }, '5t' as Duration)
+			def timeoutId = setTimeout({ se -> $TestRuntime.pass('client.timeout') }, '5t')
 			clearTimeout(timeoutId)
-			setTimeout({ se -> $TestRuntime.pass('client.timeout.fired') }, '2t' as Duration)
-			def intervalId = setInterval({ se -> $TestRuntime.pass('client.interval') }, '20t' as Duration)
+			setTimeout({ se -> $TestRuntime.pass('client.timeout.fired') }, '2t')
+			def intervalId = setInterval({ se -> $TestRuntime.pass('client.interval') }, '20t')
 			clearInterval(intervalId)
-			setInterval({ se -> $TestRuntime.pass('client.interval.fired') }, '30t' as Duration)
+			setInterval({ se -> $TestRuntime.pass('client.interval.fired') }, '30t')
 		} catch (Throwable ignored) {
 			$TestRuntime.pass('client.scheduler.called')
 		}
@@ -79,11 +88,11 @@ $ClientEvents.tick { event ->
 		// run in-world, not at load.
 		try {
 			$TestRuntime.check('client.wrapper.icons.item') {
-				$TestRuntime.assertThat(dev.uncandango.kubegroovy.client.icon.KubeIconRenderer.from(new dev.uncandango.kubegroovy.client.icon.ItemKubeIcon('minecraft:diamond' as ItemStack)) != null).isTrue()
+				$TestRuntime.assertThat(KubeIconRenderer.from(new ItemKubeIcon('minecraft:diamond')) != null).isTrue()
 			}
 			$TestRuntime.check('client.wrapper.tintFunctions.itemStack') {
-				def result = new dev.uncandango.kubegroovy.client.ItemTintFunctionWrapper(0)
-					.calculate('minecraft:diamond' as ItemStack, null, null)
+				def result = new ItemTintFunctionWrapper(0)
+					.calculate('minecraft:diamond', null, null)
 				// The value depends on whether the item carries a script
 				// behavior; the instanceof proves the call completed.
 				$TestRuntime.assertThat(result instanceof Integer).isTrue()
@@ -92,11 +101,11 @@ $ClientEvents.tick { event ->
 			$TestRuntime.pass('client.wrapper.icons.item.called')
 		}
 		// Spawn a vanilla-sprite particle so the script provider + particle
-		// tick/getter paths run (custom types lack atlas sprites at stitch).
+		// tick/getter paths run with the vanilla flame sprite.
 		// Staggered a few times: an immediately-joined world sometimes drops
 		// the first-tick spawn before the particle engine is ready.
 		def spawnFlame = {
-			def opts = 'minecraft:flame' as ParticleOptions
+			def opts = 'minecraft:flame'
 			def level = event.client.level
 			def pos = event.player.blockPosition()
 			level.addParticle(opts, pos.x + 0.5, pos.y + 2.0, pos.z + 0.5, 0.0, 0.0, 0.0)
@@ -104,8 +113,8 @@ $ClientEvents.tick { event ->
 		}
 		try {
 			spawnFlame()
-			setTimeout({ se -> spawnFlame() }, '5s' as Duration)
-			setTimeout({ se -> spawnFlame() }, '15s' as Duration)
+			setTimeout({ se -> spawnFlame() }, '5s')
+			setTimeout({ se -> spawnFlame() }, '15s')
 		} catch (Throwable t) {
 			$TestRuntime.check('client.particle.spawn.diag') { $TestRuntime.assertThat('threw: ' + t.toString()).isEqualTo('spawned') }
 		}
@@ -113,21 +122,21 @@ $ClientEvents.tick { event ->
 		try {
 			def level = event.client.level
 			def pos = event.player.blockPosition()
-			dev.uncandango.kubegroovy.client.BlockTintFunctionWrapper.getAverageGrassColor(level, pos)
-			dev.uncandango.kubegroovy.client.BlockTintFunctionWrapper.getAverageFoliageColor(level, pos)
-			dev.uncandango.kubegroovy.client.BlockTintFunctionWrapper.getAverageWaterColor(level, pos)
-			dev.uncandango.kubegroovy.client.KubeSessionData.of(event.client)
+			BlockTintFunctionWrapper.getAverageGrassColor(level, pos)
+			BlockTintFunctionWrapper.getAverageFoliageColor(level, pos)
+			BlockTintFunctionWrapper.getAverageWaterColor(level, pos)
+			KubeSessionData.of(event.client)
 			$TestRuntime.check('client.formatNumber') {
 				$TestRuntime.assertThat(KubeGroovyClient.formatNumber(5)).isEqualTo('5')
 				$TestRuntime.assertThat(KubeGroovyClient.formatNumber(9999)).isEqualTo('9999')
 				$TestRuntime.assertThat(KubeGroovyClient.formatNumber(15000)).isEqualTo('15K')
 				$TestRuntime.assertThat(KubeGroovyClient.formatNumber(2500000)).isEqualTo('2M')
 			}
-			def toastData = new dev.uncandango.kubegroovy.util.NotificationToastData(
-				'5s' as Duration, $Text.string('Coverage toast'),
-				java.util.Optional.of(new dev.uncandango.kubegroovy.client.icon.TextureKubeIcon('kubegroovy:block/unknown' as Identifier)),
-				16, java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), false)
-			def toast = new dev.uncandango.kubegroovy.client.NotificationToast(event.client, toastData)
+			def toastData = new NotificationToastData(
+				'5s', $Text.string('Coverage toast'),
+				Optional.of(new TextureKubeIcon('kubegroovy:block/unknown')),
+				16, Optional.empty(), Optional.empty(), Optional.empty(), false)
+			def toast = new NotificationToast(event.client, toastData)
 			toast.update(null, 0L)
 			$TestRuntime.check('client.toast') {
 				$TestRuntime.assertThat(toast.width() > 0).isTrue()
@@ -137,10 +146,10 @@ $ClientEvents.tick { event ->
 			// Show real toasts so render/update/visibility/icon-draw paths execute.
 			event.player.notify(toastData)
 			$TestRuntime.pass('client.toast.shown')
-			def itemToastData = new dev.uncandango.kubegroovy.util.NotificationToastData(
-				'5s' as Duration, $Text.string('Item toast'),
-				java.util.Optional.of(new dev.uncandango.kubegroovy.client.icon.ItemKubeIcon('minecraft:diamond' as ItemStack)),
-				16, java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.empty(), true)
+			def itemToastData = new NotificationToastData(
+				'5s', $Text.string('Item toast'),
+				Optional.of(new ItemKubeIcon('minecraft:diamond')),
+				16, Optional.empty(), Optional.empty(), Optional.empty(), true)
 			event.player.notify(itemToastData)
 			$TestRuntime.pass('client.toast.item.shown')
 		} catch (Throwable t) {
@@ -169,13 +178,13 @@ $ClientEvents.rightDebugInfo { event ->
 
 $ClientEvents.atlasSpriteRegistry('minecraft:blocks') { event ->
 	$TestRuntime.check('client.atlas.blocks') {
-		event.register('kubegroovy:coverage_sprite' as Identifier)
+		event.register('kubegroovy:coverage_sprite')
 	}
 }
 
 $ClientEvents.atlasSpriteRegistry('minecraft:particles') { event ->
 	$TestRuntime.check('client.atlas.particles') {
-		event.register('kubegroovy:coverage_particle_sprite' as Identifier)
+		event.register('kubegroovy:coverage_particle_sprite')
 	}
 }
 
@@ -186,16 +195,16 @@ $ClientEvents.lang('en_us') { event ->
 		event.addAll('kubegroovy', ['coverage.client.a': 'A', 'coverage.client.b': 'B'])
 		event.addAll(['coverage.client.c': 'C'])
 		try {
-			event.renameItem('minecraft:diamond' as ItemStack, 'Coverage Diamond')
+			event.renameItem('minecraft:diamond', 'Coverage Diamond')
 		} catch (Throwable ignored) {
 			// Item registries are not bound during the early boot resource reload;
 			// renames apply on later reloads once holders exist.
 			$TestRuntime.pass('client.lang.rename.deferred')
 		}
 		event.renameBlock(Blocks.STONE, 'Coverage Stone')
-		event.renameEntity('minecraft:pig' as Identifier, 'Coverage Pig')
-		event.renameBiome('minecraft:plains' as Identifier, 'Coverage Plains')
-		event.painting('kubegroovy:coverage_painting' as KubeIdentifier, 'Coverage Title', 'Coverage Author')
+		event.renameEntity('minecraft:pig', 'Coverage Pig')
+		event.renameBiome('minecraft:plains', 'Coverage Plains')
+		event.painting('kubegroovy:coverage_painting', 'Coverage Title', 'Coverage Author')
 		// Null/empty branches throw; prove the guard without failing the script.
 		// NOTE: catch Throwable because the sandbox class filter denies java.lang.IllegalArgumentException.
 		try {
@@ -234,11 +243,11 @@ $ClientEvents.particleProviderRegistry { event ->
 		event.register(flame) { particle ->
 			particle.setGravity(0.1f)
 			particle.setFriction(0.9f)
-			particle.setColor('#ff0000' as KubeColor, true)
-			particle.setColor('#00ff00' as KubeColor)
+			particle.setColor('#ff0000', true)
+			particle.setColor('#00ff00')
 			particle.setPhysicality(true)
 			particle.setFasterWhenYMotionBlocked(true)
-			particle.setSpeed(new net.minecraft.world.phys.Vec3(0.01, 0.02, 0.03))
+			particle.setSpeed(new Vec3(0.01, 0.02, 0.03))
 			particle.setLightColor({ partial -> 0xF000F0 })
 			particle.onTick({ p ->
 				$TestRuntime.pass('client.particle.ticked')
@@ -296,16 +305,16 @@ $KeyBindEvents.tick('coverage_key_a') { event ->
 
 $ItemEvents.modifyTooltips { event ->
 	$TestRuntime.check('client.tooltip.modify') {
-		event.modify('minecraft:diamond' as Ingredient, { builder -> builder.add([$Text.string('Coverage line')]) })
+		event.modify('minecraft:diamond', { builder -> builder.add([$Text.string('Coverage line')]) })
 		event.modifyAll({ builder -> builder.dynamic('coverage_client_tip') })
-		event.add('minecraft:stone' as Ingredient, [$Text.string('Stone line')])
-		def reqs = new dev.uncandango.kubegroovy.text.tooltip.TooltipRequirements(
-			dev.uncandango.kubegroovy.util.Tristate.TRUE, dev.uncandango.kubegroovy.util.Tristate.DEFAULT,
-			dev.uncandango.kubegroovy.util.Tristate.DEFAULT, dev.uncandango.kubegroovy.util.Tristate.FALSE,
-			dev.uncandango.kubegroovy.util.Tristate.DEFAULT, [:])
-		event.modify('minecraft:iron_ingot' as Ingredient, reqs, { builder -> builder.add([$Text.string('Req line')]) })
+		event.add('minecraft:stone', [$Text.string('Stone line')])
+		def reqs = new TooltipRequirements(
+			Tristate.TRUE, Tristate.DEFAULT,
+			Tristate.DEFAULT, Tristate.FALSE,
+			Tristate.DEFAULT, [:])
+		event.modify('minecraft:iron_ingot', reqs, { builder -> builder.add([$Text.string('Req line')]) })
 		event.modifyAll(reqs, { builder -> builder.add([$Text.string('Req all')]) })
-		event.add('minecraft:gold_ingot' as Ingredient, reqs, [$Text.string('Req gold')])
+		event.add('minecraft:gold_ingot', reqs, [$Text.string('Req gold')])
 	}
 }
 

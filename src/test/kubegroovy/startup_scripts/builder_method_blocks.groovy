@@ -1,4 +1,3 @@
-import net.minecraft.world.level.block.state.properties.BlockStateProperties
 import net.minecraft.world.level.block.state.properties.WoodType
 
 // Base block methods, callback setters, crop shape helpers, and subtype methods.
@@ -10,7 +9,7 @@ $StartupEvents.registry('block') { event ->
 		.texture(['side', 'end'], 'kubegroovy:block/coverage_block_side')
 		.textures([all: 'kubegroovy:block/coverage_block'])
 		.parentModel('minecraft:block/cube_all')
-		.modelGenerator { model -> model.parent('minecraft:block/cube_all') }
+		.modelGenerator { model -> model.parent('minecraft:block/cube_all'); model.textures([all: 'kubegroovy:block/coverage_block']) }
 		.copyPropertiesFrom('minecraft:stone')
 		.soundType('wood').noSoundType().woodSoundType().stoneSoundType().gravelSoundType()
 		.grassSoundType().sandSoundType().cropSoundType().glassSoundType()

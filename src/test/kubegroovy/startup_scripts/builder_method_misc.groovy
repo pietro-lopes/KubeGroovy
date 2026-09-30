@@ -1,17 +1,7 @@
-import dev.uncandango.kubegroovy.fluid.FluidBuilder
-import dev.uncandango.kubegroovy.util.KubeIdentifier
 import net.minecraft.core.Holder
 import net.minecraft.core.particles.ParticleType
-import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.core.particles.SimpleParticleType
-import net.minecraft.sounds.SoundEvents
-import net.minecraft.world.effect.MobEffect
 import net.minecraft.world.effect.MobEffectInstance
-import net.minecraft.world.effect.MobEffects
-import net.minecraft.world.entity.ai.attributes.AttributeModifier
 import net.minecraft.world.level.block.Blocks
-import net.minecraft.world.level.block.state.BlockState
-import net.neoforged.neoforge.common.SoundActions
 
 // Fluids, fluid types, sounds, effects, potions, particles, POIs and remaining registries.
 $StartupEvents.registry('fluid') { event ->
@@ -30,7 +20,7 @@ $StartupEvents.registry('fluid') { event ->
 				.actualStillTexture('kubegroovy:block/generated/coverage_still')
 				.actualFlowingTexture('kubegroovy:block/generated/coverage_flow')
 				.screenOverlayTexture('kubegroovy:misc/coverage_screen')
-				.blockOverlayTexture('kubegroovy:misc/coverage_block')
+				.blockOverlayTexture('kubegroovy:block/coverage_overlay')
 				.textureTint(0xFF00AAFF).tint(0xFF22AA44)
 				.tintFunction { state, level, pos, index -> 0xFF22AA44 }
 				.descriptionId('fluid.kubegroovy.coverage_fluid')
@@ -86,7 +76,7 @@ $StartupEvents.registry('mob_effect') { event ->
 
 $StartupEvents.registry('potion') { event ->
 	def potion = event.create('coverage_potion')
-	def luck = "luck" as Holder<MobEffect>
+	def luck = "luck"
 	def instance = new MobEffectInstance("luck", 20)
 	potion.addEffect(instance)
 		.effect(luck).effect(luck, 20).effect(luck, 20, 1)
@@ -134,7 +124,7 @@ $StartupEvents.registry('jukebox_song') { event ->
 }
 
 $StartupEvents.registry('attribute') { event ->
-	event.create('coverage_range_attribute' as KubeIdentifier).range(4.0, 0.0, 10.0).syncable(false)
+	event.create('coverage_range_attribute').range(4.0, 0.0, 10.0).syncable(false)
 		.sentiment('positive').negativeSentiment().neutralSentiment()
 		.attachTo { entityType -> true }.attachToPlayers().attachToMonsters().attachToCategory('monster')
 	event.create('coverage_boolean_attribute').bool(true)

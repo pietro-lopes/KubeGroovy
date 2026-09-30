@@ -5,37 +5,40 @@ import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSyntaxException
 import com.mojang.serialization.MapCodec
 import dev.uncandango.kubegroovy.block.BlockTintFunction
+import dev.uncandango.kubegroovy.block.state.BlockStatePredicate
 import dev.uncandango.kubegroovy.client.icon.KubeIcon
 import dev.uncandango.kubegroovy.client.icon.TextureKubeIcon
 import dev.uncandango.kubegroovy.color.KubeColor
 import dev.uncandango.kubegroovy.core.PlayerSelector
 import dev.uncandango.kubegroovy.error.KubeRuntimeException
-import dev.uncandango.kubegroovy.holder.HolderWrapper
 import dev.uncandango.kubegroovy.item.ItemPredicate
 import dev.uncandango.kubegroovy.item.ItemTintFunction
 import dev.uncandango.kubegroovy.recipe.filter.RecipeFilter
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatch
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatchInfo
-import dev.uncandango.kubegroovy.block.state.BlockStatePredicate
 import dev.uncandango.kubegroovy.script.bridge.BaseFunction
 import dev.uncandango.kubegroovy.testmod.TestRuntime
 import dev.uncandango.kubegroovy.util.KubeIdentifier
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryIDPredicate
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
 import dev.uncandango.kubegroovy.util.SlotFilter
 import dev.uncandango.kubegroovy.util.TickDuration
 import dev.uncandango.kubegroovy.util.Tristate
-import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate
-import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate
+import net.minecraft.advancements.criterion.ItemPredicate as VanillaItemPredicate
+import net.minecraft.commands.arguments.selector.EntitySelector
 import net.minecraft.commands.synchronization.ArgumentTypeInfo
 import net.minecraft.core.BlockPos
-import net.minecraft.core.HolderSet
-import net.minecraft.core.Position
-import net.minecraft.core.particles.ParticleOptions
-import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.core.registries.Registries
 import net.minecraft.core.component.DataComponentMap
 import net.minecraft.core.component.DataComponentPatch
-import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.component.DataComponentType
+import net.minecraft.core.HolderSet
+import net.minecraft.core.particles.ParticleOptions
+import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.Position
+import net.minecraft.core.registries.Registries
+import net.minecraft.core.Vec3i
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.TestEnvironmentDefinition
 import net.minecraft.nbt.CollectionTag
@@ -55,62 +58,60 @@ import net.minecraft.util.RandomSource
 import net.minecraft.util.Unit
 import net.minecraft.util.valueproviders.FloatProvider
 import net.minecraft.util.valueproviders.IntProvider
-import net.minecraft.world.LockCode
+import net.minecraft.util.valueproviders.WeightedListInt
 import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.EntitySpawnReason
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
-import net.minecraft.world.item.Item
-import net.minecraft.world.item.consume_effects.ConsumeEffect
-import net.minecraft.world.item.enchantment.ItemEnchantments
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
-import net.minecraft.world.item.ToolMaterial
 import net.minecraft.world.item.component.BlockItemStateProperties
 import net.minecraft.world.item.component.CustomData
 import net.minecraft.world.item.component.CustomModelData
 import net.minecraft.world.item.component.Fireworks
 import net.minecraft.world.item.component.ItemAttributeModifiers
 import net.minecraft.world.item.component.ItemLore
+import net.minecraft.world.item.consume_effects.ConsumeEffect
 import net.minecraft.world.item.crafting.Ingredient
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.enchantment.Enchantments
+import net.minecraft.world.item.enchantment.ItemEnchantments
 import net.minecraft.world.item.equipment.ArmorMaterial
 import net.minecraft.world.item.equipment.ArmorType
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.ToolMaterial
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.block.state.properties.BlockSetType
-import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest
 import net.minecraft.world.level.ItemLike
+import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest
 import net.minecraft.world.level.material.Fluids
 import net.minecraft.world.level.material.MapColor
 import net.minecraft.world.level.storage.loot.LootContext.EntityTarget
 import net.minecraft.world.level.storage.loot.providers.number.NumberProvider
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator
+import net.minecraft.world.LockCode
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.common.ItemAbility
 import net.neoforged.neoforge.common.crafting.SizedIngredient
-import net.neoforged.neoforge.fluids.FluidStack
+import net.neoforged.neoforge.common.ItemAbility
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient
+import net.neoforged.neoforge.fluids.FluidStack
 import net.neoforged.neoforge.server.ServerLifecycleHooks
 import net.neoforged.neoforge.transfer.fluid.FluidResource
 import net.neoforged.neoforge.transfer.item.ItemResource
-import org.apache.commons.lang3.NotImplementedException
 import org.assertj.core.api.Assertions
-import org.codehaus.groovy.runtime.typehandling.GroovyCastException
-import dev.uncandango.kubegroovy.util.registrypredicate.RegistryIDPredicate
 
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 import java.time.temporal.TemporalAmount
-import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 import java.util.regex.Pattern
-
-import net.minecraft.util.valueproviders.WeightedListInt
+import java.util.UUID
 
 def wrapperChecksRun = false
 $ServerEvents.tick { event ->
@@ -137,7 +138,7 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(parsedDefaults.y()).as("parsable vec3 y").isEqualTo(2.5d)
 		$TestRuntime.assertThat(parsedDefaults.z()).as("null vec3 z defaults to 0").isEqualTo(0.0d)
 
-		def overworld = ServerLifecycleHooks.getCurrentServer().getLevel("minecraft:overworld" as Identifier)
+		def overworld = ServerLifecycleHooks.getCurrentServer().getLevel("minecraft:overworld")
 		def entity = EntityType.CREEPER.create(overworld, EntitySpawnReason.COMMAND)
 		$TestRuntime.assertThat(entity as Vec3).as("entity position").isEqualTo(entity.position())
 
@@ -187,7 +188,7 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(empty.getString().isEmpty()).as("empty component text is empty").isTrue()
 		def json = new JsonPrimitive('json component') as MutableComponent
 		$TestRuntime.assertThat(json.getString()).as("json component text").isEqualTo('json component')
-		def fromEnum = java.util.concurrent.TimeUnit.SECONDS as MutableComponent
+		def fromEnum = TimeUnit.SECONDS as MutableComponent
 		$TestRuntime.assertThat(fromEnum.getString()).as("enum component text").isEqualTo('SECONDS')
 		def fromList = ['a', 'b'] as MutableComponent
 		$TestRuntime.assertThat(fromList.getString()).as("list component text").isEqualTo('ab')
@@ -328,7 +329,7 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(('STONE' as MapColor).col).as("uppercase map color").isEqualTo(MapColor.STONE.col)
 		$TestRuntime.assertThat(('#ff0000' as MapColor).is(MapColor.NONE)).as("hex map color is not none").isFalse()
 		$TestRuntime.assertThat(0xFF0000 as MapColor).as("integer map color").isNotNull()
-		$TestRuntime.assertThat(net.minecraft.world.item.DyeColor.RED as MapColor).as("dye map color").isNotNull()
+		$TestRuntime.assertThat(DyeColor.RED as MapColor).as("dye map color").isNotNull()
 		Assertions.assertThatThrownBy(() -> '' as MapColor).as("empty string should not cast to MapColor")
 		Assertions.assertThatThrownBy(() -> 'not-a-map-color' as MapColor).as("unknown name should not cast to MapColor")
 
@@ -495,15 +496,15 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(('[]' as DataComponentPatch).isEmpty()).as("bracket patch is empty").isTrue()
 	}
 	$TestRuntime.check('wrapper.vec3i') {
-		def vec = [7, 8, 9] as net.minecraft.core.Vec3i
+		def vec = [7, 8, 9] as Vec3i
 		$TestRuntime.assertThat(vec.getX()).as("vec3i x").isEqualTo(7)
 		$TestRuntime.assertThat(vec.getY()).as("vec3i y").isEqualTo(8)
 		$TestRuntime.assertThat(vec.getZ()).as("vec3i z").isEqualTo(9)
-		def defaults = [7, 'not-a-number', null] as net.minecraft.core.Vec3i
+		def defaults = [7, 'not-a-number', null] as Vec3i
 		$TestRuntime.assertThat(defaults.getX()).as("defaulted vec3i x").isEqualTo(7)
 		$TestRuntime.assertThat(defaults.getY()).as("defaulted vec3i y").isEqualTo(0)
 		$TestRuntime.assertThat(defaults.getZ()).as("defaulted vec3i z").isEqualTo(0)
-		Assertions.assertThatThrownBy(() -> [1, 2] as net.minecraft.core.Vec3i).as("two elements should not cast to Vec3i")
+		Assertions.assertThatThrownBy(() -> [1, 2] as Vec3i).as("two elements should not cast to Vec3i")
 	}
 	$TestRuntime.check('wrapper.item') {
 		def item = 'minecraft:diamond' as Item
@@ -791,20 +792,20 @@ $ServerEvents.tick { event ->
 	$TestRuntime.check('wrapper.damage_source') {
 		def source = 'minecraft:generic' as DamageSource
 		$TestRuntime.assertThat(source.getMsgId()).as("generic damage id").isEqualTo('generic')
-		def overworld = ServerLifecycleHooks.getCurrentServer().getLevel("minecraft:overworld" as Identifier)
+		def overworld = ServerLifecycleHooks.getCurrentServer().getLevel("minecraft:overworld")
 		def mob = EntityType.CREEPER.create(overworld, EntitySpawnReason.COMMAND)
 		def mobSource = mob as DamageSource
 		$TestRuntime.assertThat(mobSource.getEntity().is(mob)).as("mob damage source entity").isTrue()
 		Assertions.assertThatThrownBy(() -> 'minecraft:not_a_damage_type' as DamageSource).as("unknown id should not cast to DamageSource")
 	}
 	$TestRuntime.check('wrapper.entity_selector') {
-		def selector = '@e[type=minecraft:pig,limit=1]' as net.minecraft.commands.arguments.selector.EntitySelector
+		def selector = '@e[type=minecraft:pig,limit=1]' as EntitySelector
 		$TestRuntime.assertThat(selector.getMaxResults()).as("selector max results").isEqualTo(1)
 		$TestRuntime.assertThat(selector.includesEntities()).as("selector includes entities").isTrue()
-		def self = '@s' as net.minecraft.commands.arguments.selector.EntitySelector
+		def self = '@s' as EntitySelector
 		$TestRuntime.assertThat(self.getMaxResults()).as("self selector max results").isEqualTo(1)
-		Assertions.assertThatThrownBy(() -> '' as net.minecraft.commands.arguments.selector.EntitySelector).as("empty string should not cast to EntitySelector")
-		Assertions.assertThatThrownBy(() -> '@e[invalid' as net.minecraft.commands.arguments.selector.EntitySelector).as("broken selector should not cast to EntitySelector")
+		Assertions.assertThatThrownBy(() -> '' as EntitySelector).as("empty string should not cast to EntitySelector")
+		Assertions.assertThatThrownBy(() -> '@e[invalid' as EntitySelector).as("broken selector should not cast to EntitySelector")
 	}
 	$TestRuntime.check('wrapper.replacement_match') {
 		def match = 'minecraft:diamond' as ReplacementMatch
@@ -996,12 +997,12 @@ $ServerEvents.tick { event ->
 
 	}
 	$TestRuntime.check('wrapper.lock_code') {
-		def lock = [:] as net.minecraft.advancements.criterion.ItemPredicate as LockCode
-		def lockStick = [items: "stick"] as net.minecraft.advancements.criterion.ItemPredicate as LockCode
+		def lock = [:] as VanillaItemPredicate as LockCode
+		def lockStick = [items: "stick"] as VanillaItemPredicate as LockCode
 		$TestRuntime.assertThat(lock).as("stick lock code").isNotNull()
 		$TestRuntime.assertThat(lockStick.unlocksWith(Items.STICK.defaultInstance)).as("lock opens with stick").isTrue()
 		$TestRuntime.assertThat(lockStick.unlocksWith(Items.DIAMOND.defaultInstance)).as("lock rejects diamond").isFalse()
-		Assertions.assertThatThrownBy(() -> [items: "not_an_item"] as net.minecraft.advancements.criterion.ItemPredicate as LockCode).as("unknown id should not cast to LockCode").isInstanceOf(IllegalStateException)
+		Assertions.assertThatThrownBy(() -> [items: "not_an_item"] as VanillaItemPredicate as LockCode).as("unknown id should not cast to LockCode").isInstanceOf(IllegalStateException)
 	}
 	$TestRuntime.check('wrapper.block_state_properties') {
 		def empty = [:] as BlockItemStateProperties

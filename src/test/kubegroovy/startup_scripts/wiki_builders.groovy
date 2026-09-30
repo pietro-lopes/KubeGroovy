@@ -1,4 +1,3 @@
-import dev.uncandango.kubegroovy.util.KubeIdentifier
 
 $StartupEvents.registry('item') { event ->
 	event.create('wiki_item')
@@ -72,7 +71,7 @@ $StartupEvents.registry('neoforge:fluid_type') { event ->
 
 $StartupEvents.registry('creative_mode_tab') { event ->
 	event.create('wiki_tab')
-		.icon { "minecraft:carrot" } // "minecraft:carrot" as ItemStack
+		.icon { "minecraft:carrot" } // "minecraft:carrot"
 		.content { showRestrictedItems ->
 			["minecraft:dirt", "minecraft:grass_block"]
 		}
@@ -127,8 +126,8 @@ $StartupEvents.registry('jukebox_song') { event ->
 }
 
 $StartupEvents.registry('attribute') { event ->
-	event.create('wiki_range_attribute' as KubeIdentifier)
+	event.create('wiki_range_attribute')
 		.range(4.0, 0.0, 10.0).syncable(false).neutralSentiment().attachToPlayers()
-	event.create('wiki_boolean_attribute' as KubeIdentifier)
+	event.create('wiki_boolean_attribute')
 		.bool(true).negativeSentiment().attachToMonsters()
 }

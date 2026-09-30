@@ -1,5 +1,3 @@
-import net.minecraft.world.item.ItemStack
-
 $EntityEvents.spawned('minecraft:sheep') { event ->
 	$TestRuntime.check('coverage.core.entity') {
 		def sheep = event.entity
@@ -17,7 +15,7 @@ $ServerEvents.basicPublicCommand('coverage_inventory') { event ->
 		$TestRuntime.assertThat(inventory.getSlots()).isGreaterThan(0)
 		$TestRuntime.assertThat(inventory.isEmpty()).isTrue()
 
-		def offered = '3x minecraft:diamond' as ItemStack
+		def offered = '3x minecraft:diamond'
 		def simulatedRemainder = inventory.insertItem(0, offered, true)
 		$TestRuntime.assertThat(simulatedRemainder.isEmpty()).isTrue()
 		$TestRuntime.assertThat(inventory.getStackInSlot(0).isEmpty()).isTrue()
