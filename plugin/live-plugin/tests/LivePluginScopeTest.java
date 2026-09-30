@@ -245,11 +245,14 @@ public final class LivePluginScopeTest extends LivePluginTestCase {
 				"minecraft:water", "java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.material.Fluid>>"));
 			assertEquals("tags/item/minecraft/planks.png", relativePath.invoke(null,
 				"#minecraft:planks", "net.minecraft.world.item.crafting.Ingredient"));
+			var iconFor = support.getMethod("iconFor", String.class, java.util.Collection.class, File.class);
+			assertNull(iconFor.invoke(null, "minecraft:stone", List.of("net.minecraft.world.item.Item"), projectRoot.toFile()));
 
 			Path itemIcon = projectRoot.resolve("local/kubegroovy/export/icons-32/item/minecraft/stone.png");
 			Files.createDirectories(itemIcon.getParent());
 			javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
 				java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", itemIcon.toFile());
+			assertNotNull(iconFor.invoke(null, "minecraft:stone", List.of("net.minecraft.world.item.Item"), projectRoot.toFile()));
 			Path suggestionPlugin = livePlugins.resolve("type-suggestions");
 			Path bindingsPlugin = livePlugins.resolve("bindings");
 			Files.createDirectories(suggestionPlugin.resolve("icons"));
@@ -270,7 +273,6 @@ public final class LivePluginScopeTest extends LivePluginTestCase {
 			var fallbackFiles = (List<File>) iconFiles.invoke(null, "testmod:missing",
 				List.of("example.Unmatched"), projectRoot.toFile());
 			assertEquals(svgLogo.toFile().getCanonicalFile(), fallbackFiles.getFirst());
-			var iconFor = support.getMethod("iconFor", String.class, java.util.Collection.class, File.class);
 			Object resolvedItemIcon = iconFor.invoke(null, "minecraft:stone",
 				List.of("net.minecraft.world.item.Item"), projectRoot.toFile());
 			assertNotNull(resolvedItemIcon);
@@ -291,6 +293,13 @@ public final class LivePluginScopeTest extends LivePluginTestCase {
 			Object refreshedIcon = iconFor.invoke(null, "testmod:missing",
 				List.of("example.Unmatched"), projectRoot.toFile());
 			assertNotSame(fallbackIcon, refreshedIcon);
+			Files.setLastModifiedTime(newlyExportedIcon, FileTime.fromMillis(System.currentTimeMillis() + 2000));
+			Object updatedIcon = iconFor.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile());
+			assertNotSame(refreshedIcon, updatedIcon);
+			Files.delete(newlyExportedIcon);
+			assertSame(fallbackIcon, iconFor.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile()));
 
 			Object previousCatalog = suggestionCatalog(loader);
 			List<String> ingredient = List.of("net.minecraft.world.item.crafting.Ingredient");

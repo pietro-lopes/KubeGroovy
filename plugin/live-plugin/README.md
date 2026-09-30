@@ -104,6 +104,10 @@ When no exported icon is available, completion uses the vector
 `bindings/logo.svg` from the sibling LivePlugin folder, with the PNG logo as a
 fallback. Resolved icons are cached per project, identifier, and asset path, so
 delegated types that resolve to the same asset share an entry. The cache checks
-candidate file timestamps so newly exported or updated icons can replace the
-fallback without reloading the plugin. Run `/kgy export-icons` in a client world
-to refresh the project exports.
+candidate file attributes once per completion, sharing checks for common fallback
+files. Prefix matching happens before icon resolution, and candidate discovery
+stops at the first usable icon so preloaded exports avoid fallback path work.
+Newly exported, updated, or removed icons are observed on the next completion
+without reloading the plugin. Timing logs separate type inference and icon work
+and report both considered and matching suggestions. Run `/kgy export-icons` in
+a client world to refresh the project exports.

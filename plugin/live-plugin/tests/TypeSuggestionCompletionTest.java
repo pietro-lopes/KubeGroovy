@@ -14,6 +14,7 @@ import com.intellij.psi.PsiFile;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -146,6 +147,34 @@ public final class TypeSuggestionCompletionTest extends LivePluginTestCase {
 		writeCatalog(Map.of("example.Item", List.of(id)));
 		choose("new example.Target().accept('<caret>')", id,
 			"new example.Target().accept(\"a\\\"\\\\\\$\\n\\r\\t\\u0001\"<caret>)");
+	}
+
+	public void testLiteralPrefixFiltersBeforeResolvingIcons() throws Exception {
+		List<String> ids = new ArrayList<>(List.of("addon:apple", "addon:apricot"));
+		for (int i = 0; i < 1000; i++) ids.add("addon:other" + i);
+		writeCatalog(Map.of("example.Item", ids));
+		Path directory = Files.createTempDirectory("kgy-completion-icons");
+		try {
+			Path icons = Files.createDirectories(directory.resolve("type-suggestions/icons"));
+			var image = new java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+			for (String name : List.of("apple", "apricot", "other0")) {
+				javax.imageio.ImageIO.write(image, "png", icons.resolve("addon__" + name + ".png").toFile());
+			}
+			Class<?> support = loader.loadClass("TypeSuggestionIcons");
+			support.getMethod("setIconDir", String.class).invoke(null, icons.toString());
+			LookupElement[] elements = complete("kubegroovy/server_scripts/Prefix.groovy",
+				"new example.Target().accept('addon:ap<caret>')");
+			assertNotNull(elements);
+			assertEquals(List.of("addon:apple", "addon:apricot"), Arrays.stream(elements)
+				.map(LookupElement::getLookupString).filter(id -> id.startsWith("addon:")).sorted().toList());
+			String cacheSizes = (String) support.getMethod("iconCacheSizes").invoke(null);
+			assertTrue("Only matching IDs should resolve icons: " + cacheSizes, cacheSizes.contains("cachedSuggestions=2 "));
+			assertTrue("The excluded icon should never be decoded: " + cacheSizes, cacheSizes.contains("cachedFiles=2 "));
+		} finally {
+			try (var paths = Files.walk(directory)) {
+				for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+			}
+		}
 	}
 
 	public void testContributorDoesNotOfferIdsOutsideScriptRoots() {

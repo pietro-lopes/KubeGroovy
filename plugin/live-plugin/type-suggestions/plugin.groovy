@@ -22,6 +22,7 @@ import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.extensions.LoadingOrder
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.project.Project
@@ -66,6 +67,9 @@ import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrSafeCa
 import org.jetbrains.plugins.groovy.lang.psi.api.types.GrTypeElement
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.Files
+import java.nio.file.NoSuchFileException
+import java.nio.file.attribute.BasicFileAttributes
 import static TypeSuggestionSupport.*
 
 /**
@@ -381,6 +385,8 @@ class TypeSuggestionIcons {
 	private static final Map<String, Object> FILE_ICON_LOCKS = new ConcurrentHashMap<>()
 	private static final Map<String, CompletableFuture<Void>> PROJECT_ICON_PRELOADS = new ConcurrentHashMap<>()
 	private static final Map<String, File> EXPORTED_ICON_FILES = new ConcurrentHashMap<>()
+	private static final Map<String, String> PROJECT_ROOT_PATHS = new ConcurrentHashMap<>()
+	private static final Map<String, File> EXPORT_ICON_ROOTS = new ConcurrentHashMap<>()
 	private static volatile String iconDir
 	private static volatile File bindingsLogoFile
 	private static volatile File bindingsLogoSvgFile
@@ -674,17 +680,10 @@ class TypeSuggestionIcons {
 		}
 		List<File> files = []
 		try {
-			String projectRootPath = projectRoot.getCanonicalPath()
-			File base = new File(projectRootPath, "local/kubegroovy/export").getCanonicalFile()
+			String projectRootPath = canonicalProjectRootPath(projectRoot)
 			for (String folder : ["icons-32", "icon-32"]) {
-				File root = new File(base, folder).getCanonicalFile()
 				for (String relative : relativePaths) {
-					String indexKey = exportedIconIndexKey(projectRootPath, folder, relative)
-					File file = EXPORTED_ICON_FILES.get(indexKey)
-					if (file == null) {
-						file = safeIconFile(root, relative)
-						if (file != null) EXPORTED_ICON_FILES.put(indexKey, file)
-					}
+					File file = exportedIconFile(projectRootPath, folder, relative)
 					if (file != null) files.add(file)
 				}
 			}
@@ -700,6 +699,12 @@ class TypeSuggestionIcons {
 		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig()) {
 		LinkedHashMap<String, File> files = new LinkedHashMap<String, File>()
 		for (File file : exportedIconFiles(projectRoot, id, requestedTypes, catalog)) files.put(file.getAbsolutePath(), file)
+		for (File file : fallbackIconFilesForSuggestion(id)) files.put(file.getAbsolutePath(), file)
+		return files.values().toList()
+	}
+
+	private static List<File> fallbackIconFilesForSuggestion(String id) {
+		LinkedHashMap<String, File> files = new LinkedHashMap<String, File>()
 		if (iconDir != null && id != null) {
 			String unprefixed = id.startsWith("#") ? id.substring(1) : id
 			List<String> names = [iconFileName(id), unprefixed + ".png"]
@@ -718,6 +723,30 @@ class TypeSuggestionIcons {
 
 	private static String exportedIconIndexKey(String projectRootPath, String scaleDirectory, String relativePath) {
 		return projectRootPath + "|" + scaleDirectory + "/" + relativePath.replace('\\', '/')
+	}
+
+	private static String canonicalProjectRootPath(File projectRoot) {
+		String key = projectRoot.getAbsolutePath()
+		String cached = PROJECT_ROOT_PATHS.get(key)
+		if (cached != null) return cached
+		String canonical = projectRoot.getCanonicalPath()
+		PROJECT_ROOT_PATHS.put(key, canonical)
+		return canonical
+	}
+
+	private static File exportedIconFile(String projectRootPath, String folder, String relative) {
+		String key = exportedIconIndexKey(projectRootPath, folder, relative)
+		File file = EXPORTED_ICON_FILES.get(key)
+		if (file != null) return file
+		String rootKey = projectRootPath + "|" + folder
+		File root = EXPORT_ICON_ROOTS.get(rootKey)
+		if (root == null) {
+			root = new File(projectRootPath, "local/kubegroovy/export/" + folder).getCanonicalFile()
+			EXPORT_ICON_ROOTS.put(rootKey, root)
+		}
+		file = safeIconFile(root, relative)
+		if (file != null) EXPORTED_ICON_FILES.put(key, file)
+		return file
 	}
 
 	private static List<String> exportedIconPathsForSuggestion(String id, Collection<String> requestedTypes, TypeSuggestionCatalog.Snapshot catalog) {
@@ -746,7 +775,8 @@ class TypeSuggestionIcons {
 	 * and keyed by catalog generation, project, identifier and resolved asset paths.
 	 */
 	static Icon iconFor(String id, Collection<String> requestedTypes, File projectRoot,
-		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig()) {
+		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig(),
+		Map<String, String> fileStates = new HashMap<String, String>()) {
 		if (id == null) return null
 		long started = System.nanoTime()
 		try {
@@ -757,23 +787,43 @@ class TypeSuggestionIcons {
 			String key = catalog.generation + "|" + root + "|" + identifier + "|" + paths.join(",")
 			CachedIcon cached = ICONS.get(key)
 			if (cached != null) {
-				if (cached.stamp == iconCandidateStamp(cached.watched)) return cached.icon
+				if (cached.stamp == iconCandidateStamp(cached.watched, fileStates)) return cached.icon
 				ICONS.remove(key, cached)
 			}
-			List<File> candidates = iconCandidateFilesForSuggestion(id, requestedTypes, projectRoot, catalog)
-			for (int i = 0; i < candidates.size(); i++) {
-				Icon icon = loadIcon(candidates[i])
-				if (icon == null) continue
-				List<File> watched = new ArrayList<File>(candidates.subList(0, i + 1))
-				ICONS.put(key, new CachedIcon(icon, watched, iconCandidateStamp(watched)))
-				return icon
+			// Preloading has already canonicalized exported paths and decoded their files.
+			// Stop at the first usable candidate before constructing any fallback paths.
+			List<File> watched = new ArrayList<File>()
+			if (projectRoot != null) {
+				String projectRootPath = canonicalProjectRootPath(projectRoot)
+				for (String folder : ["icons-32", "icon-32"]) {
+					for (String relative : paths) {
+						File file = exportedIconFile(projectRootPath, folder, relative)
+						if (file == null) continue
+						watched.add(file)
+						Icon icon = loadIcon(file, fileStates)
+						if (icon != null) return rememberIcon(key, icon, watched, fileStates)
+					}
+				}
 			}
+			for (File file : fallbackIconFilesForSuggestion(id)) {
+				if (watched.contains(file)) continue
+				watched.add(file)
+				Icon icon = loadIcon(file, fileStates)
+				if (icon == null) continue
+				return rememberIcon(key, icon, watched, fileStates)
+			}
+			return rememberIcon(key, null, watched, fileStates)
 		} catch (Exception error) {
 			recover(error)
 		} finally {
 			if (System.nanoTime() - started >= 50_000_000L) debugTiming("icon lookup id=" + id + " total=" + elapsed(started))
 		}
 		return null
+	}
+
+	private static Icon rememberIcon(String key, Icon icon, List<File> watched, Map<String, String> fileStates) {
+		ICONS.put(key, new CachedIcon(icon, watched, iconCandidateStamp(watched, fileStates)))
+		return icon
 	}
 
 	private static synchronized void activateCatalog(TypeSuggestionCatalog.Snapshot catalog) {
@@ -795,29 +845,40 @@ class TypeSuggestionIcons {
 		}
 	}
 
-	private static String iconCandidateStamp(Collection<File> files) {
+	/** Read each candidate's attributes once per completion, including shared fallbacks. */
+	private static String iconFileState(File file, Map<String, String> fileStates) {
+		String path = file.getAbsolutePath()
+		String cached = fileStates.get(path)
+		if (cached != null) return cached
+		String state = "missing"
+		try {
+			BasicFileAttributes attributes = Files.readAttributes(file.toPath(), BasicFileAttributes.class)
+			if (attributes.isRegularFile()) state = attributes.lastModifiedTime().toMillis() + "|" + attributes.size()
+		} catch (NoSuchFileException ignored) {
+			// Missing higher-priority candidates are watched so later exports replace fallbacks.
+		} catch (IOException | SecurityException error) { recover(error) }
+		fileStates.put(path, state)
+		return state
+	}
+
+	private static String iconCandidateStamp(Collection<File> files, Map<String, String> fileStates) {
 		StringBuilder stamp = new StringBuilder()
 		for (File file : files) {
-			stamp.append(file.getAbsolutePath()).append('|')
-			if (file.isFile()) {
-				stamp.append(file.lastModified()).append('|').append(file.length())
-			} else {
-				stamp.append("missing")
-			}
-			stamp.append('\n')
+			stamp.append(file.getAbsolutePath()).append('|').append(iconFileState(file, fileStates)).append('\n')
 		}
 		return stamp.toString()
 	}
 
-	private static Icon loadIcon(File file) {
+	private static Icon loadIcon(File file, Map<String, String> fileStates = new HashMap<String, String>()) {
 		long loadStarted = System.nanoTime()
 		long lockWaitStarted = 0L
 		long lockWaitNanos = 0L
 		long decodeNanos = 0L
 		try {
-			if (file == null || !file.isFile()) return null
-			File canonical = file.getCanonicalFile()
-			String cacheKey = canonical.getAbsolutePath() + "|" + canonical.lastModified() + "|" + canonical.length()
+			if (file == null) return null
+			String state = iconFileState(file, fileStates)
+			if (state == "missing") return null
+			String cacheKey = file.getAbsolutePath() + "|" + state
 			Icon cached = FILE_ICONS.get(cacheKey)
 			if (cached != null) return cached
 			Object lock = FILE_ICON_LOCKS.get(cacheKey)
@@ -832,7 +893,7 @@ class TypeSuggestionIcons {
 				cached = FILE_ICONS.get(cacheKey)
 				if (cached != null) return cached
 				long decodeStarted = System.nanoTime()
-				Icon loaded = loadIconUncached(canonical)
+				Icon loaded = loadIconUncached(file)
 				decodeNanos = System.nanoTime() - decodeStarted
 				if (loaded != null) FILE_ICONS.put(cacheKey, loaded)
 				return loaded
@@ -1486,7 +1547,9 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig()
 		PsiElement position = parameters.getPosition()
 		int offset = parameters.getOffset()
+		long inferenceStarted = System.nanoTime()
 		List<String> types = new TypeSuggestionPsi(catalog).completionTypes(position, offset)
+		long inferenceNanos = System.nanoTime() - inferenceStarted
 		if (types.isEmpty()) return
 		int originalOffset = Math.max(0, offset - 1)
 		PsiElement originalPosition = parameters.getOriginalFile().findElementAt(originalOffset)
@@ -1497,21 +1560,30 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 		InsertHandler<LookupElement> insert = new TypeSuggestionInsertHandler(target)
 		CompletionResultSet sink = result.withPrefixMatcher(TypeSuggestionInsertion.literalPrefix(position, offset))
 		File root = TypeSuggestionIcons.projectRoot(parameters.getOriginalFile())
+		Map<String, String> iconFileStates = new HashMap<String, String>()
+		int considered = 0
 		int offered = 0
+		long iconNanos = 0L
 		for (String type : types) {
 			for (String id : catalog.suggestionsForType(type)) {
+				ProgressManager.checkCanceled()
+				considered++
 				// IDEA requires valid line separators in lookup strings. Keep the raw id
 				// as the lookup object, while escaped text is safe for its default insertion.
 				String quoted = TypeSuggestionInsertion.quoteSuggestion(id)
 				String lookup = quoted.substring(1, quoted.length() - 1)
 				LookupElementBuilder element = LookupElementBuilder.create(id, lookup).withInsertHandler(insert)
-				Icon icon = TypeSuggestionIcons.iconFor(id, types, root, catalog)
+				if (!sink.getPrefixMatcher().prefixMatches(element)) continue
+				long iconStarted = System.nanoTime()
+				Icon icon = TypeSuggestionIcons.iconFor(id, types, root, catalog, iconFileStates)
+				iconNanos += System.nanoTime() - iconStarted
 				if (icon != null) element = element.withIcon(icon)
 				sink.addElement(element)
 				offered++
 			}
 		}
-		debugTiming("completion types=" + types.size() + " suggestions=" + offered
+		debugTiming("completion types=" + types.size() + " considered=" + considered + " suggestions=" + offered
+			+ " inference=" + elapsedNanos(inferenceNanos) + " icons=" + elapsedNanos(iconNanos)
 			+ " total=" + elapsed(started) + " preload=" + TypeSuggestionIcons.projectIconPreloadStatus(root)
 			+ " " + TypeSuggestionIcons.iconCacheSizes())
 	}
