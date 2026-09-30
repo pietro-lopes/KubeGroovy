@@ -134,12 +134,25 @@ public final class TypeSuggestionCompletionTest extends LivePluginTestCase {
 	}
 
 	public void testExplicitCastsAndLiteralPrefixesAreRetained() {
+		choose("new example.Target().accept('<caret>' as example.Item)", "addon:apple",
+			"new example.Target().accept(\"addon:apple\"<caret> as example.Item)");
 		choose("def value = '<caret>' as example.Item", "addon:apple",
 			"def value = \"addon:apple\"<caret> as example.Item");
 		choose("def value = '<caret>' as Optional<example.Item>", "addon:apple",
 			"def value = \"addon:apple\"<caret> as Optional<example.Item>");
 		choose("new example.Target().accept('addon:a<caret>')", "addon:apple",
 			"new example.Target().accept(\"addon:apple\"<caret>)");
+	}
+
+	public void testCastTypesDoNotOfferArgumentIds() {
+		for (String argument : List.of("'addon:stone' as It<caret>",
+			"'addon:stone' as example.It<caret>", "'addon:stone' as Optional<example.It<caret>>",
+			"(example.It<caret>) 'addon:stone'")) {
+			LookupElement[] elements = complete("kubegroovy/server_scripts/CastType" + fileNumber++ + ".groovy",
+				"new example.Target().accept(" + argument + ")");
+			assertTrue("Argument IDs offered in cast type: " + argument,
+				elements == null || Arrays.stream(elements).noneMatch(item -> item.getLookupString().startsWith("addon:")));
+		}
 	}
 
 	public void testQuotesBackslashesDollarsAndControlsStayInsideOneLiteral() throws Exception {

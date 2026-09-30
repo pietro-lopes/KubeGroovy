@@ -382,8 +382,8 @@ public final class KubeGroovyTypingGenerator {
 		var methodAliasesText = renderMethodAliasesJson(MethodAliasGenerator.methodAliases(mods));
 		var overloadsText = renderObjectOverloadsJson(valueCatalog.stringWrappers());
 		var bindingsText = renderBindingsJson(bindings);
-		var eventMethodsText = renderEventMethodsJson(snapshotEventMethods());
-		var typeSuggestionsText = renderTypeSuggestionsJson(valueCatalog.typeSuggestions());
+		var eventMethodsText = renderEventMethodsJson(snapshotEventMethods(), registryTargets, builderTypes);
+		var typeSuggestionsText = renderTypeSuggestionsJson(valueCatalog.typeSuggestions(), registryTargets, builderTypes);
 		String oldModules = Files.exists(modules) ? Files.readString(modules, StandardCharsets.UTF_8) : null;
 		String mergedModules = mergeModules(oldModules);
 		String oldMisc = Files.exists(misc) ? Files.readString(misc, StandardCharsets.UTF_8) : null;
@@ -932,7 +932,31 @@ public final class KubeGroovyTypingGenerator {
 	 * synthetic methods with fully-qualified (possibly generic) type texts.
 	 */
 	public static String renderEventMethodsJson(Map<ScriptType, Map<String, List<EventMethod>>> methods) {
+		return renderEventMethodsJson(methods, List.of(), List.of());
+	}
+
+	public static String renderEventMethodsJson(Map<ScriptType, Map<String, List<EventMethod>>> methods,
+		Collection<LivePluginRegistryTarget> registryTargets, Collection<LivePluginBuilderType> builderTypes) {
 		var root = new JsonObject();
+		var registries = new JsonArray();
+		for (var target : registryTargets.stream().distinct().sorted(Comparator.comparing(LivePluginRegistryTarget::key)).toList()) {
+			var entry = new JsonObject();
+			entry.addProperty("key", target.key());
+			entry.addProperty("elementType", target.elementTypeName());
+			registries.add(entry);
+		}
+		root.add("_registryTargets", registries);
+		var builders = new JsonArray();
+		for (var builder : builderTypes.stream().distinct().sorted(Comparator.comparing(LivePluginBuilderType::registryKey)
+			.thenComparing(LivePluginBuilderType::typeId).thenComparing(LivePluginBuilderType::defaultType)).toList()) {
+			var entry = new JsonObject();
+			entry.addProperty("registryKey", builder.registryKey());
+			entry.addProperty("typeId", builder.typeId());
+			entry.addProperty("builderType", builder.builderTypeName());
+			entry.addProperty("defaultType", builder.defaultType());
+			builders.add(entry);
+		}
+		root.add("_builderTypes", builders);
 		var notes = new JsonArray();
 		notes.add("events: event-group methods snapshotted by /kgy generate-typings, keyed by script side (startup/server/client), then by runtime group name ('$'-prefixed, matching the qualifier text in scripts).");
 		notes.add("Each method is a static synthetic mirroring a runtime call shape (handler) or (target, handler); see EventHandler.call. The events provider builds them as static light methods so member resolution, completion and signature help work on $Group references.");
@@ -998,6 +1022,11 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	public static String renderTypeSuggestionsJson(TypeSuggestionCatalog catalog) {
+		return renderTypeSuggestionsJson(catalog, List.of(), List.of());
+	}
+
+	public static String renderTypeSuggestionsJson(TypeSuggestionCatalog catalog,
+		Collection<LivePluginRegistryTarget> registryTargets, Collection<LivePluginBuilderType> builderTypes) {
 		var root = new JsonObject();
 		root.addProperty("schemaVersion", 1);
 		root.addProperty("generatedBy", GENERATED_MARKER);
@@ -1020,6 +1049,25 @@ public final class KubeGroovyTypingGenerator {
 		var genericDelegates = new JsonObject();
 		catalog.genericDelegates().forEach(genericDelegates::addProperty);
 		root.add("genericDelegates", genericDelegates);
+		// Builder names are contextual: both create arguments use KubeIdentifier,
+		// but only the second argument denotes a builder registered for this event.
+		var registriesByElement = new TreeMap<String, Set<String>>();
+		for (var target : registryTargets) {
+			registriesByElement.computeIfAbsent(target.elementTypeName(), ignored -> new TreeSet<>()).add(target.key());
+		}
+		var builderSuggestions = new JsonObject();
+		registriesByElement.forEach((element, registries) -> {
+			if (registries.size() != 1) return;
+			var registry = registries.iterator().next();
+			var names = new TreeSet<String>();
+			for (var builder : builderTypes) {
+				if (builder.defaultType() || !registry.equals(builder.registryKey())) continue;
+				names.add(builder.typeId());
+				if (builder.typeId().startsWith("kubegroovy:")) names.add(builder.typeId().substring("kubegroovy:".length()));
+			}
+			if (!names.isEmpty()) builderSuggestions.add(element, jsonArray(names));
+		});
+		root.add("registryBuilderTypes", builderSuggestions);
 		return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(root) + '\n';
 	}
 

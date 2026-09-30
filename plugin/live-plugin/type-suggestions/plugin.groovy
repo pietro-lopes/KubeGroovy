@@ -259,7 +259,17 @@ class TypeSuggestionCatalog {
 				// An invalid wrapper index is ignored, as in the generated schema's previous reader.
 			}
 		}
-		return new Snapshot(generation, values, delegates, genericDelegates)
+		Map<String, List<String>> builderTypes = new LinkedHashMap<>()
+		Object builders = document.get("registryBuilderTypes")
+		if (builders instanceof Map) {
+			for (Map.Entry<?, ?> entry : ((Map<?, ?>) builders).entrySet()) {
+				if (entry.key == null || !(entry.value instanceof Collection)) continue
+				List<String> names = new ArrayList<>()
+				for (Object name : (Collection<?>) entry.value) if (name instanceof String) names.add((String) name)
+				builderTypes.put(normalizeType(entry.key.toString()), names)
+			}
+		}
+		return new Snapshot(generation, values, delegates, genericDelegates, builderTypes)
 	}
 
 	/** Ordered fixed delegation; the prefix is applied to every recursively resolved value. */
@@ -284,10 +294,12 @@ class TypeSuggestionCatalog {
 		final Map<String, List<String>> values
 		final List<DelegateRule> delegates
 		final Map<String, Integer> genericDelegates
+		final Map<String, List<String>> registryBuilderTypes
 		private final Set<String> registeredRawTypes
 
 		Snapshot(long generation, Map<String, List<String>> values,
-			List<DelegateRule> delegates, Map<String, Integer> genericDelegates) {
+			List<DelegateRule> delegates, Map<String, Integer> genericDelegates,
+			Map<String, List<String>> registryBuilderTypes = [:]) {
 			this.generation = generation
 			Map<String, List<String>> copiedValues = new LinkedHashMap<>()
 			for (Map.Entry<String, List<String>> entry : values.entrySet()) {
@@ -296,6 +308,11 @@ class TypeSuggestionCatalog {
 			this.values = Collections.unmodifiableMap(copiedValues)
 			this.delegates = Collections.unmodifiableList(new ArrayList<DelegateRule>(delegates))
 			this.genericDelegates = Collections.unmodifiableMap(new LinkedHashMap<String, Integer>(genericDelegates))
+			Map<String, List<String>> copiedBuilders = new LinkedHashMap<>()
+			for (Map.Entry<String, List<String>> entry : registryBuilderTypes.entrySet()) {
+				copiedBuilders.put(entry.key, Collections.unmodifiableList(new ArrayList<String>(entry.value)))
+			}
+			this.registryBuilderTypes = Collections.unmodifiableMap(copiedBuilders)
 			Set<String> names = new LinkedHashSet<>()
 			for (String type : values.keySet()) names.add(rawTypeName(type))
 			for (DelegateRule rule : delegates) {
@@ -989,8 +1006,32 @@ class TypeSuggestionPsi {
 		return catalog.resolveTypeName(psiTypeName(type))
 	}
 
+	/** Null outside the builder-type argument; empty when the event's registry is unknown. */
+	List<String> builderSuggestions(PsiElement position, int offset) {
+		if (PsiTreeUtil.getParentOfType(position, GrTypeElement.class, false) != null) return null
+		GrCall call = PsiTreeUtil.getParentOfType(position, GrCall.class, false)
+		if (!(call instanceof GrMethodCallExpression)) return null
+		GrExpression invoked = ((GrMethodCallExpression) call).getInvokedExpression()
+		if (!(invoked instanceof GrReferenceExpression)) return null
+		GrReferenceExpression reference = (GrReferenceExpression) invoked
+		if (reference.getReferenceName() != 'create' || argumentIndex(call, call.getExpressionArguments(), offset) != 1) return null
+		PsiType receiver = reference.getQualifierExpression()?.getType()
+		if (!(receiver instanceof PsiClassType)) return null
+		def resolved = ((PsiClassType) receiver).resolveGenerics()
+		PsiClass event = resolved.getElement()
+		String name = event?.getQualifiedName()
+		if (name != 'dev.uncandango.kubegroovy.registry.RegistryKubeEvent' &&
+			name != 'dev.uncandango.kubegroovy.registry.ServerRegistryKubeEvent') return null
+		if (event.getTypeParameters().length != 1) return []
+		PsiType element = resolved.getSubstitutor().substitute(event.getTypeParameters()[0])
+		String elementName = psiTypeName(element)
+		return elementName == null ? [] : catalog.registryBuilderTypes.get(elementName) ?: []
+	}
+
 	/** Finds all supported types at the caret, preferring applicable methods before sibling overloads and casts. */
 	List<String> completionTypes(PsiElement position, int offset) {
+		// A cast's type is inside the argument range, but is not a value completion site.
+		if (PsiTreeUtil.getParentOfType(position, GrTypeElement.class, false) != null) return []
 		List<String> types = new ArrayList<>()
 		GrCall call = PsiTreeUtil.getParentOfType(position, GrCall.class, false)
 		if (call != null) {
@@ -998,6 +1039,13 @@ class TypeSuggestionPsi {
 			int index = argumentIndex(call, arguments, offset)
 			if (index >= 0) {
 				Map<PsiMethod, PsiSubstitutor> resolved = resolvedMethods(call)
+				// The applicable registry bridge takes Object so plain strings work.
+				// Its typed ResourceKey sibling may be absent from completion variants;
+				// recover the registry-name catalog from the event callback signature.
+				if (index == 0 && isRegistryEventTarget(resolved.keySet())) {
+					String registryType = catalog.resolveTypeName('net.minecraft.core.Registry')
+					if (registryType != null) return [registryType]
+				}
 				PsiElement argument = index < arguments.length ? arguments[index] : null
 				for (Map.Entry<PsiMethod, PsiSubstitutor> entry : resolved.entrySet()) {
 					String type = specForParam(entry.key, index, entry.value, argument, position, offset)
@@ -1026,6 +1074,22 @@ class TypeSuggestionPsi {
 			if (coerced != null) types.add(coerced)
 		}
 		return types
+	}
+
+	private static boolean isRegistryEventTarget(Collection<PsiMethod> methods) {
+		for (PsiMethod method : methods) {
+			if (method.getContainingClass()?.getQualifiedName() != 'dev.uncandango.kubegroovy.typing.EventGroupBinding') continue
+			def parameters = method.getParameterList().getParameters()
+			if (parameters.length != 2) continue
+			String callback = psiTypeName(parameters[1].getType())
+			if (callback == null || rawTypeName(callback) != 'java.util.function.Consumer') continue
+			List<String> events = typeArguments(callback)
+			if (events.size() != 1) continue
+			String event = rawTypeName(events[0])
+			if (event == 'dev.uncandango.kubegroovy.registry.RegistryKubeEvent' ||
+				event == 'dev.uncandango.kubegroovy.registry.ServerRegistryKubeEvent') return true
+		}
+		return false
 	}
 
 	private static int argumentIndex(GrCall call, GrExpression[] arguments, int offset) {
@@ -1563,9 +1627,12 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 		PsiElement position = parameters.getPosition()
 		int offset = parameters.getOffset()
 		long inferenceStarted = System.nanoTime()
-		List<String> types = new TypeSuggestionPsi(catalog).completionTypes(position, offset)
+		TypeSuggestionPsi psi = new TypeSuggestionPsi(catalog)
+		List<String> builders = psi.builderSuggestions(position, offset)
+		List<String> types = builders == null ? psi.completionTypes(position, offset) : []
+		List<List<String>> suggestionGroups = builders == null ? types.collect { String type -> catalog.suggestionsForType(type) } : [builders]
 		long inferenceNanos = System.nanoTime() - inferenceStarted
-		if (types.isEmpty()) return
+		if (suggestionGroups.isEmpty() || suggestionGroups.every { List<String> group -> group.isEmpty() }) return
 		int originalOffset = Math.max(0, offset - 1)
 		PsiElement originalPosition = parameters.getOriginalFile().findElementAt(originalOffset)
 		TextRange targetRange = TypeSuggestionInsertion.replacementRange(originalPosition, originalOffset,
@@ -1579,8 +1646,8 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 		int considered = 0
 		int offered = 0
 		long iconNanos = 0L
-		for (String type : types) {
-			for (String id : catalog.suggestionsForType(type)) {
+		for (List<String> group : suggestionGroups) {
+			for (String id : group) {
 				ProgressManager.checkCanceled()
 				considered++
 				// IDEA requires valid line separators in lookup strings. Keep the raw id

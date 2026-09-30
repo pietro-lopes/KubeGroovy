@@ -46,6 +46,50 @@ version. The fixture project has its own build and test host, separate from the
 mod build. It covers script scoping, catalog reloads, container/generic types,
 icon caches, and actual completion selection and document insertion.
 
+## Registry event and builder types
+
+The events script constructs method type variables directly from their PSI
+declarations. This lets IDEA infer `RegistryKubeEvent<Block>` from
+`Registries.BLOCK`, `'block' as ResourceKey<Registry<Block>>`, or plain `'block'`, including implicit
+event bindings and the closure's `it` parameter. A generated facade JAR also
+works in the IDE fixtures, but is unnecessary for this inference.
+
+Registry methods include an Object-target coercion overload supplied by the
+events provider itself. The object-overload provider reads declared Java methods
+and cannot rewrite another contributor's synthetic event methods. For a known
+registry string literal, the events provider specializes the callback using
+`_registryTargets`; names without a namespace use `minecraft:`. Unknown or dynamic
+targets remain applicable with `RegistryKubeEvent<?>`, preserving the generic
+ResourceKey overload for typed keys. Invalid callbacks still produce normal
+applicability diagnostics.
+
+Registry-name completion uses the synthetic event callback signature to retain
+the `Registry` value catalog even when the applicable target parameter is Object.
+It also works while the callback is still missing or the target argument is empty.
+
+The type-suggestions catalog also includes `registryBuilderTypes`, keyed by the
+registry element type. In the second argument of registry `create(id, type)`, it
+offers that registry's named builders, including short `kubegroovy:` names such
+as `detector` and full namespaced IDs. Default-only registrations are excluded.
+The existing insert handler quotes the chosen name and preserves explicit casts.
+The first argument retains normal identifier completion. Regenerate typings and
+reload type-suggestions to enable these entries in an existing project.
+
+`/kgy generate-typings` now includes `_registryTargets` and `_builderTypes` in
+`events/events.json`, using the runtime builder registrations, including addons.
+The events script specializes the return type of registry `create` calls from
+the event's element type and a literal builder name. For block events,
+`create('id', 'detector')` resolves to `DetectorBlock.Builder`, while `create('id')`
+resolves to the registered default `BlockBuilder`. Completion and chained calls
+use those concrete classes without changing the runtime method signatures.
+
+Exact namespaced builder IDs take precedence; otherwise an unambiguous path
+alias is used, as in the runtime's named lookup. Unknown or dynamic names,
+missing builder classes, conflicting aliases, and multiple registries sharing
+the same element type retain the declared return type. Older catalogs without
+builder metadata retain the declared builder types too. Run the updated mod's
+`/kgy generate-typings`, then reload the events script in LivePlugin.
+
 ## Type suggestions
 
 The type-suggestions script reads
@@ -67,6 +111,8 @@ it. A tracked range preserves the selected argument or container part while
 IntelliJ inserts lookup text, including any surrounding quotes and explicit
 casts. IDs are escaped as Groovy string literals, including dollar signs and
 control characters.
+Type-name positions, including the type after `as`, do not offer identifier
+suggestions. Strings, empty argument slots, and container entries still do.
 Catalog snapshots retain the last valid configuration on a malformed update;
 their generation isolates type-dependent icon caches during concurrent reloads.
 

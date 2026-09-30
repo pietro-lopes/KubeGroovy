@@ -54,6 +54,11 @@ import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrRefere
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightMethodBuilder
 import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightParameter
 import org.jetbrains.plugins.groovy.lang.resolve.NonCodeMembersContributor
+import org.jetbrains.plugins.groovy.lang.typing.GrTypeCalculator
+import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.path.GrMethodCallExpression
+import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.literals.GrLiteral
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.Disposable
 
 class EventMethodParam {
     String name
@@ -69,6 +74,47 @@ class EventMethodEntry {
 
 class EventMethodConfig {
     Map<String, Map<String, List<EventMethodEntry>>> bySide = new LinkedHashMap<String, Map<String, List<EventMethodEntry>>>()
+    Map<String, Set<String>> registriesByElement = [:]
+    Map<String, String> elementsByRegistry = [:]
+    Map<String, String> defaultBuilders = [:]
+    Map<String, Map<String, String>> namedBuilders = [:]
+    Map<String, Map<String, Set<String>>> builderAliases = [:]
+
+    void readBuilders(Map parsed) {
+        for (def target : (parsed.get('_registryTargets') instanceof Collection ? parsed.get('_registryTargets') : [])) {
+            if (!(target instanceof Map) || !(target.key instanceof String) || !(target.elementType instanceof String)) continue
+            registriesByElement.computeIfAbsent(target.elementType) { new HashSet<String>() }.add(target.key)
+            elementsByRegistry.put(target.key, target.elementType)
+        }
+        for (def builder : (parsed.get('_builderTypes') instanceof Collection ? parsed.get('_builderTypes') : [])) {
+            if (!(builder instanceof Map) || !(builder.registryKey instanceof String) || !(builder.typeId instanceof String) || !(builder.builderType instanceof String)) continue
+            String key = builder.registryKey
+            String id = builder.typeId
+            String type = builder.builderType
+            if (builder.defaultType == true) {
+                defaultBuilders.put(key, type)
+            } else {
+                namedBuilders.computeIfAbsent(key) { [:] }.put(id, type)
+                String path = id.contains(':') ? id.substring(id.indexOf(':') + 1) : id
+                builderAliases.computeIfAbsent(key) { [:] }.computeIfAbsent(path) { new HashSet<String>() }.add(type)
+            }
+        }
+    }
+
+    String builderFor(String element, String id, boolean useDefault) {
+        Set<String> registries = registriesByElement.get(element)
+        if (registries == null || registries.size() != 1) return null
+        String key = registries.iterator().next()
+        if (useDefault) return defaultBuilders.get(key)
+        // KubeIdentifier treats a bare name as kubegroovy:<name>, then the
+        // runtime falls back to the path. Ambiguous paths stay unspecialized.
+        String normalized = id.contains(':') ? id : 'kubegroovy:' + id
+        String exact = namedBuilders.get(key)?.get(normalized)
+        if (exact != null) return exact
+        String path = normalized.substring(normalized.indexOf(':') + 1)
+        Set<String> aliases = builderAliases.get(key)?.get(path)
+        return aliases != null && aliases.size() == 1 ? aliases.iterator().next() : null
+    }
 
     boolean isEmpty() {
         try {
@@ -136,6 +182,7 @@ class EventMethodSupport {
             }
             if (parsed == null) return cached
             EventMethodConfig next = new EventMethodConfig()
+            next.readBuilders(parsed)
             try {
                 for (String side : SIDES) {
                     Object groups = parsed.get(side)
@@ -400,17 +447,9 @@ class EventMethodSupport {
                 }
             } catch (Throwable ignored) {}
             if (ours == null) return null
-            def ref = null
-            try {
-                ref = c.factory.createTypeFromText(name, synth)
-            } catch (Throwable ignored) {}
-            if (!(ref instanceof PsiClassType)) return null
-            def resolved = null
-            try {
-                resolved = ((PsiClassType) ref).resolve()
-            } catch (Throwable ignored) {}
-            if (resolved == null || !resolved.is(ours)) return null
-            return (PsiType) ref
+            // Build directly from the declaration: fragments do not necessarily
+            // resolve a light method's type parameters in the Groovy resolver.
+            return c.factory.createType(ours)
         } catch (Throwable ignored) {
             return null
         }
@@ -549,6 +588,41 @@ class EventMethodSupport {
         } catch (Throwable ignored) {}
         return synth
     }
+
+    /**
+     * Registry targets are coerced at runtime, but the object-overload provider
+     * sees declared Java members only. Supply that bridge here, alongside the
+     * synthetic generic signature. Known literal keys also determine T; replacing
+     * ResourceKey with Object alone would discard that inference constraint.
+     */
+    static EventMethodEntry registryCoercionMethod(EventMethodEntry entry, GrReferenceExpression place, EventMethodConfig config) {
+        if (entry.typeParams.size() != 1 || entry.params.size() != 2) return null
+        String variable = entry.typeParams[0]
+        Map target = parseTypeTree(entry.params[0].type)
+        if (target?.name != 'net.minecraft.resources.ResourceKey' || target.args.size() != 1) return null
+        Map registry = target.args[0]
+        if (registry?.name != 'net.minecraft.core.Registry' || registry.args.size() != 1 || registry.args[0].name != variable) return null
+        Map consumer = parseTypeTree(entry.params[1].type)
+        if (consumer?.name != 'java.util.function.Consumer' || consumer.args.size() != 1) return null
+        Map event = consumer.args[0]
+        if (event.args.size() != 1 || event.args[0].name != variable) return null
+        String element = '?'
+        def call = place.getParent()
+        if (call instanceof GrMethodCallExpression && call.getInvokedExpression().is(place)) {
+            def positional = call.getArgumentList()?.getExpressionArguments()
+            if (positional != null && positional.length > 0 && positional[0] instanceof GrLiteral) {
+                def value = positional[0].getValue()
+                if (value instanceof String) {
+                    String key = value.contains(':') ? value : 'minecraft:' + value
+                    element = config.elementsByRegistry.get(key) ?: '?'
+                }
+            }
+        }
+        return new EventMethodEntry(name: entry.name, returns: entry.returns, params: [
+            new EventMethodParam(name: entry.params[0].name, type: 'java.lang.Object'),
+            new EventMethodParam(name: entry.params[1].name, type: "java.util.function.Consumer<${event.name}<${element}>>")
+        ])
+    }
 }
 
 class EventMethodsContributor extends NonCodeMembersContributor implements DumbAware {
@@ -587,7 +661,8 @@ class EventMethodsContributor extends NonCodeMembersContributor implements DumbA
             EventMethodSupport.debug("contributor: no side for file=" + place?.getContainingFile())
             return
         }
-        List<EventMethodEntry> entries = EventMethodSupport.load(place).forGroup(side, group)
+        EventMethodConfig config = EventMethodSupport.load(place)
+        List<EventMethodEntry> entries = config.forGroup(side, group)
         if (entries.isEmpty()) return
         EventMethodSupport.debug("contributor: side=" + side + " group=" + group + " wanted=" + wanted + " entries=" + entries.size())
         PsiManager mgr = null
@@ -620,10 +695,45 @@ class EventMethodsContributor extends NonCodeMembersContributor implements DumbA
                 def synth = EventMethodSupport.buildMethod(entry, containing, factory, mgr, scope)
                 if (synth == null) continue
                 try {
-                    processor.execute(synth, state)
+                    if (!processor.execute(synth, state)) return
+                    def bridge = EventMethodSupport.registryCoercionMethod(entry, ref, config)
+                    if (bridge != null && !processor.execute(EventMethodSupport.buildMethod(bridge, containing, factory, mgr, scope), state)) return
                 } catch (Throwable ignored2) {}
             } catch (Throwable ignored2) {}
         }
+    }
+}
+
+/** Specializes only registry create calls; the actual Java method still resolves normally. */
+class RegistryBuilderTypeCalculator implements GrTypeCalculator<GrMethodCallExpression>, DumbAware {
+    @Override
+    PsiType getType(GrMethodCallExpression call) {
+        if (EventMethodSupport.sideForFile(call?.getContainingFile()) == null) return null
+        def invoked = call.getInvokedExpression()
+        if (!(invoked instanceof GrReferenceExpression) || invoked.getReferenceName() != 'create') return null
+        def args = call.getArgumentList()
+        if (args == null || args.getNamedArguments().length != 0 || call.getClosureArguments().length != 0) return null
+        def positional = args.getExpressionArguments()
+        if (positional.length != 1 && positional.length != 2) return null
+        String id = null
+        if (positional.length == 2) {
+            if (!(positional[1] instanceof GrLiteral) || !(positional[1].getValue() instanceof String)) return null
+            id = positional[1].getValue()
+        }
+        PsiType qualifier = invoked.getQualifierExpression()?.getType()
+        if (!(qualifier instanceof PsiClassType)) return null
+        def resolved = qualifier.resolveGenerics()
+        PsiClass event = resolved.getElement()
+        if (event?.getQualifiedName() != 'dev.uncandango.kubegroovy.registry.RegistryKubeEvent' &&
+                event?.getQualifiedName() != 'dev.uncandango.kubegroovy.registry.ServerRegistryKubeEvent') return null
+        if (event.getTypeParameters().length != 1) return null
+        PsiType element = resolved.getSubstitutor().substitute(event.getTypeParameters()[0])
+        if (element == null) return null
+        String builder = EventMethodSupport.load(call).builderFor(element.getCanonicalText(), id, positional.length == 1)
+        if (builder == null) return null
+        PsiClass cls = JavaPsiFacade.getInstance(call.getProject()).findClass(builder, call.getResolveScope())
+        if (cls == null) return null
+        return JavaPsiFacade.getElementFactory(call.getProject()).createType(cls)
     }
 }
 
@@ -631,4 +741,11 @@ class EventMethodsContributor extends NonCodeMembersContributor implements DumbA
 try {
     com.intellij.openapi.extensions.ExtensionPointName.create("org.intellij.groovy.membersContributor").point
         .registerExtension(new EventMethodsContributor(), pluginDisposable)
+} catch (Throwable ignored) {}
+try {
+    def calculator = new RegistryBuilderTypeCalculator()
+    GrTypeCalculator.EP.addExplicitExtension(GrMethodCallExpression, calculator)
+    Disposer.register(pluginDisposable, { ->
+        GrTypeCalculator.EP.removeExplicitExtension(GrMethodCallExpression, calculator)
+    } as Disposable)
 } catch (Throwable ignored) {}
