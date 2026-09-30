@@ -46,6 +46,13 @@ version. The fixture project has its own build and test host, separate from the
 mod build. It covers script scoping, catalog reloads, container/generic types,
 icon caches, and actual completion selection and document insertion.
 
+The bindings script exposes `classValue: true` entries as implicit aliased class
+imports for the matching script side, mirroring the engine autoimports. Aliases
+such as `$Item` resolve to their classes for static member completion and type
+references. Selecting a binding suggestion inserts only its name. Instance and
+event-group bindings remain implicit variables. Reload bindings after updating
+the script; no explicit alias imports are needed.
+
 ## Registry event and builder types
 
 The events script constructs method type variables directly from their PSI
