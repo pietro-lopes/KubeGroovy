@@ -20,6 +20,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public final class LivePluginScopeTest extends BasePlatformTestCase {
 	private ClassLoader loadScript(String folder) throws Exception {
@@ -62,28 +65,56 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			Files.writeString(config, """
 				{"schemaVersion":1,
 				 "values":{"example.Item":["addon:first","addon:first"],"example.Tag":["addon:tag"],
+				           "example.TagKey<example.Item>":["addon:item-tag"],
 				           "example.Exact<example.Item>":["exact-only"],"example.Raw":["raw-type"],
 				           "example.CycleB":["addon:cycle"]},
 				 "delegates":[
+				   {"source":"example.ItemStack","target":"example.Item","prefix":""},
 				   {"source":"example.Ingredient","target":"example.Tag","prefix":"#"},
 				   {"source":"example.CycleA","target":"example.CycleB","prefix":""},
 				   {"source":"example.CycleB","target":"example.CycleA","prefix":""}],
-				 "genericDelegates":{"example.Optional":0,"example.Holder":0}}
+				 "genericDelegates":{"java.util.Optional":0,"example.Holder":0}}
 				""");
 			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
 			var nested = (List<String>) support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Optional < example.Holder < example.Item > >");
+				.invoke(null, "java.util.Optional < example.Holder < example.Item > >");
 			assertEquals(List.of("addon:first", "addon:first"), nested);
 			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
 				.invoke(null, "example.Exact<example.Other>"));
 			assertEquals(List.of("raw-type"), support.getMethod("suggestionsForType", String.class)
 				.invoke(null, "example.Raw<example.Other>"));
 			assertEquals(List.of(), support.getMethod("suggestionsForType", String.class)
-				.invoke(null, "example.Optional"));
+				.invoke(null, "java.util.Optional"));
 			assertEquals(List.of("#addon:tag"), support.getMethod("suggestionsForType", String.class)
 				.invoke(null, "example.Ingredient"));
 			assertEquals(List.of("addon:cycle"), support.getMethod("suggestionsForType", String.class)
 				.invoke(null, "example.CycleA"));
+			PsiFile castFieldFile = myFixture.addFileToProject("kubegroovy/server_scripts/ItemStackFieldCast.groovy",
+				"def itemStackField = \"\" as ItemStack");
+			int castOffset = castFieldFile.getText().indexOf("\"\"") + 1;
+			String castSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
+				.invoke(null, castFieldFile.findElementAt(castOffset), castOffset);
+			assertEquals("example.ItemStack", castSpec);
+			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("idsForSpec", String.class)
+				.invoke(null, castSpec));
+			assertEquals(true, support.getMethod("asSupportedCastFollows", String.class, int.class)
+				.invoke(null, castFieldFile.getText(), castFieldFile.getText().indexOf("\"\"") + 2));
+			PsiFile optionalItemFile = myFixture.addFileToProject("kubegroovy/server_scripts/OptionalItemCast.groovy",
+				"def item = \"\" as Optional<Item>");
+			int optionalItemOffset = optionalItemFile.getText().indexOf("\"\"") + 1;
+			String optionalItemSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
+				.invoke(null, optionalItemFile.findElementAt(optionalItemOffset), optionalItemOffset);
+			assertEquals("java.util.Optional<example.Item>", optionalItemSpec);
+			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("idsForSpec", String.class)
+				.invoke(null, optionalItemSpec));
+			PsiFile itemTagFile = myFixture.addFileToProject("kubegroovy/server_scripts/ItemTagCast.groovy",
+				"def itemTag = \"\" as TagKey<Item>");
+			int itemTagOffset = itemTagFile.getText().indexOf("\"\"") + 1;
+			String itemTagSpec = (String) support.getMethod("getCoercedSpec", PsiElement.class, int.class)
+				.invoke(null, itemTagFile.findElementAt(itemTagOffset), itemTagOffset);
+			assertEquals("example.TagKey<example.Item>", itemTagSpec);
+			assertEquals(List.of("addon:item-tag"), support.getMethod("idsForSpec", String.class)
+				.invoke(null, itemTagSpec));
 			Files.writeString(config, "{ malformed");
 			Files.setLastModifiedTime(config, FileTime.fromMillis(System.currentTimeMillis() + 2000));
 			assertEquals(List.of("addon:first", "addon:first"), support.getMethod("suggestionsForType", String.class)
@@ -204,6 +235,140 @@ public final class LivePluginScopeTest extends BasePlatformTestCase {
 			assertEquals("example.Item", specForParam.invoke(null, varargs, 0, null, null, null, -1));
 		} finally {
 			Files.deleteIfExists(config);
+		}
+	}
+
+	public void testSuggestionIconsUseProjectExportsTagFoldersAndBindingsLogoFallback() throws Exception {
+		ClassLoader loader = loadScript("type-suggestions");
+		Class<?> support = loader.loadClass("ItemStackSupport");
+		Path config = Files.createTempFile("kgy-type-suggestion-icons", ".json");
+		Path projectRoot = Files.createTempDirectory("kgy-type-suggestion-project");
+		Path livePlugins = Files.createTempDirectory("kgy-type-suggestion-live-plugins");
+		try {
+			Files.writeString(config, """
+				{"schemaVersion":1,"values":{},
+				 "delegates":[
+				   {"source":"net.minecraft.world.item.crafting.Ingredient","target":"net.minecraft.world.item.Item","prefix":""},
+				   {"source":"net.minecraft.world.item.crafting.Ingredient","target":"net.minecraft.tags.TagKey<net.minecraft.world.item.Item>","prefix":"#"}],
+				 "genericDelegates":{"java.util.Optional":0,"net.minecraft.resources.ResourceKey":0}}
+				""");
+			support.getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			var relativePath = support.getMethod("exportedIconRelativePath", String.class, String.class);
+			assertEquals("item/minecraft/stone.png", relativePath.invoke(null,
+				"minecraft:stone", "net.minecraft.world.item.Item"));
+			assertEquals("fluid/minecraft/water.png", relativePath.invoke(null,
+				"minecraft:water", "net.minecraft.world.level.material.Fluid"));
+			assertEquals("tags/item/minecraft/planks.png", relativePath.invoke(null,
+				"minecraft:planks", "net.minecraft.tags.TagKey<net.minecraft.world.item.Item>"));
+			assertEquals("tags/block/minecraft/mineable.png", relativePath.invoke(null,
+				"minecraft:mineable", "net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block>"));
+			assertEquals("tags/fluid/minecraft/water.png", relativePath.invoke(null,
+				"minecraft:water", "java.util.Optional<net.minecraft.tags.TagKey<net.minecraft.world.level.material.Fluid>>"));
+			assertEquals("tags/item/minecraft/planks.png", relativePath.invoke(null,
+				"#minecraft:planks", "net.minecraft.world.item.crafting.Ingredient"));
+
+			Path itemIcon = projectRoot.resolve("local/kubegroovy/export/icons-32/item/minecraft/stone.png");
+			Files.createDirectories(itemIcon.getParent());
+			javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
+				java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", itemIcon.toFile());
+			Path suggestionPlugin = livePlugins.resolve("type-suggestions");
+			Path bindingsPlugin = livePlugins.resolve("bindings");
+			Files.createDirectories(suggestionPlugin.resolve("icons"));
+			Files.createDirectories(bindingsPlugin);
+			Path logo = bindingsPlugin.resolve("logo.png");
+			javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
+				java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", logo.toFile());
+			Path svgLogo = bindingsPlugin.resolve("logo.svg");
+			Files.writeString(svgLogo, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\"><path fill=\"#4298b8\" d=\"M1 1h14v14H1z\"/></svg>");
+			support.getMethod("setIconDir", String.class).invoke(null,
+				suggestionPlugin.resolve("icons").toString());
+
+			var iconFiles = support.getMethod("iconFilesForSuggestion", String.class,
+				java.util.Collection.class, File.class);
+			var itemFiles = (List<File>) iconFiles.invoke(null, "minecraft:stone",
+				List.of("net.minecraft.world.item.Item"), projectRoot.toFile());
+			assertEquals(itemIcon.toFile().getCanonicalFile(), itemFiles.getFirst());
+			var fallbackFiles = (List<File>) iconFiles.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile());
+			assertEquals(svgLogo.toFile().getCanonicalFile(), fallbackFiles.getFirst());
+			var iconFor = support.getMethod("iconFor", String.class, java.util.Collection.class, File.class);
+			Object resolvedItemIcon = iconFor.invoke(null, "minecraft:stone",
+				List.of("net.minecraft.world.item.Item"), projectRoot.toFile());
+			assertNotNull(resolvedItemIcon);
+			assertSame(resolvedItemIcon, iconFor.invoke(null, "minecraft:stone",
+				List.of("net.minecraft.world.item.Item"), projectRoot.toFile()));
+			assertSame(resolvedItemIcon, iconFor.invoke(null, "minecraft:stone",
+				List.of("net.minecraft.resources.ResourceKey<net.minecraft.world.item.Item>"), projectRoot.toFile()));
+			Object fallbackIcon = iconFor.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile());
+			assertNotNull(fallbackIcon);
+			assertEquals(16, ((javax.swing.Icon) fallbackIcon).getIconWidth());
+			assertSame(fallbackIcon, iconFor.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile()));
+			Path newlyExportedIcon = projectRoot.resolve("local/kubegroovy/export/icons-32/item/testmod/missing.png");
+			Files.createDirectories(newlyExportedIcon.getParent());
+			javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
+				java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", newlyExportedIcon.toFile());
+			Object refreshedIcon = iconFor.invoke(null, "testmod:missing",
+				List.of("example.Unmatched"), projectRoot.toFile());
+			assertNotSame(fallbackIcon, refreshedIcon);
+		} finally {
+			Files.deleteIfExists(config);
+			for (Path directory : List.of(projectRoot, livePlugins)) {
+				try (var paths = Files.walk(directory)) {
+					paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+						try { Files.deleteIfExists(path); } catch (Exception error) { throw new RuntimeException(error); }
+					});
+				}
+			}
+		}
+	}
+
+	public void testSuggestionIconPreloaderLoadsItemFluidBlockAndTagFolders() throws Exception {
+		ClassLoader loader = loadScript("type-suggestions");
+		Class<?> support = loader.loadClass("ItemStackSupport");
+		Path projectRoot = Files.createTempDirectory("kgy-type-suggestion-preload");
+		List<Path> icons = List.of(
+			projectRoot.resolve("local/kubegroovy/export/icons-32/item/minecraft/stone.png"),
+			projectRoot.resolve("local/kubegroovy/export/icons-32/fluid/minecraft/water.png"),
+			projectRoot.resolve("local/kubegroovy/export/icons-32/block/testmod/custom.png"),
+			projectRoot.resolve("local/kubegroovy/export/icons-32/tags/item/minecraft/planks.png"),
+			projectRoot.resolve("local/kubegroovy/export/icons-32/tags/block/minecraft/mineable.png"),
+			projectRoot.resolve("local/kubegroovy/export/icons-32/tags/fluid/minecraft/water.png"));
+		try {
+			for (Path icon : icons) {
+				Files.createDirectories(icon.getParent());
+				javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(32, 32,
+					java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", icon.toFile());
+			}
+			CompletableFuture<?> preload = (CompletableFuture<?>) support
+				.getMethod("preloadProjectIcons", File.class).invoke(null, projectRoot.toFile());
+			preload.get(10, TimeUnit.SECONDS);
+			var cacheField = support.getDeclaredField("FILE_ICONS");
+			cacheField.setAccessible(true);
+			Map<?, ?> fileCache = (Map<?, ?>) cacheField.get(null);
+			var exportIndexField = support.getDeclaredField("EXPORTED_ICON_FILES");
+			exportIndexField.setAccessible(true);
+			Map<String, File> exportIndex = (Map<String, File>) exportIndexField.get(null);
+			for (Path icon : icons) {
+				String prefix = icon.toFile().getCanonicalPath() + "|";
+				assertTrue("Expected preloaded icon " + icon, fileCache.keySet().stream()
+					.map(Object::toString).anyMatch(key -> key.startsWith(prefix)));
+				String relative = projectRoot.resolve("local/kubegroovy/export/icons-32").relativize(icon)
+					.toString().replace('\\', '/');
+				String indexKey = projectRoot.toFile().getCanonicalPath() + "|icons-32/" + relative;
+				assertEquals("Expected indexed export " + icon, icon.toFile().getCanonicalFile(), exportIndex.get(indexKey));
+			}
+			var iconFor = support.getMethod("iconFor", String.class, java.util.Collection.class, File.class);
+			assertNotNull(iconFor.invoke(null, "minecraft:stone", List.of("net.minecraft.world.item.Item"), projectRoot.toFile()));
+			assertNotNull(iconFor.invoke(null, "minecraft:planks",
+				List.of("net.minecraft.tags.TagKey<net.minecraft.world.item.Item>"), projectRoot.toFile()));
+		} finally {
+			try (var paths = Files.walk(projectRoot)) {
+				paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+					try { Files.deleteIfExists(path); } catch (Exception error) { throw new RuntimeException(error); }
+				});
+			}
 		}
 	}
 

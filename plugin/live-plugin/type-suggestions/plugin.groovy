@@ -15,9 +15,9 @@
 //   argument position. It also fires inside a plain string coerced with
 //   `as`, e.g. def testing = "<caret>" as ItemStack
 //   (there only the literal is replaced, keeping your cast).
-//   Supported types (see SPECS below, later to be driven by JSON):
-//     - ItemStack -> apple, dirt, stone, flint_and_steel
-//     - Registry / ResourceKey<Registry<?>> wrapper -> item, fluid, block, entity_type
+//   Suggestion types, values, and wrapper rules come from suggestions.json.
+//   Project-exported item, fluid, and tag icons are loaded from the current
+//   project's local/kubegroovy/export/icons-32 directory.
 //
 // HOW INTELLIJ SEES CODE (the one idea behind this file)
 //   The IDE parses every file into a PSI tree: nodes like GrCall (a method
@@ -50,7 +50,10 @@ import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.extensions.LoadingOrder
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassType
@@ -117,6 +120,8 @@ class ItemStackSupport {
      * (fires on each completion invocation, so leave false normally).
      */
     static boolean DEBUG = false
+    /** Temporary, low-volume timing diagnostics for icon startup/completion. */
+    static boolean DEBUG_TIMINGS = true
 
     /**
      * Trace helper: logs only when {@link #DEBUG} is true. Example:
@@ -132,16 +137,65 @@ class ItemStackSupport {
             LOG.info("[itemstack-suggest] " + message)
         } catch (Throwable ignored) {}
     }
+
+    static void debugTiming(String message) {
+        if (!DEBUG_TIMINGS) return
+        try {
+            LOG.info("[itemstack-suggest][timing] " + message)
+        } catch (Throwable ignored) {}
+    }
+
+    static String elapsed(long startedNanos) {
+        return elapsedNanos(System.nanoTime() - startedNanos)
+    }
+
+    static String elapsedNanos(long nanos) {
+        return String.format(java.util.Locale.ROOT, "%.2fms", nanos / 1_000_000.0d)
+    }
+
+    static String iconCacheSizes() {
+        return "cachedSuggestions=" + ICONS.size() + " cachedFiles=" + FILE_ICONS.size()
+            + " indexedExports=" + EXPORTED_ICON_FILES.size()
+    }
+
+    static String projectIconPreloadStatus(File projectRoot) {
+        try {
+            String root = projectRoot?.getCanonicalPath()
+            java.util.concurrent.CompletableFuture<Void> future = root == null ? null : PROJECT_ICON_PRELOADS.get(root)
+            if (future == null) return "not-scheduled"
+            if (!future.isDone()) return "running"
+            return future.isCompletedExceptionally() ? "failed" : "complete"
+        } catch (Throwable ignored) {
+            return "unknown"
+        }
+    }
     private static File configFile = null
     private static long configStamp = -1L
     private static Map<String, List<String>> values = [:]
     private static List<Map> delegates = []
     private static Map<String, Integer> genericDelegates = [:]
+    private static final Map<String, String> ICON_DIRECTORY_CACHE = new java.util.concurrent.ConcurrentHashMap<String, String>()
+    private static final Map<String, String> TAG_DIRECTORY_CACHE = new java.util.concurrent.ConcurrentHashMap<String, String>()
     private static final Pattern AS_AFTER = Pattern.compile("as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
     private static final Pattern AS_CAST_TEXT = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
     private static final Pattern AS_AFTER_ANY = Pattern.compile("as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
+    // Suggestion ids resolve to icons once per project/type. The watched file
+    // stamps let newly-exported or updated icons replace a cached fallback.
     private static final Map<String, Icon> ICONS = new java.util.concurrent.ConcurrentHashMap<String, Icon>()
+    private static final Map<String, List<File>> ICON_CANDIDATES = new java.util.concurrent.ConcurrentHashMap<String, List<File>>()
+    private static final Map<String, String> ICON_CANDIDATE_STAMPS = new java.util.concurrent.ConcurrentHashMap<String, String>()
+    // File-level cache also serves the shared bindings logo and notices file updates.
+    private static final Map<String, Icon> FILE_ICONS = new java.util.concurrent.ConcurrentHashMap<String, Icon>()
+    private static final Map<String, Object> FILE_ICON_LOCKS = new java.util.concurrent.ConcurrentHashMap<String, Object>()
+    private static final Map<String, java.util.concurrent.CompletableFuture<Void>> PROJECT_ICON_PRELOADS =
+        new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Void>>()
+    // Preload indexes export-relative paths so completion avoids resolving
+    // several canonical candidate paths for every displayed suggestion.
+    private static final Map<String, File> EXPORTED_ICON_FILES = new java.util.concurrent.ConcurrentHashMap<String, File>()
     private static String iconDir = null
+    private static File bindingsLogoFile = null
+    private static File bindingsLogoSvgFile = null
+    private static File bindingsLogoDarkSvgFile = null
 
     static synchronized void setConfigFile(File file) {
         configFile = file
@@ -179,6 +233,7 @@ class ItemStackSupport {
             values = nextValues
             delegates = nextDelegates
             genericDelegates = nextGeneric
+            clearSuggestionIconCache()
             configStamp = attemptedStamp
         } catch (Throwable t) {
             if (attemptedStamp >= 0L) configStamp = attemptedStamp
@@ -281,62 +336,604 @@ class ItemStackSupport {
         return result
     }
 
-    /**
-     * Tells the icon loader where icons/<id>.png lives. Called once from the
-     * script body with LivePlugin's `pluginPath` (the folder this script runs
-     * from). If it is never called, {@link #iconFor} just returns null.
-     */
+    /** Configure the legacy icon directory and the sibling bindings-plugin logo fallback. */
     static void setIconDir(String dir) {
         try {
-            iconDir = dir
+            File directory = new File(dir).getAbsoluteFile()
+            iconDir = directory.getAbsolutePath()
+            File scriptDirectory = directory.getParentFile()
+            File bindingsDirectory = scriptDirectory == null ? null
+                : new File(scriptDirectory, "../bindings").getCanonicalFile()
+            bindingsLogoFile = bindingsDirectory == null ? null : new File(bindingsDirectory, "logo.png")
+            bindingsLogoSvgFile = bindingsDirectory == null ? null : new File(bindingsDirectory, "logo.svg")
+            bindingsLogoDarkSvgFile = bindingsDirectory == null ? null : new File(bindingsDirectory, "logo-dark.svg")
+            clearSuggestionIconCache()
+            preloadBindingsLogos()
         } catch (Throwable ignored) {}
     }
 
-    /**
-     * File lookup for a completion id. Registry ids flatten to the exporter
-     * layout ({@code minecraft:apple} -> {@code minecraft__apple.png}, see
-     * ItemIconExporter.escapeKey); legacy short names ({@code apple.png})
-     * still resolve as a fallback. A lookup entry shows an {@code Icon} via
-     * {@code LookupElementBuilder.withIcon(...)} — plain Swing, so animated
-     * GIF/APNG will NOT animate here; static PNG is the supported route.
-     *
-     * @return the icon, or null when the file is missing/unreadable (caller
-     *         then shows a text-only entry — never fail completion for art).
-     */
-    static String iconFileName(String id) {
+    private static void clearSuggestionIconCache() {
+        ICONS.clear()
+        ICON_CANDIDATES.clear()
+        ICON_CANDIDATE_STAMPS.clear()
+        ICON_DIRECTORY_CACHE.clear()
+        TAG_DIRECTORY_CACHE.clear()
+    }
+
+    static File projectRoot(PsiFile file) {
         try {
-            String name = id.replace(":", "__").replace("\"", "'").replace("/", "___")
-            return name + ".png"
-        } catch (Throwable ignored) {
-            return id + ".png"
+            File root = projectRootForProject(file?.getProject())
+            if (root != null) preloadProjectIcons(root)
+            return root
+        } catch (Throwable ignored) {}
+        return null
+    }
+
+    static File projectRootForProject(Project project) {
+        try {
+            String basePath = project?.getBasePath()
+            if (basePath != null && !basePath.isBlank()) return new File(basePath).getCanonicalFile()
+        } catch (Throwable ignored) {}
+        return null
+    }
+
+    /** Start an asynchronous preload for every open project's exported icon tree. */
+    static void preloadOpenProjects() {
+        long started = System.nanoTime()
+        try {
+            Project[] projects = ProjectManager.getInstance().getOpenProjects()
+            int scheduled = 0
+            for (Project project : projects) {
+                File root = projectRootForProject(project)
+                if (root != null) {
+                    preloadProjectIcons(root)
+                    scheduled++
+                }
+            }
+            debugTiming("open-project preload scheduling projects=" + projects.length + " scheduled=" + scheduled + " elapsed=" + elapsed(started))
+        } catch (Throwable error) {
+            debugTiming("open-project preload scheduling failed elapsed=" + elapsed(started) + " error=" + error)
         }
     }
 
-    static Icon iconFor(String id) {
+    /**
+     * Pre-decode exported item, fluid, block, and tag icons off the UI thread.
+     * The same file cache is used by normal completion, so requests made while
+     * preloading is in progress wait only for their own icon, not the full scan.
+     */
+    static java.util.concurrent.CompletableFuture<Void> preloadProjectIcons(File projectRoot) {
+        if (projectRoot == null) return java.util.concurrent.CompletableFuture.completedFuture(null)
+        String rootPath
+        try { rootPath = projectRoot.getCanonicalPath() } catch (Throwable ignored) { return java.util.concurrent.CompletableFuture.completedFuture(null) }
+        java.util.concurrent.CompletableFuture<Void> created = new java.util.concurrent.CompletableFuture<Void>()
+        java.util.concurrent.CompletableFuture<Void> existing = PROJECT_ICON_PRELOADS.putIfAbsent(rootPath, created)
+        if (existing != null) return existing
+
+        debugTiming("project icon preload started root=" + rootPath)
         try {
-            Icon cached = ICONS.get(id)
+            java.util.concurrent.ForkJoinPool.commonPool().execute({
+                java.util.concurrent.atomic.AtomicInteger warmed = new java.util.concurrent.atomic.AtomicInteger()
+                long preloadStarted = System.nanoTime()
+                try {
+                    File exportRoot = new File(rootPath, "local/kubegroovy/export")
+                    for (String scaleDirectory : ["icons-32", "icon-32"]) {
+                        File scaleRoot = new File(exportRoot, scaleDirectory).getCanonicalFile()
+                        List<String> categories = ["item", "fluid", "block", "tags/item", "tags/block", "tags/fluid"]
+                        for (String category : categories) {
+                            long categoryStarted = System.nanoTime()
+                            int before = warmed.get()
+                            File categoryRoot = new File(scaleRoot, category).getCanonicalFile()
+                            if (!categoryRoot.toPath().startsWith(scaleRoot.toPath()) || !categoryRoot.isDirectory()) {
+                                debugTiming("preload scan root=" + scaleDirectory + "/" + category + " files=0 cached=0 elapsed=" + elapsed(categoryStarted) + " (missing)")
+                                continue
+                            }
+                            java.util.concurrent.atomic.AtomicInteger files = new java.util.concurrent.atomic.AtomicInteger()
+                            categoryRoot.eachFileRecurse(groovy.io.FileType.FILES) { File file ->
+                                try {
+                                    if (!file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".png")) return
+                                    files.incrementAndGet()
+                                    File canonical = file.getCanonicalFile()
+                                    if (canonical.toPath().startsWith(categoryRoot.toPath()) && loadIcon(canonical) != null) {
+                                        warmed.incrementAndGet()
+                                        String relative = scaleRoot.toPath().relativize(canonical.toPath()).toString()
+                                            .replace('\\', '/')
+                                        EXPORTED_ICON_FILES.put(exportedIconIndexKey(rootPath, scaleDirectory, relative), canonical)
+                                    }
+                                } catch (Throwable ignored) {}
+                            }
+                            debugTiming("preload scan root=" + scaleDirectory + "/" + category + " files=" + files.get()
+                                + " cached=" + (warmed.get() - before) + " elapsed=" + elapsed(categoryStarted))
+                        }
+                    }
+                    debug("preloaded " + warmed.get() + " exported icons for " + rootPath)
+                    debugTiming("project icon preload finished root=" + rootPath + " cached=" + warmed.get() + " elapsed=" + elapsed(preloadStarted))
+                    if (warmed.get() == 0) PROJECT_ICON_PRELOADS.remove(rootPath, created)
+                    created.complete(null)
+                } catch (Throwable error) {
+                    PROJECT_ICON_PRELOADS.remove(rootPath, created)
+                    created.completeExceptionally(error)
+                    debugTiming("project icon preload failed root=" + rootPath + " cached=" + warmed.get()
+                        + " elapsed=" + elapsed(preloadStarted) + " error=" + error)
+                    debug("icon preload failed for " + rootPath + " (" + error + ")")
+                }
+            } as Runnable)
+        } catch (Throwable error) {
+            PROJECT_ICON_PRELOADS.remove(rootPath, created)
+            created.completeExceptionally(error)
+            debugTiming("project icon preload dispatch failed root=" + rootPath + " error=" + error)
+        }
+        return created
+    }
+
+    /** Warm the shared SVG fallback too, without delaying LivePlugin startup. */
+    static void preloadBindingsLogos() {
+        try {
+            java.util.concurrent.ForkJoinPool.commonPool().execute({
+                long started = System.nanoTime()
+                int cached = 0
+                for (File logo : [bindingsLogoSvgFile, bindingsLogoDarkSvgFile, bindingsLogoFile,
+                                  bindingsLogoFile == null ? null : new File(bindingsLogoFile.getParentFile(), "logo-dark.png")]) {
+                    if (logo != null && loadIcon(logo) != null) cached++
+                }
+                debugTiming("bindings logo preload cached=" + cached + " elapsed=" + elapsed(started))
+            } as Runnable)
+        } catch (Throwable error) {
+            debugTiming("bindings logo preload dispatch failed error=" + error)
+        }
+    }
+
+    /** Returns the exporter-relative path for an item, fluid, or TagKey suggestion. */
+    static String exportedIconRelativePath(String id, String requestedType) {
+        if (id == null || requestedType == null) return null
+        boolean prefixedTag = id.startsWith("#")
+        String identifier = prefixedTag ? id.substring(1) : id
+        int separator = identifier.indexOf(':')
+        if (separator <= 0 || separator != identifier.lastIndexOf(':')) return null
+        String namespace = identifier.substring(0, separator)
+        String path = identifier.substring(separator + 1)
+        if (!(namespace ==~ /[a-z0-9_.-]+/) || !(path ==~ /[a-z0-9\/._-]+/)) return null
+
+        String tagDirectory = tagDirectoryForSpec(requestedType, prefixedTag)
+        if (prefixedTag || tagDirectory != null) {
+            if (tagDirectory == null) return null
+            return "tags/${tagDirectory}/${namespace}/${path}.png"
+        }
+        String iconDirectory = iconDirectoryForSpec(requestedType)
+        return "${iconDirectory}/${namespace}/${path}.png"
+    }
+
+    private static String tagDirectoryForSpec(String requestedType, boolean followFixedDelegates) {
+        String type = normalizeType(requestedType)
+        String cacheKey = type + "|" + followFixedDelegates
+        String cached = TAG_DIRECTORY_CACHE.get(cacheKey)
+        if (cached != null) return cached.isEmpty() ? null : cached
+        String directory = tagDirectoryForSpec(type, followFixedDelegates, new LinkedHashSet<String>())
+        TAG_DIRECTORY_CACHE.put(cacheKey, directory ?: "")
+        return directory
+    }
+
+    private static String tagDirectoryForSpec(String requestedType, boolean followFixedDelegates, Set<String> path) {
+        String type = normalizeType(requestedType)
+        if (type.isEmpty() || !path.add(type)) return null
+        try {
+            String raw = rawTypeName(type)
+            if (raw == "net.minecraft.tags.TagKey") {
+                List<String> args = typeArguments(type)
+                if (args.isEmpty()) return null
+                String element = rawTypeName(args[0])
+                if (element == "net.minecraft.world.item.Item") return "item"
+                if (element == "net.minecraft.world.level.block.Block") return "block"
+                if (element == "net.minecraft.world.level.material.Fluid") return "fluid"
+                return null
+            }
+            Map config = loadConfig()
+            Integer argumentIndex = ((Map<String, Integer>) config.genericDelegates).get(raw)
+            if (argumentIndex != null) {
+                List<String> args = typeArguments(type)
+                if (argumentIndex >= 0 && argumentIndex < args.size()) {
+                    String directory = tagDirectoryForSpec(args[argumentIndex], followFixedDelegates, path)
+                    if (directory != null) return directory
+                }
+            }
+            if (followFixedDelegates) {
+                for (Map rule : (List<Map>) config.delegates) {
+                    String source = normalizeType(rule.source?.toString())
+                    if (type == source || raw == source) {
+                        String directory = tagDirectoryForSpec(rule.target?.toString(), true, path)
+                        if (directory != null) return directory
+                    }
+                }
+            }
+            return null
+        } catch (Throwable ignored) {
+            return null
+        } finally {
+            path.remove(type)
+        }
+    }
+
+    private static String iconDirectoryForSpec(String requestedType) {
+        String type = normalizeType(requestedType)
+        String cached = ICON_DIRECTORY_CACHE.get(type)
+        if (cached != null) return cached
+        String directory = iconDirectoryForSpec(type, new LinkedHashSet<String>()) ?: "item"
+        ICON_DIRECTORY_CACHE.put(type, directory)
+        return directory
+    }
+
+    private static String iconDirectoryForSpec(String requestedType, Set<String> path) {
+        String type = normalizeType(requestedType)
+        if (type.isEmpty() || !path.add(type)) return null
+        try {
+            String raw = rawTypeName(type)
+            if (raw == "net.minecraft.world.level.material.Fluid") return "fluid"
+            if (raw == "net.minecraft.tags.TagKey") return null
+            Map config = loadConfig()
+            Integer argumentIndex = ((Map<String, Integer>) config.genericDelegates).get(raw)
+            if (argumentIndex != null) {
+                List<String> args = typeArguments(type)
+                if (argumentIndex >= 0 && argumentIndex < args.size()) {
+                    String directory = iconDirectoryForSpec(args[argumentIndex], path)
+                    if (directory != null) return directory
+                }
+            }
+            for (Map rule : (List<Map>) config.delegates) {
+                String source = normalizeType(rule.source?.toString())
+                if (type == source || raw == source) {
+                    String directory = iconDirectoryForSpec(rule.target?.toString(), path)
+                    if (directory != null) return directory
+                }
+            }
+            return "item"
+        } catch (Throwable ignored) {
+            return "item"
+        } finally {
+            path.remove(type)
+        }
+    }
+
+    static List<File> exportedIconFiles(File projectRoot, String id, Collection<String> requestedTypes) {
+        if (projectRoot == null || requestedTypes == null) return []
+        LinkedHashSet<String> relativePaths = new LinkedHashSet<String>()
+        for (String type : requestedTypes) {
+            String relative = exportedIconRelativePath(id, type)
+            if (relative != null) relativePaths.add(relative)
+        }
+        List<File> files = []
+        try {
+            String projectRootPath = projectRoot.getCanonicalPath()
+            File base = new File(projectRootPath, "local/kubegroovy/export").getCanonicalFile()
+            for (String folder : ["icons-32", "icon-32"]) {
+                File root = new File(base, folder).getCanonicalFile()
+                for (String relative : relativePaths) {
+                    File file = new File(root, relative).getCanonicalFile()
+                    if (file.toPath().startsWith(root.toPath())) {
+                        files.add(file)
+                        EXPORTED_ICON_FILES.put(exportedIconIndexKey(projectRootPath, folder, relative), file)
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        return files
+    }
+
+    static List<File> iconFilesForSuggestion(String id, Collection<String> requestedTypes, File projectRoot) {
+        return iconCandidateFilesForSuggestion(id, requestedTypes, projectRoot).findAll { it.isFile() }.toList()
+    }
+
+    private static List<File> iconCandidateFilesForSuggestion(String id, Collection<String> requestedTypes, File projectRoot) {
+        LinkedHashMap<String, File> files = new LinkedHashMap<String, File>()
+        for (File file : exportedIconFiles(projectRoot, id, requestedTypes)) files.put(file.getAbsolutePath(), file)
+        if (iconDir != null && id != null) {
+            String unprefixed = id.startsWith("#") ? id.substring(1) : id
+            List<String> names = [iconFileName(id), unprefixed + ".png"]
+            if (unprefixed.startsWith("minecraft:")) names.add(unprefixed.substring("minecraft:".length()) + ".png")
+            for (String name : names) {
+                File file = safeIconFile(new File(iconDir), name)
+                if (file != null) files.put(file.getAbsolutePath(), file)
+            }
+        }
+        for (File logo : [bindingsLogoSvgFile, bindingsLogoDarkSvgFile, bindingsLogoFile,
+                          bindingsLogoFile == null ? null : new File(bindingsLogoFile.getParentFile(), "logo-dark.png")]) {
+            if (logo != null) files.put(logo.getAbsolutePath(), logo)
+        }
+        return files.values().toList()
+    }
+
+    private static String exportedIconIndexKey(String projectRootPath, String scaleDirectory, String relativePath) {
+        return projectRootPath + "|" + scaleDirectory + "/" + relativePath.replace('\\', '/')
+    }
+
+    private static List<File> indexedExportedIconFiles(String projectRootPath, Collection<String> relativePaths) {
+        if (projectRootPath == null || projectRootPath.isEmpty() || relativePaths == null) return []
+        LinkedHashMap<String, File> files = new LinkedHashMap<String, File>()
+        for (String relative : relativePaths) {
+            for (String folder : ["icons-32", "icon-32"]) {
+                File file = EXPORTED_ICON_FILES.get(exportedIconIndexKey(projectRootPath, folder, relative))
+                if (file != null) files.put(file.getAbsolutePath(), file)
+            }
+        }
+        return files.values().toList()
+    }
+
+    private static List<String> exportedIconPathsForSuggestion(String id, Collection<String> requestedTypes) {
+        LinkedHashSet<String> paths = new LinkedHashSet<String>()
+        for (String type : requestedTypes ?: []) {
+            String relative = exportedIconRelativePath(id, normalizeType(type))
+            if (relative != null) paths.add(relative)
+        }
+        return new ArrayList<String>(paths)
+    }
+
+    private static File safeIconFile(File root, String relative) {
+        try {
+            File canonicalRoot = root.getCanonicalFile()
+            File canonicalFile = new File(canonicalRoot, relative).getCanonicalFile()
+            return canonicalFile.toPath().startsWith(canonicalRoot.toPath()) ? canonicalFile : null
+        } catch (Throwable ignored) {
+            return null
+        }
+    }
+
+    /**
+     * Loads project-exported icons first, then legacy LivePlugin icons, and
+     * finally the vector logo shipped in the sibling bindings plugin folder.
+     */
+    static Icon iconFor(String id, Collection<String> requestedTypes, File projectRoot) {
+        long totalStarted = System.nanoTime()
+        long keyStarted = totalStarted
+        long keyNanos = 0L
+        long stampNanos = 0L
+        long candidatesNanos = 0L
+        long loadingNanos = 0L
+        String outcome = "missing"
+        try {
+            if (id == null) return null
+            String projectRootPath = ""
+            // projectRootForProject already canonicalizes roots; absolute-path
+            // lookup avoids resolving the same project directory for every id.
+            try { if (projectRoot != null) projectRootPath = projectRoot.getAbsolutePath() } catch (Throwable ignored) {}
+            List<String> relativePaths = exportedIconPathsForSuggestion(id, requestedTypes)
+            String cacheKey = suggestionIconCacheKey(id, relativePaths, projectRootPath)
+            keyNanos = System.nanoTime() - keyStarted
+            Icon cached = ICONS.get(cacheKey)
+            if (cached != null) {
+                List<File> watched = ICON_CANDIDATES.get(cacheKey)
+                String stamp = ICON_CANDIDATE_STAMPS.get(cacheKey)
+                long stampStarted = System.nanoTime()
+                String currentStamp = watched == null ? null : iconCandidateStamp(watched)
+                stampNanos = System.nanoTime() - stampStarted
+                if (watched != null && stamp != null && stamp == currentStamp) {
+                    outcome = "suggestion-cache-hit"
+                    return cached
+                }
+                ICONS.remove(cacheKey, cached)
+                ICON_CANDIDATES.remove(cacheKey)
+                ICON_CANDIDATE_STAMPS.remove(cacheKey)
+            }
+
+            long candidatesStarted = System.nanoTime()
+            List<File> indexedCandidates = indexedExportedIconFiles(projectRootPath, relativePaths)
+            candidatesNanos += System.nanoTime() - candidatesStarted
+            for (int i = 0; i < indexedCandidates.size(); i++) {
+                File file = indexedCandidates.get(i)
+                long loadStarted = System.nanoTime()
+                Icon icon = loadIcon(file)
+                loadingNanos += System.nanoTime() - loadStarted
+                if (icon != null) {
+                    List<File> watched = new ArrayList<File>(indexedCandidates.subList(0, i + 1))
+                    ICON_CANDIDATES.put(cacheKey, watched)
+                    ICON_CANDIDATE_STAMPS.put(cacheKey, iconCandidateStamp(watched))
+                    ICONS.put(cacheKey, icon)
+                    outcome = "preloaded-index=" + file.getName()
+                    return icon
+                }
+            }
+
+            candidatesStarted = System.nanoTime()
+            List<File> candidates = iconCandidateFilesForSuggestion(id, requestedTypes, projectRoot)
+            candidatesNanos += System.nanoTime() - candidatesStarted
+            for (int i = 0; i < candidates.size(); i++) {
+                File file = candidates.get(i)
+                long loadStarted = System.nanoTime()
+                Icon icon = loadIcon(file)
+                loadingNanos += System.nanoTime() - loadStarted
+                if (icon != null) {
+                    List<File> watched = new ArrayList<File>(candidates.subList(0, i + 1))
+                    ICON_CANDIDATES.put(cacheKey, watched)
+                    ICON_CANDIDATE_STAMPS.put(cacheKey, iconCandidateStamp(watched))
+                    ICONS.put(cacheKey, icon)
+                    outcome = "icon=" + file.getName()
+                    return icon
+                }
+            }
+        } catch (Throwable ignored) {} finally {
+            long elapsedNanos = System.nanoTime() - totalStarted
+            if (elapsedNanos >= 50_000_000L) {
+                debugTiming("icon lookup id=" + id + " outcome=" + outcome + " total=" + elapsed(totalStarted)
+                    + " key=" + String.format(java.util.Locale.ROOT, "%.2fms", keyNanos / 1_000_000.0d)
+                    + " stamp=" + String.format(java.util.Locale.ROOT, "%.2fms", stampNanos / 1_000_000.0d)
+                    + " candidates=" + String.format(java.util.Locale.ROOT, "%.2fms", candidatesNanos / 1_000_000.0d)
+                    + " load=" + String.format(java.util.Locale.ROOT, "%.2fms", loadingNanos / 1_000_000.0d))
+            }
+        }
+        return null
+    }
+
+    private static String suggestionIconCacheKey(String id, Collection<String> assetPaths, String root) {
+        // Cache by the resolved export paths, not the source PSI type. This
+        // makes Item and ResourceKey<Item> (and other delegates) share the
+        // same per-suggestion result when they resolve to the same asset.
+        String identifier = id.startsWith("#") ? id.substring(1) : id
+        return root + "|" + identifier + "|" + assetPaths.join(",")
+    }
+
+    private static String iconCandidateStamp(Collection<File> files) {
+        StringBuilder stamp = new StringBuilder()
+        for (File file : files) {
+            stamp.append(file.getAbsolutePath()).append('|')
+            if (file.isFile()) {
+                stamp.append(file.lastModified()).append('|').append(file.length())
+            } else {
+                stamp.append("missing")
+            }
+            stamp.append('\n')
+        }
+        return stamp.toString()
+    }
+
+    private static Icon loadIcon(File file) {
+        long loadStarted = System.nanoTime()
+        long lockWaitStarted = 0L
+        long lockWaitNanos = 0L
+        long decodeNanos = 0L
+        try {
+            if (file == null || !file.isFile()) return null
+            File canonical = file.getCanonicalFile()
+            String cacheKey = canonical.getAbsolutePath() + "|" + canonical.lastModified() + "|" + canonical.length()
+            Icon cached = FILE_ICONS.get(cacheKey)
             if (cached != null) return cached
-            if (iconDir == null) return null
-            File f = new File(iconDir, iconFileName(id))
-            if (!f.isFile()) f = new File(iconDir, id + ".png")
-            if (!f.isFile() && id.startsWith("minecraft:")) f = new File(iconDir, id.substring("minecraft:".length()) + ".png")
-            if (!f.isFile()) return null
-            ImageIcon raw = new ImageIcon(f.getAbsolutePath())
+            Object lock = FILE_ICON_LOCKS.get(cacheKey)
+            if (lock == null) {
+                Object candidate = new Object()
+                Object previous = FILE_ICON_LOCKS.putIfAbsent(cacheKey, candidate)
+                lock = previous == null ? candidate : previous
+            }
+            lockWaitStarted = System.nanoTime()
+            synchronized (lock) {
+                lockWaitNanos = System.nanoTime() - lockWaitStarted
+                cached = FILE_ICONS.get(cacheKey)
+                if (cached != null) return cached
+                long decodeStarted = System.nanoTime()
+                Icon loaded = loadIconUncached(canonical)
+                decodeNanos = System.nanoTime() - decodeStarted
+                if (loaded != null) FILE_ICONS.put(cacheKey, loaded)
+                return loaded
+            }
+        } catch (Throwable ignored) {
+            return null
+        } finally {
+            long totalNanos = System.nanoTime() - loadStarted
+            if (totalNanos >= 10_000_000L) {
+                long otherNanos = Math.max(0L, totalNanos - decodeNanos - lockWaitNanos)
+                debugTiming("icon file load path=" + file?.getAbsolutePath() + " total=" + elapsed(loadStarted)
+                    + " decode=" + String.format(java.util.Locale.ROOT, "%.2fms", decodeNanos / 1_000_000.0d)
+                    + " lockWait=" + String.format(java.util.Locale.ROOT, "%.2fms", lockWaitNanos / 1_000_000.0d)
+                    + " file/key=" + String.format(java.util.Locale.ROOT, "%.2fms", otherNanos / 1_000_000.0d))
+            }
+        }
+    }
+
+    private static Icon loadIconUncached(File canonical) {
+        try {
+            if (canonical.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".svg")) {
+                Icon vector = IconLoader.findIcon(canonical.toURI().toURL(), true)
+                if (vector == null || vector.getIconWidth() < 2 || vector.getIconHeight() < 2
+                    || vector.getIconWidth() > 48 || vector.getIconHeight() > 48) return null
+                return vector
+            }
+            ImageIcon raw = new ImageIcon(canonical.getAbsolutePath())
             if (raw.getIconWidth() <= 0) return null
             Icon icon = raw
             if (raw.getIconWidth() != 16 || raw.getIconHeight() != 16) {
-                icon = new ImageIcon(raw.getImage().getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH))
+                java.awt.image.BufferedImage scaled = new java.awt.image.BufferedImage(16, 16,
+                    java.awt.image.BufferedImage.TYPE_INT_ARGB)
+                java.awt.Graphics2D graphics = scaled.createGraphics()
+                try {
+                    graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                        java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+                    graphics.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING,
+                        java.awt.RenderingHints.VALUE_RENDER_QUALITY)
+                    graphics.drawImage(raw.getImage(), 0, 0, 16, 16, null)
+                } finally {
+                    graphics.dispose()
+                }
+                icon = new ImageIcon(scaled)
             }
-            ICONS.put(id, icon)
             return icon
         } catch (Throwable ignored) {
             return null
         }
     }
 
+    /** Registry ids remain useful for the old per-plugin icon directory. */
+    static String iconFileName(String id) {
+        try {
+            String name = (id.startsWith("#") ? id.substring(1) : id)
+                .replace(":", "__").replace("\"", "'").replace("/", "___")
+            return name + ".png"
+        } catch (Throwable ignored) {
+            return id + ".png"
+        }
+    }
+
     static String classifyType(PsiType type) {
         String name = psiTypeName(type)
-        return name != null && !suggestionsForType(name).isEmpty() ? name : null
+        return resolveSuggestionTypeName(name)
+    }
+
+    /** Resolve cast names against the FQNs represented in the JSON catalog.
+     * This expands unqualified names recursively, including generic arguments,
+     * when PSI cannot resolve them in the current Groovy script scope. */
+    static String resolveSuggestionTypeName(String requestedType) {
+        if (requestedType == null) return null
+        String normalized = normalizeType(requestedType)
+        if (normalized.isEmpty()) return null
+        if (!suggestionsForType(normalized).isEmpty()) return normalized
+
+        Map config = loadConfig()
+        LinkedHashSet<String> registeredRawTypes = new LinkedHashSet<String>()
+        ((Map<String, List<String>>) config.values).keySet().each { key -> registeredRawTypes.add(rawTypeName(key)) }
+        ((List<Map>) config.delegates).each { rule ->
+            if (rule.source != null) registeredRawTypes.add(rawTypeName(rule.source.toString()))
+            if (rule.target != null) registeredRawTypes.add(rawTypeName(rule.target.toString()))
+        }
+        ((Map<String, Integer>) config.genericDelegates).keySet().each { key -> registeredRawTypes.add(rawTypeName(key)) }
+
+        String expanded = expandSuggestionTypeNames(normalized, registeredRawTypes, 0)
+        return expanded != null && !suggestionsForType(expanded).isEmpty() ? expanded : null
+    }
+
+    private static String expandSuggestionTypeNames(String requestedType, Set<String> registeredRawTypes, int depth) {
+        if (requestedType == null || depth > 64) return null
+        String normalized = normalizeType(requestedType)
+        if (normalized.isEmpty()) return null
+
+        if (normalized.endsWith("[]")) {
+            String component = expandSuggestionTypeNames(normalized.substring(0, normalized.length() - 2),
+                registeredRawTypes, depth + 1)
+            return component == null ? null : component + "[]"
+        }
+
+        String raw = rawTypeName(normalized)
+        String resolvedRaw = expandSuggestionRawTypeName(raw, registeredRawTypes)
+        if (resolvedRaw == null) return null
+        if (raw == normalized) return resolvedRaw
+
+        List<String> arguments = typeArguments(normalized)
+        if (arguments.isEmpty()) return null
+        List<String> expandedArguments = new ArrayList<String>(arguments.size())
+        for (String argument : arguments) {
+            String expandedArgument = expandSuggestionTypeNames(argument, registeredRawTypes, depth + 1)
+            if (expandedArgument == null) return null
+            expandedArguments.add(expandedArgument)
+        }
+        return resolvedRaw + "<" + expandedArguments.join(",") + ">"
+    }
+
+    private static String expandSuggestionRawTypeName(String requestedRaw, Set<String> registeredRawTypes) {
+        if (requestedRaw == null || requestedRaw.isEmpty()) return null
+        if (requestedRaw.contains(".")) return requestedRaw
+
+        String match = null
+        for (String candidateRaw : registeredRawTypes) {
+            int separator = candidateRaw.lastIndexOf('.')
+            String simpleName = separator < 0 ? candidateRaw : candidateRaw.substring(separator + 1)
+            if (simpleName != requestedRaw) continue
+            if (match != null && match != candidateRaw) return null
+            match = candidateRaw
+        }
+        return match == null ? requestedRaw : match
     }
 
     static List<String> idsForSpec(String spec) {
@@ -374,8 +971,8 @@ class ItemStackSupport {
     static String denotesSpec(GrExpression typeExpr) {
         if (typeExpr == null) return null
         try {
-            String resolved = psiTypeName(typeExpr.getType())
-            if (resolved != null && !suggestionsForType(resolved).isEmpty()) return resolved
+            String resolved = classifyType(typeExpr.getType())
+            if (resolved != null) return resolved
         } catch (Throwable ignored) {}
         try {
             String text = normalizeType(typeExpr.getText())
@@ -384,7 +981,8 @@ class ItemStackSupport {
                 String qn = ((PsiClass) resolved).getQualifiedName()
                 if (qn != null) text = qn + (text.contains("<") ? text.substring(text.indexOf('<')) : "")
             }
-            if (!suggestionsForType(text).isEmpty()) return text
+            String supported = resolveSuggestionTypeName(text)
+            if (supported != null) return supported
         } catch (Throwable ignored) {}
         return null
     }
@@ -785,7 +1383,7 @@ class ItemStackSupport {
         } catch (Throwable ignored) {}
         try {
             PsiElement e = lit
-            for (int i = 0; i < 3 && e != null && !(e instanceof PsiFile); i++) {
+            for (int i = 0; i < 12 && e != null && !(e instanceof PsiFile); i++) {
                 e = e.getParent()
                 if (e instanceof GrTypeCastExpression) {
                     GrExpression operand = ((GrTypeCastExpression) e).getOperand()
@@ -803,7 +1401,8 @@ class ItemStackSupport {
                         String rt = castType.getText()?.trim()
                         if (rt != null) {
                             String textType = normalizeType(rt)
-                            if (!suggestionsForType(textType).isEmpty()) return textType
+                            String supported = resolveSuggestionTypeName(textType)
+                            if (supported != null) return supported
                         }
                     } catch (Throwable ignored) {}
                     return null
@@ -812,15 +1411,15 @@ class ItemStackSupport {
         } catch (Throwable ignored) {}
         try {
             PsiElement e = lit
-            for (int i = 0; i < 4 && e != null && !(e instanceof PsiFile); i++) {
+            for (int i = 0; i < 12 && e != null && !(e instanceof PsiFile); i++) {
                 try {
                     String text = e.getText()
                     int base = e.getTextRange().getStartOffset()
                     Matcher m = AS_CAST_TEXT.matcher(text)
                     while (m.find()) {
                         if (base + m.start() <= offset && offset <= base + m.end()) {
-                            String textType = normalizeType(m.group(1))
-                            if (!suggestionsForType(textType).isEmpty()) return textType
+                            String textType = resolveSuggestionTypeName(m.group(1))
+                            if (textType != null) return textType
                         }
                     }
 
@@ -1047,8 +1646,10 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
      */
     @Override
     protected void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
+        long completionStarted = System.nanoTime()
         try {
             if (ItemStackSupport.sideForFile(parameters.getOriginalFile()) == null) return
+            long inferStarted = System.nanoTime()
             PsiElement position = parameters.getPosition()
             int offset = parameters.getOffset()
             List<String> specs = new ArrayList<String>()
@@ -1162,7 +1763,15 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                 }
             }
             ItemStackSupport.debug("offset=" + offset + " hasCall=" + (call != null) + " specs=" + specs)
-            if (specs.isEmpty()) return
+            long inferNanos = System.nanoTime() - inferStarted
+            if (specs.isEmpty()) {
+                if (inferNanos >= 5_000_000L) {
+                    ItemStackSupport.debugTiming("completion no type match infer=" + ItemStackSupport.elapsedNanos(inferNanos)
+                        + " total=" + ItemStackSupport.elapsed(completionStarted))
+                }
+                return
+            }
+            long suggestionsStarted = System.nanoTime()
             List<String> offerIds = new ArrayList<String>()
             for (String s : specs) {
                 try {
@@ -1171,17 +1780,35 @@ class ItemStackCompletionProvider extends CompletionProvider<CompletionParameter
                     }
                 } catch (Throwable ignored) {}
             }
+            long suggestionsNanos = System.nanoTime() - suggestionsStarted
+            long projectStarted = System.nanoTime()
             def sink = result.withPrefixMatcher(ItemStackSupport.literalPrefix(position, offset))
+            File projectRoot = ItemStackSupport.projectRoot(parameters.getOriginalFile())
+            long projectNanos = System.nanoTime() - projectStarted
+            long iconsStarted = System.nanoTime()
+            int iconsApplied = 0
             for (String id : offerIds) {
                 def el = LookupElementBuilder.create(id).withInsertHandler(ITEM_INSERT)
                 try {
-                    Icon icon = ItemStackSupport.iconFor(id)
-                    if (icon != null) el = el.withIcon(icon)
-                    else ItemStackSupport.debug("no icon for '" + id + "' (icons/" + ItemStackSupport.iconFileName(id) + " missing?)")
+                    Icon icon = ItemStackSupport.iconFor(id, specs, projectRoot)
+                    if (icon != null) {
+                        el = el.withIcon(icon)
+                        iconsApplied++
+                    }
+                    else ItemStackSupport.debug("no exported icon or bindings logo for '" + id + "'")
                 } catch (Throwable ignored) {}
                 sink.addElement(el)
             }
+            long iconsNanos = System.nanoTime() - iconsStarted
             ItemStackSupport.debug("offered " + offerIds.size() + " ids at offset " + offset)
+            ItemStackSupport.debugTiming("completion specs=" + specs.size() + " suggestions=" + offerIds.size()
+                + " iconsApplied=" + iconsApplied + " infer=" + ItemStackSupport.elapsedNanos(inferNanos)
+                + " catalog=" + ItemStackSupport.elapsedNanos(suggestionsNanos)
+                + " project/preload=" + ItemStackSupport.elapsedNanos(projectNanos)
+                + " icon-pass=" + ItemStackSupport.elapsedNanos(iconsNanos)
+                + " total=" + ItemStackSupport.elapsed(completionStarted)
+                + " preload=" + ItemStackSupport.projectIconPreloadStatus(projectRoot)
+                + " " + ItemStackSupport.iconCacheSizes())
         } catch (Throwable ignored) {}
     }
 }
@@ -1208,6 +1835,7 @@ class ItemStackCompletionContributor extends CompletionContributor {
 try {
     ItemStackSupport.setIconDir(new File(pluginPath?.toString() ?: "", "icons").getAbsolutePath())
     ItemStackSupport.setConfigFile(new File(pluginPath?.toString() ?: "", "suggestions.json"))
+    ItemStackSupport.preloadOpenProjects()
 } catch (Throwable ignored) {}
 def itemStackDescriptor = new DefaultPluginDescriptor(PluginId.getId("LivePlugin"), ItemStackCompletionContributor.classLoader)
 def itemStackPoint = ExtensionPointName.create("com.intellij.completion.contributor")

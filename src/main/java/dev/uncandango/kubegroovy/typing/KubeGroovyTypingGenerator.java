@@ -1,13 +1,19 @@
 package dev.uncandango.kubegroovy.typing;
 
+import com.google.common.collect.Streams;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.block.BlockTintFunction;
 import dev.uncandango.kubegroovy.block.SoundTypeWrapper;
+import dev.uncandango.kubegroovy.block.state.BlockStatePredicate;
+import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.event.EventGroups;
 import dev.uncandango.kubegroovy.event.EventHandler;
 import dev.uncandango.kubegroovy.event.EventTargetType;
+import dev.uncandango.kubegroovy.item.ItemPredicate;
+import dev.uncandango.kubegroovy.item.ItemTintFunction;
 import dev.uncandango.kubegroovy.item.ItemToolMaterials;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ColorWrapper;
 import dev.uncandango.kubegroovy.plugin.TypeSuggestionCatalog;
@@ -23,22 +29,37 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate;
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryIDPredicate;
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryNamespacePredicate;
+import dev.uncandango.kubegroovy.util.registrypredicate.RegistryPredicate;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.neoforged.neoforge.common.ItemAbility;
 import net.neoforged.neoforge.common.SoundAction;
 import net.neoforged.neoforge.common.SoundActions;
 import net.neoforged.fml.jarcontents.JarContents;
 import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
+import net.neoforged.neoforgespi.language.IModInfo;
 import org.codehaus.groovy.control.SourceUnit;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -76,6 +97,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -1052,13 +1075,42 @@ public final class KubeGroovyTypingGenerator {
 		}
 		registry.register(Registry.class, (cx, typeInfo) -> cx.getRegistries().registryAccess().registries()
 			.map(entry -> entry.key().identifier().toString()));
+
+		// direct
+		registry.register(ItemAbility.class, (cx, typeInfo) -> ItemAbility.getActions().stream().map(ItemAbility::name));
+		registry.register(ToolMaterial.class, (cx, typeInfo) -> ItemToolMaterials.ALL.get().keySet().stream());
+		registry.register(SoundType.class, (cx, typeInfo) -> SoundTypeWrapper.INSTANCE.getMap().keySet().stream());
+		registry.register(ItemTintFunction.class, (cx, typeInfo) -> Streams.concat(Stream.of("block", "potion", "map", "display_color_nbt"), ColorWrapper.MAP.keySet().stream().map(val -> !val.isEmpty() && Character.isUpperCase(val.charAt(0)) ? val.toLowerCase(Locale.ROOT) : val).distinct()));
+		registry.register(BlockTintFunction.class, (cx, typeInfo) -> Streams.concat(Stream.of("grass", "foliage", "evergreen_foliage", "birch_foliage", "mangrove_foliage", "water", "redstone"), ColorWrapper.MAP.keySet().stream().map(val -> !val.isEmpty() && Character.isUpperCase(val.charAt(0)) ? val.toLowerCase(Locale.ROOT) : val).distinct()));
+		registry.register(KubeColor.class, (cx, typeInfo) -> ColorWrapper.MAP.keySet().stream().map(val -> !val.isEmpty() && Character.isUpperCase(val.charAt(0)) ? val.toLowerCase(Locale.ROOT) : val).distinct());
+		registry.register(SoundAction.class, (cx, typeInfo) -> ((Map<String,SoundAction>)ObfuscationReflectionHelper.getPrivateValue(SoundAction.class, null,"ACTIONS")).keySet().stream());
+		registry.register(RegistryNamespacePredicate.class, (cx, typeInfo) -> ModList.get().getMods().stream().map(IModInfo::getModId));
+
+		// delegates
+		registry.registerDelegate(ItemLike.class, Item.class);
 		registry.registerDelegate(ItemStack.class, Item.class);
+		registry.registerDelegate(FluidStack.class, Fluid.class);
 		registry.registerDelegate(Ingredient.class, Item.class);
 		registry.registerDelegate(Ingredient.class, TypeInfo.of(TagKey.class).withParams(TypeInfo.of(Item.class)), "#");
+		registry.registerDelegate(FluidIngredient.class, Fluid.class);
+		registry.registerDelegate(FluidIngredient.class, TypeInfo.of(TagKey.class).withParams(TypeInfo.of(Fluid.class)), "#");
+		registry.registerDelegate(ItemPredicate.class, Ingredient.class);
+		registry.registerDelegate(BlockStatePredicate.class, Block.class);
+
+		// simple wrappers
 		registry.registerDelegate(Optional.class);
+		// registry.registerDelegate(Predicate.class); TODO: implement this
 		registry.registerDelegate(Holder.class);
 		registry.registerDelegate(Holder.Reference.class);
 		registry.registerDelegate(ResourceKey.class);
+		registry.registerDelegate(RegistryIDPredicate.class);
+		registry.registerDelegate(RegistryHolderPredicate.class);
+
+		// Collections
+//		registry.registerDelegate(HolderSet.class); // List
+//		registry.registerDelegate(List.class); // List
+//		registry.registerDelegate(RegistryPredicate.class, TypeInfo.RAW_LIST.withParams(TypeInfo.of(Registry.class))); // List<Registry<?>
+//		registry.registerDelegate(RegistryPredicate.class, RegistryNamespacePredicate.class, "@");
 
 		for (var plugin : KubeGroovyPlugins.getAll()) {
 			registry.setCurrentOwner(plugin.getClass().getName());

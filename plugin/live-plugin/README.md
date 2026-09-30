@@ -67,3 +67,21 @@ prefix), and genericDelegates mapping a one-parameter wrapper FQN to its
 argument index. The IDE resolves these rules recursively, including nested
 Optional<T> and collection/map literal positions. Plain TagKey<T> values have
 no prefix; a delegate such as Ingredient → TagKey<Item> adds #.
+
+Completion icons come from the current IntelliJ project's
+`local/kubegroovy/export/icons-32/` directory (the legacy spelling
+`icon-32/` is also recognized). Item and fluid icons use the exporter's
+`item/<namespace>/<path>.png` and `fluid/<namespace>/<path>.png` layout.
+TagKey suggestions use `tags/item/`, `tags/block/`, or `tags/fluid/` according
+to the tag's generic element type; a leading `#` is removed for the lookup.
+On plugin load, existing project exports are decoded in the background from
+the `item/`, `fluid/`, optional `block/`, and `tags/{item,block,fluid}/`
+folders. A project's first completion also starts this preload if the plugin
+was loaded before that project opened.
+When no exported icon is available, completion uses the vector
+`bindings/logo.svg` from the sibling LivePlugin folder, with the PNG logo as a
+fallback. Resolved icons are cached per project, identifier, and asset path, so
+delegated types that resolve to the same asset share an entry. The cache checks
+candidate file timestamps so newly exported or updated icons can replace the
+fallback without reloading the plugin. Run `/kgy export-icons` in a client world
+to refresh the project exports.
