@@ -11,10 +11,13 @@ $ServerEvents.recipes { event ->
 			"ingredients":["minecraft:diamond"],
 			"result":{"id":"minecraft:emerald","count":2}
 		}''').getAsJsonObject()
-		event.custom(customJson).id('kubegroovy:coverage_custom_json')
+		event.custom(customJson).with {
+			id('kubegroovy:coverage_custom_json')
+		}
 
-		event.shapeless('minecraft:lapis_lazuli', ['minecraft:diamond'])
-			.id('kubegroovy:coverage_after_removed')
+		event.shapeless('minecraft:lapis_lazuli', ['minecraft:diamond']).with {
+			id('kubegroovy:coverage_after_removed')
+		}
 	}
 }
 

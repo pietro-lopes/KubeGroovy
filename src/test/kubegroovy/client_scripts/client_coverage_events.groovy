@@ -305,15 +305,15 @@ $KeyBindEvents.tick('coverage_key_a') { event ->
 
 $ItemEvents.modifyTooltips { event ->
 	$TestRuntime.check('client.tooltip.modify') {
-		event.modify('minecraft:diamond', { builder -> builder.add([$Text.string('Coverage line')]) })
-		event.modifyAll({ builder -> builder.dynamic('coverage_client_tip') })
+		event.modify('minecraft:diamond', { builderBuilder -> builderBuilder.with { add([$Text.string('Coverage line')]) } })
+		event.modifyAll({ builderBuilder -> builderBuilder.with { dynamic('coverage_client_tip') } })
 		event.add('minecraft:stone', [$Text.string('Stone line')])
 		def reqs = new TooltipRequirements(
 			Tristate.TRUE, Tristate.DEFAULT,
 			Tristate.DEFAULT, Tristate.FALSE,
 			Tristate.DEFAULT, [:])
-		event.modify('minecraft:iron_ingot', reqs, { builder -> builder.add([$Text.string('Req line')]) })
-		event.modifyAll(reqs, { builder -> builder.add([$Text.string('Req all')]) })
+		event.modify('minecraft:iron_ingot', reqs, { builderBuilder -> builderBuilder.with { add([$Text.string('Req line')]) } })
+		event.modifyAll(reqs, { builderBuilder -> builderBuilder.with { add([$Text.string('Req all')]) } })
 		event.add('minecraft:gold_ingot', reqs, [$Text.string('Req gold')])
 	}
 }

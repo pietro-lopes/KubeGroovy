@@ -5,6 +5,19 @@ implicit conversion. Import classes instead of spelling out package names in
 script bodies. `VanillaItemPredicate` aliases Minecraft's `ItemPredicate` to
 avoid colliding with KubeGroovy's predicate class in `wrapper_checks.groovy`.
 
+## Builder configuration
+
+Configure builders with `.with {}`. Keep callback parameters explicit and name
+them with a `Builder` suffix so names such as `sound` cannot shadow delegated
+methods. If a method returns a child builder, configure that returned object in
+its own `.with {}` block. Keep objects in separate locals when later assertions
+need them: `.with` returns the closure's last result, not necessarily the builder.
+
+Creative-tab icon and content suppliers are declared outside `.with` and passed
+to the setters inside it. Moving these deferred suppliers into the delegated
+closure changes their conversion behavior; the registry game tests cover both
+the carrot icon and rebuilding the tab contents.
+
 ## Explicit casts retained
 
 | Fixture | Casts | Reason |

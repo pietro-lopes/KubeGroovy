@@ -11,17 +11,37 @@ import net.neoforged.neoforge.client.settings.KeyModifier
 // Exhaust every KeybindRegistryKubeEvent.Builder branch.
 $KeyBindEvents.registry { event ->
 	$TestRuntime.passStartup('client.keybind.registry')
-	event.register('coverage_key_a', 'key.keyboard.v').category('coverage').inGame()
-	event.register('coverage_key_b').defaultKey('key.keyboard.b').category('coverage').gui()
-	event.register('coverage_key_c', 'key.mouse.left').mouseInputType().category('coverage_mouse')
-	event.register('coverage_key_d', 'key.keyboard.g').scanCodeInputType().category('coverage_scan')
-	event.register('coverage_key_e').inputType(InputConstants.Type.KEYSYM).category('coverage_input')
+	event.register('coverage_key_a', 'key.keyboard.v').with {
+		category('coverage')
+		inGame()
+	}
+	event.register('coverage_key_b').with {
+		defaultKey('key.keyboard.b')
+		category('coverage')
+		gui()
+	}
+	event.register('coverage_key_c', 'key.mouse.left').with {
+		mouseInputType()
+		category('coverage_mouse')
+	}
+	event.register('coverage_key_d', 'key.keyboard.g').with {
+		scanCodeInputType()
+		category('coverage_scan')
+	}
+	event.register('coverage_key_e').with {
+		inputType(InputConstants.Type.KEYSYM)
+		category('coverage_input')
+	}
 	def chained = event.register('coverage_key_f', 'key.keyboard.h')
-	chained.conflictContext(KeyConflictContext.UNIVERSAL)
-	chained.modifier(KeyModifier.SHIFT)
-	chained.category('coverage_mod')
+	chained.with {
+		conflictContext(KeyConflictContext.UNIVERSAL)
+		modifier(KeyModifier.SHIFT)
+		category('coverage_mod')
+	}
 	// Unknown key name resolves to -1: covers the unmapped-default branch.
-	event.register('coverage_key_unknown_default', 'not.a.real.key').category('coverage')
+	event.register('coverage_key_unknown_default', 'not.a.real.key').with {
+		category('coverage')
+	}
 }
 
 $ClientEvents.blockEntityRendererRegistry { event ->

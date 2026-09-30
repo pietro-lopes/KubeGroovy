@@ -63,20 +63,34 @@ $TestRuntime.check('client.wrapper.model') {
 	$TestRuntime.assertThat(empty.toJson().has('textures')).isFalse()
 
 	def full = new ModelGenerator()
-	full.parent(null)
+	full.with {
+		parent(null)
+	}
 	$TestRuntime.assertThat(full.toJson().has('parent')).isFalse()
-	full.parent('minecraft:block/cube_all')
+	full.with {
+		parent('minecraft:block/cube_all')
+	}
 	// NOTE: the single-string texture(String, String) overload is @HideFromGY
 	// and not dispatchable from scripts; the array/map overloads cover the field.
-	full.texture(['a', 'b'], 'kubegroovy:block/base')
-	full.textures(['c': 'kubegroovy:block/unknown'])
-	full.element { el ->
-		el.allFaces { face -> face.tex('#a').cull().uv(0, 0, 16, 16).tintindex(1) }
+	full.with {
+		texture(['a', 'b'], 'kubegroovy:block/base')
+		textures(['c': 'kubegroovy:block/unknown'])
+		element { elBuilder ->
+			elBuilder.with {
+				allFaces { faceBuilder ->
+					faceBuilder.with {
+						tex('#a').cull().uv(0, 0, 16, 16).tintindex(1)
+					}
+				}
+			}
+		}
+		override('kubegroovy:block/unknown') { oBuilder ->
+			oBuilder.with {
+				predicate('kubegroovy:coverage', 0.5f)
+			}
+		}
+		custom { json -> json.addProperty('x', 1) }
 	}
-	full.override('kubegroovy:block/unknown') { o ->
-		o.predicate('kubegroovy:coverage', 0.5f)
-	}
-	full.custom { json -> json.addProperty('x', 1) }
 	def json = full.toJson()
 	$TestRuntime.assertThat(json.has('elements')).isTrue()
 	$TestRuntime.assertThat(json.has('overrides')).isTrue()
@@ -85,30 +99,67 @@ $TestRuntime.check('client.wrapper.model') {
 
 $TestRuntime.check('client.wrapper.blockstate') {
 	def gen = new VariantBlockStateGenerator()
-	gen.simpleVariant('', 'kubegroovy:block/unknown')
-	gen.variant('x', { v -> v.model('kubegroovy:block/unknown').x(90).y(90).uvlock() })
-	gen.variant('multi', { v ->
-		v.model('kubegroovy:block/unknown')
-		v.model('kubegroovy:block/base')
-	})
+	gen.with {
+		simpleVariant('', 'kubegroovy:block/unknown')
+		variant('x', { vBuilder ->
+			vBuilder.with {
+				model('kubegroovy:block/unknown').with {
+					x(90)
+					y(90)
+					uvlock()
+				}
+			}
+		})
+		variant('multi', { vBuilder ->
+			vBuilder.with {
+				model('kubegroovy:block/unknown')
+				model('kubegroovy:block/base')
+			}
+		})
+	}
 	$TestRuntime.assertThat(gen.toJson().has('variants')).isTrue()
 
 	def multi = new MultipartBlockStateGenerator()
-	multi.part('facing=north', { p -> p.model('kubegroovy:block/unknown').x(180) })
-	multi.part('', 'kubegroovy:block/base')
+	multi.with {
+		part('facing=north', { pBuilder ->
+			pBuilder.with {
+				model('kubegroovy:block/unknown').with {
+					x(180)
+				}
+			}
+		})
+		part('', 'kubegroovy:block/base')
+	}
 	$TestRuntime.assertThat(multi.toJson().has('multipart')).isTrue()
 }
 
 $TestRuntime.check('client.wrapper.particleSounds') {
 	def particle = new ParticleGenerator()
-	particle.texture('kubegroovy:a').textures(['kubegroovy:b'])
+	particle.with {
+		texture('kubegroovy:a')
+		textures(['kubegroovy:b'])
+	}
 	$TestRuntime.assertThat(particle.toJson().getAsJsonArray('textures').size() == 1).isTrue()
 
 	def sounds = new SoundsGenerator()
 	$TestRuntime.assertThat(sounds.toJson().size() == 0).isTrue()
-	sounds.addSound('p', { s -> s.sound('kubegroovy:x') })
-	sounds.addSound('p', { s -> s.subtitle('sub') }, true)
-	sounds.addSound('q', { s -> s.sound('kubegroovy:y') }, true)
+	sounds.with {
+		addSound('p', { sBuilder ->
+			sBuilder.with {
+				sound('kubegroovy:x')
+			}
+		})
+		addSound('p', { sBuilder ->
+			sBuilder.with {
+				subtitle('sub')
+			}
+		}, true)
+		addSound('q', { sBuilder ->
+			sBuilder.with {
+				sound('kubegroovy:y')
+			}
+		}, true)
+	}
 	$TestRuntime.assertThat(sounds.toJson().has('p')).isTrue()
 	$TestRuntime.assertThat(sounds.toJson().has('q')).isTrue()
 }
@@ -122,7 +173,9 @@ $TestRuntime.check('client.wrapper.atlasSprite') {
 
 $TestRuntime.check('client.wrapper.soundDefaults') {
 	def sounds = new SoundsGenerator()
-	sounds.addSound('defaults', { s -> })
+	sounds.with {
+		addSound('defaults', { s -> })
+	}
 	def entry = sounds.toJson().getAsJsonObject('defaults')
 	$TestRuntime.assertThat(entry.has('replace')).isFalse()
 	$TestRuntime.assertThat(entry.has('subtitle')).isFalse()

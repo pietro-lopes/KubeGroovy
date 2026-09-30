@@ -1,9 +1,16 @@
 $StartupEvents.registry('block') { event ->
-	event.create('builder_block')
-		.rightClick { $TestRuntime.pass('builder.block.rightClicked') }
+	event.create('builder_block').with {
+		rightClick { $TestRuntime.pass('builder.block.rightClicked') }
+	}
 }
 
 $StartupEvents.registry('item') { event ->
-	event.create('builder_food')
-		.food { food -> food.nutrition(6).saturation(0.6) }
+	event.create('builder_food').with {
+		food { foodBuilder ->
+			foodBuilder.with {
+				nutrition(6)
+				saturation(0.6)
+			}
+		}
+	}
 }
