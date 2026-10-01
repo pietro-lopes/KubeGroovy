@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.registry;
 
+import com.mojang.datafixers.util.Pair;
 import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.event.EventResult;
@@ -9,6 +10,7 @@ import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 
 import java.util.LinkedList;
@@ -102,6 +104,14 @@ public class RegistryKubeEvent<T> implements KubeStartupEvent, AdditionalObjectR
 		builder.registryKey = (ResourceKey) registry;
 		addBuilder(builder);
 	}
+
+	public void addAlias(Identifier original, Identifier alias) {
+		var objStorage = RegistryObjectStorage.of(registryKey);
+		if (!objStorage.aliases.add(Pair.of(original, alias))){
+			throw new IllegalArgumentException("Alias '" + alias + "' already exists in registry '" + registryKey.identifier() + "'!");
+		}
+	}
+
 
 	private <R> void addBuilder(BuilderBase<? extends R> builder) {
 		if (builder == null) {

@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.registry;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import dev.uncandango.kubegroovy.util.Cast;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -14,11 +15,13 @@ import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidType;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class RegistryObjectStorage<T> implements Iterable<BuilderBase<? extends T>> {
 	private static final Object LOCK = new Object();
@@ -41,10 +44,12 @@ public final class RegistryObjectStorage<T> implements Iterable<BuilderBase<? ex
 
 	public final ResourceKey<? extends Registry<T>> key;
 	public final Map<Identifier, BuilderBase<? extends T>> objects;
+	public final Set<Pair<Identifier,Identifier>> aliases;
 
 	private RegistryObjectStorage(ResourceKey key) {
 		this.key = key;
 		this.objects = new LinkedHashMap<>();
+		this.aliases = new HashSet<>();
 	}
 
 	@Override

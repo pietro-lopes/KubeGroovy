@@ -38,6 +38,10 @@ public class RegistryEventHandler {
 
 		var objStorage = RegistryObjectStorage.of(registryKey);
 
+		for (var alias : objStorage.aliases) {
+			event.getRegistry().addAlias(alias.getFirst(), alias.getSecond());
+		}
+
 		if (objStorage.objects.isEmpty()) {
 			if (DevProperties.get().logRegistryEventObjects) {
 				KubeGroovy.LOGGER.info("Skipping {} registry - no objects to build", registryKey.identifier());

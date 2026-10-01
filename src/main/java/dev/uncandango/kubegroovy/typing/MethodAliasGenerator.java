@@ -157,7 +157,7 @@ public final class MethodAliasGenerator {
 	private static Class<?> loadClass(String name, ClassLoader loader) {
 		try {
 			return Class.forName(name, false, loader);
-		} catch (ClassNotFoundException | LinkageError | SecurityException | IllegalClassLoadError error) {
+		} catch (Throwable error) {
 			KubeGroovy.LOGGER.debug("Skipping unavailable class while collecting method aliases: {}", name, error);
 			return null;
 		}
@@ -305,7 +305,10 @@ public final class MethodAliasGenerator {
 	}
 
 	private static String pluginTypeName(Class<?> type) {
-		var canonicalName = type.getCanonicalName();
+		String canonicalName = null;
+		try {
+			canonicalName = type.getCanonicalName();
+		} catch (Throwable ignored) {}
 		return canonicalName == null ? type.getName().replace('$', '.') : canonicalName;
 	}
 

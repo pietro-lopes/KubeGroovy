@@ -36,6 +36,7 @@
 
 # NIO
 - java.nio
++ java.nio.file.Path
 + java.nio.ByteOrder
 
 # Utils
@@ -48,9 +49,14 @@
 
 # KubeGroovy
 + dev.uncandango.kubegroovy
-- dev.uncandango.kubegroovy.script
-- dev.uncandango.kubegroovy.plugin
-+ dev.uncandango.kubegroovy.plugin.builtin.wrapper.TextWrapper
+- dev.uncandango.kubegroovy.script.groovy
+- dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin
+- dev.uncandango.kubegroovy.plugin.ClassFilter
+- dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins
+- dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyClientPlugin
+- dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyPlugin
+- dev.uncandango.kubegroovy.script.ScriptManager
+- dev.uncandango.kubegroovy.script.ScriptFile
 - dev.uncandango.kubegroovy.core
 
 # Minecraft
