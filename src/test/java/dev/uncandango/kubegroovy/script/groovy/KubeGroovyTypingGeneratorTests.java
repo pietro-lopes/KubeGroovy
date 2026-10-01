@@ -577,6 +577,12 @@ class KubeGroovyTypingGeneratorTests {
 		var receiver = AdvancementNode.class.getCanonicalName();
 		assertTrue(aliases.contains(new MethodAliasGenerator.MethodAlias(receiver, "kgy$getId", "getId")));
 		assertFalse(aliases.stream().anyMatch(alias -> alias.type().equals(AdvancementNodeKGY.class.getCanonicalName())));
+		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(new MethodAliasGenerator.ModData("kubegroovy", List.of(), List.of(bridge))));
+		var alias = new MethodAliasGenerator.MethodAlias(receiver, "kgy$getId", "getId");
+		assertTrue(signatures.get(alias).stream().anyMatch(signature -> signature.contains(" kgy$getId(")));
+		var json = com.google.gson.JsonParser.parseString(KubeGroovyTypingGenerator.renderMethodAliasesJson(List.of(alias), signatures)).getAsJsonObject();
+		assertEquals(signatures.get(alias).getFirst(), json.getAsJsonArray("aliases").get(0).getAsJsonObject()
+			.getAsJsonArray("signatures").get(0).getAsString());
 	}
 
 	@Test
@@ -595,6 +601,30 @@ class KubeGroovyTypingGeneratorTests {
 		assertEquals(type, entries.get(1).getAsJsonObject().get("class").getAsString());
 		assertTrue(parsed.has("_notes"));
 		assertTrue(text.endsWith("\n"));
+	}
+
+	@Test
+	void methodAliasSignaturesPreserveOverloadsAndGenericDeclarations() {
+		var mod = new MethodAliasGenerator.ModData("signatures", List.of(AliasSignatureFixture.class), List.of());
+		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(mod, mod));
+		var type = AliasSignatureFixture.class.getCanonicalName();
+		var overloads = signatures.get(new MethodAliasGenerator.MethodAlias(type, "kgy$value", "value"));
+		assertEquals(2, overloads.size());
+		assertTrue(overloads.contains("public java.lang.String kgy$value();"));
+		assertTrue(overloads.stream().anyMatch(value -> value.startsWith("public int kgy$value(int ")));
+		var generic = signatures.get(new MethodAliasGenerator.MethodAlias(type, "kgy$identity", "identity")).getFirst();
+		assertTrue(generic.startsWith("public static <T extends java.lang.Number & java.lang.Comparable<T>> T kgy$identity(T "));
+		var varargs = signatures.get(new MethodAliasGenerator.MethodAlias(type, "kgy$many", "many")).getFirst();
+		assertTrue(varargs.startsWith("public void kgy$many(java.lang.String... "));
+		assertTrue(varargs.endsWith(") throws java.io.IOException;"));
+	}
+
+	@RemapPrefixForGY("kgy$")
+	public static class AliasSignatureFixture {
+		public String kgy$value() { return "value"; }
+		public int kgy$value(int count) { return count; }
+		public static <T extends Number & Comparable<T>> T kgy$identity(T input) { return input; }
+		public void kgy$many(String... values) throws java.io.IOException {}
 	}
 
 	@Test

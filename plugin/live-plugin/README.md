@@ -33,6 +33,15 @@ completion or resolution request without reloading the plugin. Missing or
 malformed updates retain only that project's last valid catalog; a project
 without a generated catalog starts empty.
 
+Method aliases copy the declared `from` overloads when the editor can see them.
+Generated `aliases.json` entries also include `signatures`, an array of Java method
+declarations with the original name, parameters, return type, type parameters,
+modifiers, and throws types. When `from` is missing (for example, Minecraft classes
+without runtime interface injection), those declarations supply the alias methods.
+An existing `to` with the same erased parameter signature still wins. Older entries
+without `signatures` continue to require `from`. Regenerate typings and reload the
+updated method-aliases script to enable this in a modpack project.
+
 The standalone IDE fixture project loads these actual scripts without executing
 their LivePlugin registration bodies. It uses the IDE's Groovy runtime and an
 SDK from the fixture JVM; versions are pinned in the root `gradle.properties`.

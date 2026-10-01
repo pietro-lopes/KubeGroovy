@@ -446,6 +446,67 @@ public final class LivePluginScopeTest extends LivePluginTestCase {
 		}
 	}
 
+	public void testAliasesUseSignaturesWhenInjectedMethodsAreMissing() throws Exception {
+		ClassLoader loader = loadScript("method-aliases");
+		Path config = Files.createTempFile("kgy-alias-signatures", ".json");
+		try {
+			Files.writeString(config, """
+				{"aliases":[
+				  {"class":"example.Widget","from":"kgy$value","to":"value","signatures":[
+				    "public java.lang.String kgy$value();", "public int kgy$value(int count);"]},
+				  {"class":"example.Widget","from":"kgy$identity","to":"identity","signatures":[
+				    "public static <T extends java.lang.Number> T kgy$identity(T input);"]},
+				  {"class":"example.Widget","from":"kgy$many","to":"many","signatures":[
+				    "public void kgy$many(java.lang.String... values) throws java.io.IOException;"]},
+				  {"class":"example.Widget","from":"original","to":"copied","signatures":[
+				    "public int original();"]}
+				]}
+				""");
+			loader.loadClass("MethodAliasSupport").getMethod("setConfigFile", File.class).invoke(null, config.toFile());
+			var contributor = (NonCodeMembersContributor) loader.loadClass("MethodAliasContributor").getConstructor().newInstance();
+			NonCodeMembersContributor.EP_NAME.getPoint().registerExtension(contributor, getTestRootDisposable());
+			var widget = ((PsiJavaFile) myFixture.addFileToProject("example/Widget.java", """
+				package example; public class Widget {
+				  public boolean value(int count) { return true; }
+				  public String original() { return null; }
+				}
+				""")).getClasses()[0];
+			myFixture.addFileToProject("example/Child.java", "package example; public class Child extends Widget {}");
+			for (String type : new String[]{"Widget", "Child"}) {
+				for (String call : new String[]{"value()", "value(1)", "identity(1)", "many('a', 'b')", "copied()"}) {
+					PsiFile file = myFixture.addFileToProject("kubegroovy/server_scripts/" + type + call.hashCode() + ".groovy",
+						"new example." + type + "()." + call);
+					String name = call.substring(0, call.indexOf('('));
+					var ref = PsiTreeUtil.findChildrenOfType(file, GrReferenceExpression.class).stream()
+						.filter(it -> name.equals(it.getReferenceName())).findFirst().orElseThrow();
+					assertInstanceOf(ref.resolve(), PsiMethod.class);
+					var method = (PsiMethod) ref.resolve();
+					switch (call) {
+						case "value()", "copied()" -> assertEquals("java.lang.String", method.getReturnType().getCanonicalText());
+						case "value(1)" -> assertEquals(widget, method.getContainingClass());
+						case "identity(1)" -> {
+							assertTrue(method.hasModifierProperty("static"));
+							assertEquals(1, method.getTypeParameters().length);
+							assertEquals("java.lang.Number", method.getTypeParameters()[0].getExtendsListTypes()[0].getCanonicalText());
+						}
+						case "many('a', 'b')" -> {
+							assertTrue(method.isVarArgs());
+							assertEquals("java.io.IOException", method.getThrowsList().getReferencedTypes()[0].getCanonicalText());
+						}
+					}
+					if (call.equals("value(1)")) assertEquals("boolean", method.getReturnType().getCanonicalText());
+				}
+			}
+			PsiFile outside = myFixture.addFileToProject("src/Outside.groovy", "new example.Widget().copied()");
+			var ref = PsiTreeUtil.findChildrenOfType(outside, GrReferenceExpression.class).stream()
+				.filter(it -> "copied".equals(it.getReferenceName())).findFirst().orElseThrow();
+			assertNull(ref.resolve());
+			assertEquals(1, widget.findMethodsByName("value", false).length);
+		} finally {
+			Files.deleteIfExists(config);
+		}
+	}
+
 	public void testObjectOverloadsStayLocalToScriptCalls() throws Exception {
 		ClassLoader loader = loadScript("object-overload");
 		Path config = Files.createTempFile("kgy-overload-scope", ".json");

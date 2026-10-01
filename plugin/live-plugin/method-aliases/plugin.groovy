@@ -15,6 +15,8 @@
 //   signature help. Both names stay visible. If a real `to` with the same
 //   erased signature exists, the real one wins and no synthetic is made.
 //   Constructors are skipped.
+//   If `from` is absent, generated `signatures` supply Java declarations of
+//   runtime-injected overloads. The same collision check applies to these aliases.
 //
 //   object-overload reads the same project-local aliases.json so its
 //   Object-rewritten signatures are emitted under alias names too — neither
@@ -34,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiClass
+import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -54,6 +57,7 @@ class MethodAliasEntry {
     String type
     String from
     String to
+    List<String> signatures = []
 }
 
 class MethodAliasConfig {
@@ -148,6 +152,9 @@ class MethodAliasSupport {
                             entry.type = c.toString().trim()
                             entry.from = f.toString().trim()
                             entry.to = t.toString().trim()
+                            if (m.get("signatures") instanceof Collection) {
+                                entry.signatures = ((Collection) m.get("signatures")).findAll { it instanceof String && !it.isBlank() }
+                            }
                             if (entry.type.isEmpty() || entry.from.isEmpty() || entry.to.isEmpty()) continue
                             if (entry.from.equals(entry.to)) continue
                             List<MethodAliasEntry> l = next.byClass.get(entry.type)
@@ -357,7 +364,17 @@ class MethodAliasContributor extends NonCodeMembersContributor implements DumbAw
             if (entry == null) continue
             try {
                 if (nameHint != null && !nameHint.equals(entry.to)) continue
-                for (PsiMethod original : own) {
+                List<PsiMethod> originals = own.findAll { it != null && !MethodAliasSupport.isOurs(it) && !it.isConstructor() && entry.from.equals(it.getName()) }
+                if (originals.isEmpty()) {
+                    def factory = JavaPsiFacade.getElementFactory(cls.getProject())
+                    for (String declaration : entry.signatures) {
+                        try {
+                            PsiMethod parsed = factory.createMethodFromText(declaration, cls)
+                            if (!parsed.isConstructor() && entry.from.equals(parsed.getName())) originals.add(parsed)
+                        } catch (Throwable ignored2) {}
+                    }
+                }
+                for (PsiMethod original : originals) {
                     if (original == null || MethodAliasSupport.isOurs(original)) continue
                     try {
                         try {

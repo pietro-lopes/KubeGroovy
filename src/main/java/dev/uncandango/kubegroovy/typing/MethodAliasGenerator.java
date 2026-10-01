@@ -237,8 +237,14 @@ public final class MethodAliasGenerator {
 	 * without a hand-maintained list.
 	 */
 	public static List<MethodAlias> methodAliases(Collection<ModData> mods) {
+		return methodAliasSignatures(mods).keySet().stream()
+			.sorted(Comparator.comparing(MethodAlias::type).thenComparing(MethodAlias::from).thenComparing(MethodAlias::to)).toList();
+	}
+
+	/** Java declarations used by the editor when runtime-injected methods are absent from its classpath. */
+	public static Map<MethodAlias, List<String>> methodAliasSignatures(Collection<ModData> mods) {
 		var seen = new TreeSet<String>();
-		var out = new ArrayList<MethodAlias>();
+		Map<MethodAlias, List<String>> out = new java.util.LinkedHashMap<>();
 		for (var mod : mods.stream().sorted(Comparator.comparing(ModData::modId)).toList()) {
 			var injectedInterfaces = mod.receiverBridges().stream()
 				.flatMap(bridge -> bridge.interfaces().stream())
@@ -269,18 +275,53 @@ public final class MethodAliasGenerator {
 				}
 			}
 		}
-		return List.copyOf(out);
+		out.replaceAll((alias, signatures) -> List.copyOf(signatures));
+		return java.util.Collections.unmodifiableMap(out);
 	}
 
-	private static void addMethodAlias(Set<String> seen, List<MethodAlias> out, String receiverName, Method method) {
+	private static void addMethodAlias(Set<String> seen, Map<MethodAlias, List<String>> out, String receiverName, Method method) {
 		if (!Modifier.isPublic(method.getModifiers()) || method.isSynthetic() || method.isBridge()) return;
 		if (method.isAnnotationPresent(HideFromGY.class) || isHidden(method.getDeclaringClass())) return;
 		if (method.getName().isBlank()) return;
 		for (var alias : aliases(method)) {
 			if (alias.isBlank() || alias.equals(method.getName())) continue;
-			var key = receiverName + "\u0000" + method.getName() + "\u0000" + alias;
-			if (seen.add(key)) out.add(new MethodAlias(receiverName, method.getName(), alias));
+			var key = receiverName + "\u0000" + method.toGenericString() + "\u0000" + alias;
+			if (seen.add(key)) out.computeIfAbsent(new MethodAlias(receiverName, method.getName(), alias), ignored -> new ArrayList<>())
+				.add(methodDeclaration(method));
 		}
+	}
+
+	private static String methodDeclaration(Method method) {
+		var declaration = new StringBuilder("public ");
+		if (Modifier.isStatic(method.getModifiers())) declaration.append("static ");
+		var variables = method.getTypeParameters();
+		if (variables.length > 0) {
+			declaration.append('<');
+			for (int i = 0; i < variables.length; i++) {
+				if (i > 0) declaration.append(", ");
+				declaration.append(variables[i].getName());
+				var bounds = Arrays.stream(variables[i].getBounds()).map(MethodAliasGenerator::signatureType).toList();
+				if (!bounds.equals(List.of("java.lang.Object"))) declaration.append(" extends ").append(String.join(" & ", bounds));
+			}
+			declaration.append("> ");
+		}
+		declaration.append(signatureType(method.getGenericReturnType())).append(' ').append(method.getName()).append('(');
+		var types = method.getGenericParameterTypes();
+		var parameters = method.getParameters();
+		for (int i = 0; i < types.length; i++) {
+			if (i > 0) declaration.append(", ");
+			var type = signatureType(types[i]);
+			if (method.isVarArgs() && i == types.length - 1) type = type.substring(0, type.length() - 2) + "...";
+			declaration.append(type).append(' ').append(parameters[i].getName());
+		}
+		declaration.append(')');
+		var exceptions = Arrays.stream(method.getGenericExceptionTypes()).map(MethodAliasGenerator::signatureType).toList();
+		if (!exceptions.isEmpty()) declaration.append(" throws ").append(String.join(", ", exceptions));
+		return declaration.append(';').toString();
+	}
+
+	private static String signatureType(java.lang.reflect.Type type) {
+		return type.getTypeName().replace('$', '.');
 	}
 
 	private static List<Method> methods(Class<?> type, boolean declared) {
