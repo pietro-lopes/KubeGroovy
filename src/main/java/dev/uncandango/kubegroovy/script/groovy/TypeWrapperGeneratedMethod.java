@@ -88,11 +88,11 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 
 	private MethodHandle getMethodHandle(Class<?> clazz, Method method) {
 		try {
-			MethodHandles.Lookup lookup;
+			MethodHandles.Lookup lookup = MethodHandles.lookup();
 			try {
-				lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
-			} catch (IllegalAccessException e) {
-				lookup = MethodHandles.lookup();
+				lookup = MethodHandles.privateLookupIn(clazz, lookup);
+			} catch (IllegalAccessException ignore) {
+				//lookup = MethodHandles.lookup();
 			}
 			if (Modifier.isStatic(method.getModifiers())) {
 				return MethodHandles.dropArguments(lookup.unreflect(method), 0, Object.class);
