@@ -957,7 +957,18 @@ $ServerEvents.tick { event ->
 		def lore = $Text.lore(['hello', 'world'])
 		$TestRuntime.assertThat(lore.lines()).as("lore lines").hasSize(2)
 		$TestRuntime.assertThat(lore.lines().get(0)).as("first lore line").isInstanceOf(Component)
-
+		$TestRuntime.assertThat(lore.lines().get(0).getString()).isEqualTo('hello')
+		def component = 'existing' as Component
+		def input = [component, 'wrapped']
+		def mixed = $Text.lore(input)
+		$TestRuntime.assertThat(mixed.lines().get(0).is(component)).isTrue()
+		$TestRuntime.assertThat(mixed.lines().get(1).getString()).isEqualTo('wrapped')
+		$TestRuntime.assertThat(input.get(1)).isEqualTo('wrapped')
+		$TestRuntime.assertThat($TestRuntime.nestedComponentText([['nested']])).isEqualTo('nested')
+		$TestRuntime.assertThat($TestRuntime.componentMapText(['key': ['value']])).isEqualTo('key:value')
+		$TestRuntime.assertThat($TestRuntime.wrappedComponentMapText(['alias': ['value']])).isEqualTo('alias:value')
+		$TestRuntime.assertThat($TestRuntime.componentSetText(['set'] as Set)).isEqualTo('set')
+		$TestRuntime.assertThat(new ItemLore(['constructor']).lines().get(0).getString()).isEqualTo('constructor')
 	}
 	$TestRuntime.check('wrapper.item_attribute_modifiers') {
 		def empty = [] as ItemAttributeModifiers

@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,9 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Registry of script-facing type wrappers.
  *
  * The public map is retained for addon compatibility, but its values are now
- * entries carrying the validator and the original factory. This lets explicit
- * Groovy casts use the same conversion functions as the legacy API without
- * making arbitrary Java method calls implicitly coerce values.
+ * entries carrying the validator and the original factory. Explicit Groovy
+ * casts and generated method and constructor bridges share these conversions,
+ * including eligible values nested inside supported containers.
  */
 public class TypeWrappers {
 	public final Map<Class<?>, Entry> wrappers = new ConcurrentHashMap<>();
@@ -74,6 +75,9 @@ public class TypeWrappers {
 	);
 
 	public boolean hasAnyWrapper(TypeInfo target) {
+		if (hasWrappedContainer(target)) {
+			return true;
+		}
 		if (target instanceof TypeWrapperFactory<?>) {
 			return true;
 		}
@@ -91,6 +95,18 @@ public class TypeWrappers {
 
 		var wrapper = wrappers.get(target.asClass());
 		return wrapper != null;
+	}
+
+	/** Only inspect containers whose contents the bridge can convert. */
+	public boolean hasWrappedContainer(TypeInfo target) {
+		if (target.asClass().isArray()) {
+			return hasAnyWrapper(target.componentType());
+		}
+		if (Map.class.isAssignableFrom(target.asClass())) {
+			return hasAnyWrapper(target.param(0)) || hasAnyWrapper(target.param(1));
+		}
+		return (List.class.isAssignableFrom(target.asClass()) || Set.class.isAssignableFrom(target.asClass())
+			|| target.asClass() == Collection.class) && hasAnyWrapper(target.param(0));
 	}
 
 	public boolean hasWrapper(Object from, TypeInfo target) {

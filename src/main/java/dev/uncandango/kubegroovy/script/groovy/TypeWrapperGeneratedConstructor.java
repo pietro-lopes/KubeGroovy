@@ -28,7 +28,11 @@ public final class TypeWrapperGeneratedConstructor extends GeneratedMetaMethod {
 	private final Lazy<MethodHandle> mhSupplier;
 
 	public TypeWrapperGeneratedConstructor(CachedConstructor delegate) {
-		super(delegate.getName(), delegate.getCachedClass(), delegate.getCachedClass().getTheClass(), convertParamsType(delegate, delegate.getCachedClass().getTheClass()));
+		this(delegate, false);
+	}
+
+	public TypeWrapperGeneratedConstructor(CachedConstructor delegate, boolean preserveSignature) {
+		super(delegate.getName(), delegate.getCachedClass(), delegate.getCachedClass().getTheClass(), preserveSignature ? delegate.getNativeParameterTypes() : convertParamsType(delegate, delegate.getCachedClass().getTheClass()));
 		this.delegate = delegate;
 		this.paramsTypeInfo = resolveParamsTypeInfo(delegate, delegate.getCachedClass().getTheClass());
 		this.mhSupplier = Lazy.of(() -> {

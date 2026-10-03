@@ -15,6 +15,9 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import dev.uncandango.kubegroovy.script.groovy.TypeWrapperGeneratedMethod;
+import org.codehaus.groovy.reflection.CachedMethod;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovySandbox;
 import groovy.lang.Binding;
@@ -56,6 +59,50 @@ class KubeGroovyInteropTests {
 	@AfterEach
 	void clearContext() {
 		//Context.setCurrent(null);
+	}
+
+	@Test
+	void containersConvertWrappedElementsWithoutMutatingTheInput() throws Exception {
+		var wrappers = new TypeWrappers();
+		wrappers.register(WrappedValue.class, (value, type) -> new WrappedValue((String) value), true);
+		var context = new Context(new ContextFactory() {
+			@Override
+			public TypeWrappers getTypeWrappers() {
+				return wrappers;
+			}
+		});
+		ScopedValue.where(Context.CURRENT, context).run(() -> {
+			var element = TypeInfo.of(WrappedValue.class);
+			var list = TypeInfo.RAW_LIST.withParams(element);
+			var nested = TypeInfo.RAW_MAP.withParams(element, TypeInfo.RAW_LIST.withParams(list));
+			var source = Map.of("key", List.of(List.of("value")));
+			assertTrue(wrappers.hasAnyWrapper(nested));
+			assertEquals(Map.of(new WrappedValue("key"), List.of(List.of(new WrappedValue("value")))), context.gyToJava(source, nested));
+			assertEquals(Map.of("key", List.of(List.of("value"))), source);
+			assertEquals(java.util.Set.of(new WrappedValue("value")), context.gyToJava(java.util.Set.of("value"), TypeInfo.RAW_SET.withParams(element)));
+			assertEquals(List.of(), context.gyToJava(List.of(), list));
+			assertSame(source, context.gyToJava(source, TypeInfo.RAW_MAP));
+			var existing = new WrappedValue("existing");
+			assertSame(existing, ((List<?>) context.gyToJava(List.of(existing), list)).getFirst());
+		});
+
+		var reflected = ContainerTarget.class.getMethod("values", List.class);
+		ScopedValue.where(Context.CURRENT, context).run(() -> {
+			var method = new TypeWrapperGeneratedMethod(new CachedMethod(reflected), ContainerTarget.class, true);
+			assertEquals(List.class, method.getNativeParameterTypes()[0]);
+			assertEquals("converted", method.invoke(null, new Object[]{List.of("converted")}));
+			try {
+				assertEquals("handle", method.getTargetMethodHandle().invokeWithArguments(null, List.of("handle")));
+			} catch (Throwable error) {
+				throw new AssertionError(error);
+			}
+		});
+	}
+
+	public static class ContainerTarget {
+		public static String values(List<WrappedValue> values) {
+			return values.getFirst().value();
+		}
 	}
 
 	@Test

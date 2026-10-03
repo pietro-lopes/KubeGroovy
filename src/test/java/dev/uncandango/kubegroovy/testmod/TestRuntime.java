@@ -10,6 +10,7 @@ import dev.uncandango.kubegroovy.util.Tristate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.item.ItemStack;
@@ -27,6 +28,7 @@ import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -224,6 +226,20 @@ public class TestRuntime {
 
 	public static MapColor asMapColor(MapColor value) {
 		return value;
+	}
+
+	public static String nestedComponentText(List<List<Component>> values) {
+		return values.getFirst().getFirst().getString();
+	}
+
+	@dev.uncandango.kubegroovy.script.annotations.RemapForGY("wrappedComponentMapText")
+	public static String componentMapText(Map<Component, List<Component>> values) {
+		var entry = values.entrySet().iterator().next();
+		return entry.getKey().getString() + ":" + entry.getValue().getFirst().getString();
+	}
+
+	public static String componentSetText(Set<Component> values) {
+		return values.iterator().next().getString();
 	}
 
 }

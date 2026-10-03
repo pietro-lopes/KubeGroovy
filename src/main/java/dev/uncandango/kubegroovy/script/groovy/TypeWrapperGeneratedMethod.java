@@ -36,7 +36,11 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 	public final TypeInfo[] paramsTypeInfo;
 
 	public TypeWrapperGeneratedMethod(MetaMethod delegate, Class<?> concreteClass) {
-		super(delegate.getName(), delegate.getDeclaringClass(), delegate.getReturnType(), convertParamsType(delegate, concreteClass));
+		this(delegate, concreteClass, false);
+	}
+
+	public TypeWrapperGeneratedMethod(MetaMethod delegate, Class<?> concreteClass, boolean preserveSignature) {
+		super(delegate.getName(), delegate.getDeclaringClass(), delegate.getReturnType(), preserveSignature ? delegate.getNativeParameterTypes() : convertParamsType(delegate, concreteClass));
 		this.delegate = delegate;
 		this.paramsTypeInfo = resolveParamsTypeInfo(delegate, concreteClass);
 		this.mhSupplier = Lazy.of(() -> {

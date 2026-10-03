@@ -161,10 +161,8 @@ public class Context {
 			return null;
 		}
 
-		if (target.asClass().isInterface()){
-			if (target.asClass().isAssignableFrom(unwrappedValue.getClass())) {
-				return unwrappedValue;
-			}
+		if (target.asClass().isInstance(unwrappedValue) && !factory.getTypeWrappers().hasWrappedContainer(target)) {
+			return unwrappedValue;
 		}
 
 		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(unwrappedValue, target);
@@ -173,13 +171,13 @@ public class Context {
 			return typeWrapper.wrap(unwrappedValue, target);
 		}
 
-		if (target.is(TypeInfo.RAW_SET)) {
+		if (Set.class.isAssignableFrom(target.asClass())) {
 			return setOf(from, target.param(0));
-		} else if (target.is(TypeInfo.RAW_MAP)) {
+		} else if (Map.class.isAssignableFrom(target.asClass())) {
 			return mapOf(from, target.param(0), target.param(1));
 		} else if (target instanceof ArrayTypeInfo) {
 			return arrayOf(from, target.componentType());
-		} else if (List.class.isAssignableFrom(target.asClass())) {
+		} else if (List.class.isAssignableFrom(target.asClass()) || target.asClass() == java.util.Collection.class) {
 			return listOf(from, target.param(0));
 		} else if (target.is(TypeInfo.CLASS)) {
 			return classOf(from);
@@ -380,7 +378,14 @@ public class Context {
 		if (m == null) {
 			return reportConversionError(from, TypeInfo.RAW_MAP);
 		}
-		return m;
+		if (!kTarget.shouldConvert() && !vTarget.shouldConvert()) {
+			return m;
+		}
+		var converted = new LinkedHashMap<>();
+		for (var entry : m.entrySet()) {
+			converted.put(gyToJava(entry.getKey(), kTarget), gyToJava(entry.getValue(), vTarget));
+		}
+		return converted;
 	}
 
 	public Object evaluateString(String source, String location, int line, Object security) {
