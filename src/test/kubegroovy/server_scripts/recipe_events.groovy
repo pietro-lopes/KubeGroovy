@@ -21,6 +21,11 @@ $ServerEvents.recipes { event ->
 		event.campfireCooking(stackOf('minecraft:torch'), 'minecraft:stick', 0.35, 600)
 		event.stonecutting(stackOf('3x minecraft:stick'), '#minecraft:planks')
 		event.smithing(stackOf('minecraft:netherite_ingot'), 'minecraft:netherite_upgrade_smithing_template', 'minecraft:iron_ingot', 'minecraft:black_dye')
+		def modifiedTemplate = event.smithing('minecraft:netherite_ingot', 'minecraft:iron_ingot', 'minecraft:black_dye').with {
+			template("minecraft:apple")
+		}
+		$TestRuntime.assertThat(modifiedTemplate.template.test("apple")).isTrue()
+
 		event.replaceInput([input: 'minecraft:stick'], 'minecraft:stick', '#minecraft:saplings' as Ingredient)
 		def potting = { output, pottedInput ->
 			event.shaped(stackOf(output), ['BIB', ' B '], [B: 'minecraft:brick', I: pottedInput])

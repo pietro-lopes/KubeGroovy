@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.error.MissingContextException;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
@@ -87,7 +88,12 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 
 	private MethodHandle getMethodHandle(Class<?> clazz, Method method) {
 		try {
-			var lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
+			MethodHandles.Lookup lookup;
+			try {
+				lookup = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup());
+			} catch (IllegalAccessException e) {
+				lookup = MethodHandles.lookup();
+			}
 			if (Modifier.isStatic(method.getModifiers())) {
 				return MethodHandles.dropArguments(lookup.unreflect(method), 0, Object.class);
 			}
@@ -96,7 +102,7 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 			}
 			return lookup.unreflectSpecial(method, clazz);
 		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
+			throw new KubeRuntimeException(e);
 		}
 	}
 

@@ -232,6 +232,19 @@ public interface ItemWrapper {
 		};
 	}
 
+	@HideFromGY
+	static ItemLike wrapItemLike(@Nullable Object o) {
+		var cx = Context.getCurrent();
+		return switch (o) {
+			case null -> Items.AIR;
+			case ItemLike item -> item;
+			case CharSequence cs -> findItem(cs.toString())
+				.getOrThrow(error -> new KubeRuntimeException("Failed to read item from %s: %s".formatted(cs, error))
+					.source(SourceLine.of()));
+			default -> cx.createInterfaceAdapter(TypeInfo.of(ItemLike.class), o);
+		};
+	}
+
 	static DataResult<Item> findItem(String s) {
 		s = s.trim();
 		return switch (s) {

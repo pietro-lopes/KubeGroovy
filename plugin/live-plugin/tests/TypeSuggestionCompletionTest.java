@@ -106,6 +106,36 @@ public final class TypeSuggestionCompletionTest extends LivePluginTestCase {
 			"new example.Target().varargs('first', \"addon:apple\"<caret>)");
 	}
 
+	public void testEnumConstantsComeFromPsiAndWorkInsideWrappersAndCasts() {
+		myFixture.addFileToProject("example/Direction.java", "package example; public enum Direction { NORTH, SOUTH_EAST }");
+		myFixture.addFileToProject("example/EnumTarget.java", """
+			package example;
+			public class EnumTarget {
+				public void accept(Direction value) {}
+				public void wrapped(java.util.Optional<Direction> value) {}
+				public void list(java.util.List<Direction> values) {}
+			}
+			""");
+		choose("new example.EnumTarget().accept('<caret>')", "north",
+			"new example.EnumTarget().accept(\"north\"<caret>)");
+		choose("new example.EnumTarget().wrapped(<caret>)", "south_east",
+			"new example.EnumTarget().wrapped(\"south_east\"<caret>)");
+		choose("new example.EnumTarget().list(['<caret>'])", "north",
+			"new example.EnumTarget().list([\"north\"<caret>])");
+		choose("import example.Direction\n'<caret>' as Direction", "north",
+			"import example.Direction\n\"north\"<caret> as Direction");
+	}
+
+	public void testExportedEnumNamesOverridePsiConstants() throws Exception {
+		myFixture.addFileToProject("example/Custom.java", "package example; public enum Custom { FIRST, SECOND }");
+		myFixture.addFileToProject("example/EnumTarget.java", "package example; public class EnumTarget { public void accept(Custom value) {} }");
+		writeCatalog(Map.of("example.Custom", List.of("renamed", "second")));
+		LookupElement[] elements = complete("kubegroovy/server_scripts/EnumOverride.groovy", "new example.EnumTarget().accept('<caret>')");
+		assertNotNull(elements);
+		assertTrue(Arrays.stream(elements).anyMatch(item -> "renamed".equals(item.getObject())));
+		assertFalse(Arrays.stream(elements).anyMatch(item -> "first".equals(item.getObject())));
+	}
+
 	public void testSiblingOverloadSuggestionsAlsoWorkForInheritedMethods() {
 		choose("new example.Target().overloaded('<caret>')", "addon:apple",
 			"new example.Target().overloaded(\"addon:apple\"<caret>)");

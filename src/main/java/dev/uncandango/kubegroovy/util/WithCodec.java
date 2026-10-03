@@ -10,13 +10,11 @@ public interface WithCodec extends NBTSerializable, JsonSerializable {
 
 	@Override
 	default Tag toNBT() {
-		var cx = Context.getCurrent();
 		return getCodec().encodeStart(RegistryAccessContainer.of().nbt(), Cast.to(this)).getOrThrow();
 	}
 
 	@Override
 	default JsonElement toJson() {
-		var cx = Context.getCurrent();
 		return getCodec().encodeStart(RegistryAccessContainer.of().json(), Cast.to(this)).getOrThrow();
 	}
 }

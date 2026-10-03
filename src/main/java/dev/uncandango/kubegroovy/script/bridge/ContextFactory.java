@@ -15,7 +15,6 @@ public class ContextFactory {
 		return new Context(this);
 	}
 
-	@Deprecated
 	public Context enter() {
 		throw new UnsupportedOperationException();
 	}

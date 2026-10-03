@@ -46,11 +46,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Focused regression coverage for the Groovy-only interoperability layer. */
 class KubeGroovyInteropTests {
 	//private static final ScopedValue<Context> CONTEXT = ScopedValue.newInstance();
+	public Context cx = null;
 
 	@BeforeEach
 	void installBridge() {
-		//Context.setCurrent(null);
-		KubeGroovyMetaClassCreationHandle.install();
+		cx = new Context(new ContextFactory());
 	}
 
 	@AfterEach
@@ -60,34 +60,38 @@ class KubeGroovyInteropTests {
 
 	@Test
 	void registeredWrappersKeepValidatorsAndFactories() {
-		var wrappers = new TypeWrappers();
-		var validated = new AtomicBoolean();
-		wrappers.register(WrappedValue.class,
-			(from, target) -> {
-				validated.set(true);
-				return from instanceof String;
-			},
-			(from, target) -> new WrappedValue((String) from), true);
+		ScopedValue.where(Context.CURRENT, cx).run(() -> {
+			var wrappers = new TypeWrappers();
+			var validated = new AtomicBoolean();
+			wrappers.register(WrappedValue.class,
+				(from, target) -> {
+					validated.set(true);
+					return from instanceof String;
+				},
+				(from, target) -> new WrappedValue((String) from), true);
 
-		var value = (WrappedValue) wrappers.coerce("wrapped", WrappedValue.class);
-		assertEquals("wrapped", value.value());
-		assertTrue(validated.get());
-		assertThrows(GroovyCastException.class, () -> wrappers.coerce(42, WrappedValue.class));
+			var value = (WrappedValue) wrappers.coerce("wrapped", WrappedValue.class);
+			assertEquals("wrapped", value.value());
+			assertTrue(validated.get());
+			assertThrows(GroovyCastException.class, () -> wrappers.coerce(42, WrappedValue.class));
 
-		wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)), false);
-		assertEquals("direct", ((DirectValue) wrappers.coerce("direct", DirectValue.class)).value());
+			wrappers.registerDirect(DirectValue.class, value1 -> new DirectValue(String.valueOf(value1)), false);
+			assertEquals("direct", ((DirectValue) wrappers.coerce("direct", DirectValue.class)).value());
+		});
 	}
 
 	@Test
 	void sandboxRewritesExplicitCastAndAsTypeForms() {
-		var wrappers = new TypeWrappers();
-		wrappers.register(String.class, (value, target) -> String.valueOf(value), true);
-		var configuration = new CompilerConfiguration();
-		KubeGroovySandbox.customizers(null, wrappers).forEach(configuration::addCompilationCustomizers);
-		var shell = new GroovyShell(configuration);
+		ScopedValue.where(Context.CURRENT, cx).run(() -> {
+			var wrappers = new TypeWrappers();
+			wrappers.register(String.class, (value, target) -> String.valueOf(value), true);
+			var configuration = new CompilerConfiguration();
+			KubeGroovySandbox.customizers(null, wrappers).forEach(configuration::addCompilationCustomizers);
+			var shell = new GroovyShell(configuration);
 
-		assertDoesNotThrow(() -> shell.parse("def castValue = 'value' as String; def typeValue = 'value'.asType(String)"));
-		assertDoesNotThrow(() -> shell.parse("def simple = [] as List<String>; def nested = [] as List<List<String>>; def wildcard = [] as List<?>"));
+			assertDoesNotThrow(() -> shell.parse("def castValue = 'value' as String; def typeValue = 'value'.asType(String)"));
+			assertDoesNotThrow(() -> shell.parse("def simple = [] as List<String>; def nested = [] as List<List<String>>; def wildcard = [] as List<?>"));
+		});
 	}
 
 	@Test
@@ -198,24 +202,28 @@ class KubeGroovyInteropTests {
 
 	@Test
 	void activeSandboxBlocksDangerousCalls() {
-		var configuration = new CompilerConfiguration();
-		KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
-		var shell = new GroovyShell(configuration);
-		var error = assertThrows(Throwable.class, () -> shell.evaluate("System.exit(1)"));
-		assertTrue(hasCause(error, SecurityException.class)
-			|| String.valueOf(error).contains("System")
-			|| String.valueOf(error).contains("not allowed"));
+		ScopedValue.where(Context.CURRENT, cx).run(() -> {
+			var configuration = new CompilerConfiguration();
+			KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
+			var shell = new GroovyShell(configuration);
+			var error = assertThrows(Throwable.class, () -> shell.evaluate("System.exit(1)"));
+			assertTrue(hasCause(error, SecurityException.class)
+				|| String.valueOf(error).contains("System")
+				|| String.valueOf(error).contains("not allowed"));
+		});
 	}
 
 	@Test
 	void builderStateUsesFluentMethodsInsteadOfDirectFieldAssignment() {
-		var builder = new ItemBuilder(Identifier.parse("kubegroovy:interop_item"));
-		var configuration = new CompilerConfiguration();
-		KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
-		var shell = new GroovyShell(getClass().getClassLoader(), new Binding(Map.of("builder", builder)), configuration);
+		ScopedValue.where(Context.CURRENT, cx).run(() -> {
+			var builder = new ItemBuilder(Identifier.parse("kubegroovy:interop_item"));
+			var configuration = new CompilerConfiguration();
+			KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
+			var shell = new GroovyShell(getClass().getClassLoader(), new Binding(Map.of("builder", builder)), configuration);
 
-		assertThrows(Throwable.class, () -> shell.evaluate("builder.maxStackSize = 7"));
-		assertSame(builder, shell.evaluate("builder.maxStackSize(7)"));
+			assertThrows(Throwable.class, () -> shell.evaluate("builder.maxStackSize = 7"));
+			assertSame(builder, shell.evaluate("builder.maxStackSize(7)"));
+		});
 	}
 
 //	@Test

@@ -13,6 +13,8 @@ import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.Nullable;
 
+import java.math.BigDecimal;
+
 public interface NumberComponent<S, T extends Number> extends RecipeComponent<T> {
 	IntRange INT = new IntRange(null, Integer.MIN_VALUE, Integer.MAX_VALUE, Codec.INT);
 	LongRange LONG = new LongRange(null, Long.MIN_VALUE, Long.MAX_VALUE, Codec.LONG);

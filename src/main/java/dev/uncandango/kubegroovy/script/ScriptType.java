@@ -7,6 +7,7 @@ import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.NativeEventWrapper;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import net.neoforged.bus.api.Event;
 import net.neoforged.fml.loading.FMLPaths;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.LoggerFactory;
@@ -46,7 +47,7 @@ public enum ScriptType implements ScriptTypePredicate, ScriptTypeHolder {
 	public final String nameStrip;
 	public final ExecutorService executor;
 	public final Lazy<ClassFilter> classFilter;
-	public final Map<NativeEventWrapper.Listeners.Key, NativeEventWrapper.Listeners> nativeEventListeners;
+	public final Map<NativeEventWrapper.Listeners.Key<?>, NativeEventWrapper.Listeners<?>> nativeEventListeners;
 	public @Nullable KubeGroovyFileWatcherThread fileWatcherThread;
 
 	ScriptType(String n, String cname, Path path) {

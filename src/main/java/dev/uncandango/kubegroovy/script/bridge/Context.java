@@ -7,6 +7,7 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import com.google.gson.JsonObject;
 import groovy.lang.Closure;
 import net.minecraft.nbt.CompoundTag;
+import net.neoforged.fml.classloading.transformation.TransformingClassLoader;
 import org.codehaus.groovy.runtime.ConversionHandler;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.jspecify.annotations.Nullable;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
  * Provides minimal Rhino-like conversion helpers backed by plain Java/Groovy coercion.
  */
 public class Context {
-	public static final StackWalker STACK_WALKER = StackWalker.getInstance();
+	public static final StackWalker STACK_WALKER = StackWalker.getInstance(Set.of(StackWalker.Option.RETAIN_CLASS_REFERENCE));
 
 	public static final int CONVERSION_TRIVIAL = 1;
 
@@ -51,28 +52,56 @@ public class Context {
 		return objResult;
 	}
 
+	@Nullable
 	public static Context fromArray(Object[] array) {
 		for (Object o : array) {
 			return from(o);
 		}
-		return Context.getCurrent();
+		return from(null);
 	}
 
 	@Nullable
-	public static Context from(Object obj) {
-		var result = switch (obj) {
+	public static Context from(@Nullable Object obj) {
+		return switch (obj) {
+			case WithScriptContext script -> script.cx();
 			case Closure<?> cl -> from(cl.getDelegate());
 			case ConversionHandler ch -> from(ch.getDelegate());
-			case WithScriptContext script -> script.cx();
 			case Object[] array -> fromArray(array);
-			default -> Context.getCurrent();
+			case Class<?> clazz -> from(clazz.getClassLoader());
+			case ClassLoader loader -> loader instanceof TransformingClassLoader ? from(null) : from(loader.getParent());
+			case null, default -> getFromStackTrace();
 		};
-		return result;
 	}
 
+
 	@Nullable
+	public static Context getFromStackTrace() {
+		if (CURRENT.isBound()) {
+			return CURRENT.get();
+		}
+		Optional<Class<?>> clazz = STACK_WALKER.walk(stream -> {
+			var groovyFram = stream.filter(frame -> {
+				return frame.getFileName() != null && (frame.getFileName().endsWith(".groovy") || frame.getFileName().endsWith(".gy"));
+			}).findFirst();
+			return groovyFram.map(StackWalker.StackFrame::getDeclaringClass);
+		});
+		if (clazz.isPresent()) {
+			return from(clazz.get());
+		}
+		return null;
+	}
+
 	public static Context getCurrent() {
-		return CURRENT.isBound() ? CURRENT.get() : null;
+		if (CURRENT.isBound()) {
+			return CURRENT.get();
+		} else {
+			var cx = from(null);
+			if (cx == null) {
+				throw new MissingContextException();
+			} else {
+				return cx;
+			}
+		}
 	}
 
 	public static RuntimeException reportRuntimeError(String message, Context cx) {
@@ -103,7 +132,12 @@ public class Context {
 				if (linep != null && linep.length > 0) {
 					linep[0] = frame.getLineNumber();
 				}
-				return frame.getFileName();
+				String packageName = null;
+				try {
+					packageName = (frame.getDeclaringClass().getPackageName() + ".").replace(".", "/");
+				} catch (Throwable ignore) {
+				}
+				return packageName + frame.getFileName();
 			}));
 
 //		for (var el : Thread.currentThread().getStackTrace()) {

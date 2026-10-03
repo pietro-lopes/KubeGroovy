@@ -276,7 +276,9 @@ public class ConsoleGY {
 			var factory = contextFactory == null ? null : contextFactory.get();
 
 			if (factory != null) {
-				line.withSourceLine(SourceLine.of());
+				ScopedValue.where(Context.CURRENT, factory.enter()).run(() -> {
+					line.withSourceLine(SourceLine.of());
+				});
 			}
 		}
 

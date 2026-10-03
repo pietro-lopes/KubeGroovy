@@ -28,6 +28,7 @@
 //   rewritten signatures are emitted under alias names as well
 //   (alias x rewrite cross product — neither provider sees the other's
 //   synthetics, so it is computed from the shared file).
+//   Generated alias signatures supply missing injected declarations too.
 //   "enumsToObject":true rewrites any enum-typed param (PsiClass.isEnum,
 //   no listing needed) plus type variables bounded by Enum/an enum, so
 //   inherited generic methods like Enum.compareTo(E) get an Object sibling.
@@ -228,6 +229,7 @@ class ObjectOverloadSupport {
     private static File aliasFile = null
     private static final Map<File, String> aliasStamps = new HashMap<>()
     private static final Map<File, Map<String, Map<String, String>>> aliasIndexes = new HashMap<>()
+    private static final Map<File, Map<String, Map<String, List<String>>>> aliasSignatures = new HashMap<>()
 
     static void debug(String message) {
         if (!DEBUG) return
@@ -406,6 +408,7 @@ class ObjectOverloadSupport {
             }
             if (parsed == null) return aliasIndex
             Map<String, Map<String, String>> next = new LinkedHashMap<String, Map<String, String>>()
+            Map<String, Map<String, List<String>>> signatures = new LinkedHashMap<>()
             try {
                 Object aliases = parsed.get("aliases")
                 if (aliases instanceof Collection) {
@@ -421,19 +424,28 @@ class ObjectOverloadSupport {
                             String fs = f.toString().trim()
                             String ts = t.toString().trim()
                             if (cs.isEmpty() || fs.isEmpty() || ts.isEmpty()) continue
-                            if (fs.equals(ts)) continue
+                            if (fs.equals(ts) && !(m.get("signatures") instanceof Collection && !m.get("signatures").isEmpty())) continue
                             Map<String, String> byAlias = next.get(cs)
                             if (byAlias == null) {
                                 byAlias = new LinkedHashMap<String, String>()
                                 next.put(cs, byAlias)
                             }
                             if (!byAlias.containsKey(ts)) byAlias.put(ts, fs)
+                            if (m.get("signatures") instanceof Collection) {
+                                Map<String, List<String>> byName = signatures.computeIfAbsent(cs) { new LinkedHashMap<>() }
+                                List<String> declarations = byName.computeIfAbsent(fs) { new ArrayList<>() }
+                                for (def declaration : (Collection) m.get("signatures")) {
+                                    if (declaration instanceof String && !declaration.isBlank()
+                                        && !declarations.contains(declaration)) declarations.add(declaration)
+                                }
+                            }
                         } catch (Throwable ignored2) {}
                     }
                 }
             } catch (Throwable ignored) {}
             aliasIndex = next
             aliasIndexes.put(source, next)
+            aliasSignatures.put(source, signatures)
             aliasStamps.put(source, stamp)
             debug("alias index loaded classes=" + next.size())
         } catch (Throwable ignored) {}
@@ -447,6 +459,27 @@ class ObjectOverloadSupport {
         } catch (Throwable ignored) {
             return Collections.emptyMap()
         }
+    }
+
+    static List<PsiMethod> missingAliasMethods(PsiClass cls, List<PsiMethod> own, PsiElement place) {
+        aliasLoad(place)
+        Map<String, List<String>> byName = aliasSignatures.get(aliasFileFor(place))?.get(cls.getQualifiedName())
+        List<PsiMethod> result = new ArrayList<>()
+        if (byName == null) return result
+        def factory = JavaPsiFacade.getElementFactory(cls.getProject())
+        for (def entry : byName.entrySet()) {
+            // Same-name entries describe injected overloads, even if another
+            // overload with that name is already declared on the receiver.
+            boolean sameName = aliasesFor(cls.getQualifiedName(), place).get(entry.key) == entry.key
+            if (!sameName && own.any { it != null && !it.isConstructor() && entry.key == it.getName() }) continue
+            for (String declaration : entry.value) {
+                try {
+                    PsiMethod parsed = factory.createMethodFromText(declaration, cls)
+                    if (!parsed.isConstructor() && entry.key == parsed.getName()) result.add(parsed)
+                } catch (Throwable ignored) {}
+            }
+        }
+        return result
     }
     // Own declared methods without triggering augment recursion (getMethods()
     // includes augments). Same pattern as context-dropper.
@@ -944,7 +977,7 @@ class ObjectOverloadSupport {
         try {
             wantCtor = original.isConstructor()
         } catch (Throwable ignored) {}
-        for (PsiMethod other : ownMethods(cls)) {
+        for (PsiMethod other : wantCtor ? ownMethods(cls) : Arrays.asList(cls.getAllMethods())) {
             if (other == null || other == original || isOurs(other)) continue
             try {
                 if (other.isConstructor() != wantCtor) continue
@@ -1092,16 +1125,17 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
         }
         List result = new ArrayList()
         Set<String> made = new HashSet<String>()
-        for (PsiMethod original : own) {
+        List<PsiMethod> fallback = ObjectOverloadSupport.missingAliasMethods(cls, own, place)
+        for (PsiMethod original : own + fallback) {
             if (original == null || ObjectOverloadSupport.isOurs(original)) continue
             try {
                 String mname = original.getName()
                 if (mname == null) continue
                 // Output names: the real name plus any alias pointing at it.
-                // The alias provider's synthetics are invisible here (own
-                // methods only), so the cross product comes from this index.
+                // The alias provider's synthetics are invisible here, so the
+                // cross product uses declared methods and catalog fallbacks.
                 List<String> outNames = new ArrayList<String>()
-                if (nameHint == null || nameHint.equals(mname)) outNames.add(mname)
+                if (!fallback.contains(original) && (nameHint == null || nameHint.equals(mname))) outNames.add(mname)
                 try {
                     for (Map.Entry<String, String> e : byAlias.entrySet()) {
                         try {

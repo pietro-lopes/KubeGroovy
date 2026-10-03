@@ -2,17 +2,20 @@ package dev.uncandango.kubegroovy.script.groovy;
 
 import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.script.ScriptManager;
+import dev.uncandango.kubegroovy.script.WithScriptContext;
+import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
 import groovy.lang.GroovyClassLoader;
 import org.codehaus.groovy.control.CompilationFailedException;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.CompilationCustomizer;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * GroovyClassLoader with KubeGroovy sandbox customizers and class-filter enforcement.
  */
-public class KubeGroovyClassLoader extends GroovyClassLoader {
+public class KubeGroovyClassLoader extends GroovyClassLoader implements WithScriptContext {
 	private final ScriptManager manager;
 
 	public KubeGroovyClassLoader(ClassLoader parent, ScriptManager manager) {
@@ -78,5 +81,10 @@ public class KubeGroovyClassLoader extends GroovyClassLoader {
 			// blocked by the class filter and AST checks.
 			|| name.equals("java.lang.Class")
 			|| name.equals("java.lang.ref.SoftReference");
+	}
+
+	@Override
+	public @Nullable Context cx() {
+		return manager.context;
 	}
 }

@@ -30,4 +30,9 @@ public class KubeGroovyContextFactory extends ContextFactory {
 	public TypeWrappers getTypeWrappers() {
 		return typeWrappers;
 	}
+
+	@Override
+	public Context enter() {
+		return manager.context;
+	}
 }

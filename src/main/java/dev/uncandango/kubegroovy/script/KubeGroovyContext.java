@@ -53,7 +53,8 @@ public class KubeGroovyContext extends Context {
 		KubeGroovyMetaClassCreationHandle.install();
 		KubeGroovyMetaClassCreationHandle.refreshInjectedTypes();
 		KubeGroovyMetaClassCreationHandle.refresh(RegistryKubeEvent.class);
-		this.binding = new Binding();
+
+		this.binding = ScopedValue.where(Context.CURRENT, this).call( () -> new Binding());
 
 		var bindingsEvent = new BindingRegistry(this, binding, autoImports);
 

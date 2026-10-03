@@ -30,6 +30,10 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.IndexNotReadyException
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiEnumConstant
+import com.intellij.psi.JavaPsiFacade
+import com.intellij.psi.search.GlobalSearchScope
+import java.util.function.Function
 import com.intellij.psi.PsiClassType
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiInvalidElementAccessException
@@ -324,11 +328,11 @@ class TypeSuggestionCatalog {
 		}
 
 		/** Exact values, raw values, fixed delegates, then the configured generic argument. */
-		List<String> suggestionsForType(String requestedType) {
-			return resolveSuggestions(requestedType, new LinkedHashSet<String>())
+		List<String> suggestionsForType(String requestedType, Function<String, List<String>> fallback = null) {
+			return resolveSuggestions(requestedType, new LinkedHashSet<String>(), fallback)
 		}
 
-		private List<String> resolveSuggestions(String requestedType, Set<String> path) {
+		private List<String> resolveSuggestions(String requestedType, Set<String> path, Function<String, List<String>> fallback) {
 			String type = normalizeType(requestedType)
 			if (type.isEmpty() || !path.add(type)) return []
 			List<String> result = new ArrayList<>()
@@ -336,16 +340,18 @@ class TypeSuggestionCatalog {
 				result.addAll(values.getOrDefault(type, Collections.<String>emptyList()))
 				String raw = rawTypeName(type)
 				if (raw != type) result.addAll(values.getOrDefault(raw, Collections.<String>emptyList()))
+				// Exported runtime names override enum constant names inferred by the IDE.
+				if (!values.containsKey(type) && !values.containsKey(raw) && fallback != null) result.addAll(fallback.apply(raw))
 				for (DelegateRule rule : delegates) {
 					if (type == rule.source || raw == rule.source) {
-						for (String id : resolveSuggestions(rule.target, path)) result.add(rule.prefix + id)
+						for (String id : resolveSuggestions(rule.target, path, fallback)) result.add(rule.prefix + id)
 					}
 				}
 				Integer index = genericDelegates.get(raw)
 				if (index != null) {
 					List<String> arguments = typeArguments(type)
 					if (index >= 0 && index < arguments.size() && !arguments[index].isEmpty()) {
-						result.addAll(resolveSuggestions(arguments[index], path))
+						result.addAll(resolveSuggestions(arguments[index], path, fallback))
 					}
 				}
 			} finally {
@@ -358,12 +364,12 @@ class TypeSuggestionCatalog {
 		 * Returns a supported fully qualified type, or null for unknown/ambiguous names.
 		 * Catalog names also resolve short cast names when incomplete PSI cannot do so.
 		 */
-		String resolveTypeName(String requestedType) {
+		String resolveTypeName(String requestedType, Function<String, List<String>> fallback = null) {
 			String normalized = normalizeType(requestedType)
 			if (normalized.isEmpty()) return null
-			if (!suggestionsForType(normalized).isEmpty()) return normalized
+			if (!suggestionsForType(normalized, fallback).isEmpty()) return normalized
 			String expanded = expandTypeNames(normalized, 0)
-			return expanded != null && !suggestionsForType(expanded).isEmpty() ? expanded : null
+			return expanded != null && !suggestionsForType(expanded, fallback).isEmpty() ? expanded : null
 		}
 
 		private String expandTypeNames(String requestedType, int depth) {
@@ -994,16 +1000,44 @@ class TypeSuggestionIcons {
 @CompileStatic
 class TypeSuggestionPsi {
 	private final TypeSuggestionCatalog.Snapshot catalog
+	private Project project
+	private final Map<String, List<String>> enumValues = new HashMap<>()
 	private static final Pattern AS_CAST_TEXT = Pattern.compile("\"[^\"]*\"\\s+as\\s+([\\w.\$]+(?:\\s*<[^>]+>)?(?:\\[\\])?)")
 	private static final Set<String> MAP_TYPES = Set.of("java.util.Map", "java.util.SortedMap", "java.util.NavigableMap")
 	private static final Set<String> COLLECTION_TYPES = Set.of("java.util.Collection", "java.lang.Iterable")
 
-	TypeSuggestionPsi(TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig()) {
+	TypeSuggestionPsi(TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig(), Project project = null) {
 		this.catalog = catalog
+		this.project = project
 	}
 
 	private String classifyType(PsiType type) {
-		return catalog.resolveTypeName(psiTypeName(type))
+		if (project == null && type instanceof PsiClassType) project = ((PsiClassType) type).resolve()?.getProject()
+		return resolveSupportedType(psiTypeName(type))
+	}
+
+	private String resolveSupportedType(String name) {
+		return catalog.resolveTypeName(name, { String type -> enumSuggestions(type) } as Function<String, List<String>>)
+	}
+
+	private List<String> enumSuggestions(String name) {
+		if (project == null) return []
+		if (enumValues.containsKey(name)) return enumValues.get(name)
+		List<String> values = []
+		try {
+			PsiClass cls = JavaPsiFacade.getInstance(project).findClass(name, GlobalSearchScope.allScope(project))
+			if (cls != null && cls.isEnum()) {
+				for (def field : cls.getFields()) {
+					if (field instanceof PsiEnumConstant) values.add(field.getName().toLowerCase(Locale.ROOT))
+				}
+			}
+		} catch (Exception error) { recover(error); return [] }
+		enumValues.put(name, values)
+		return values
+	}
+
+	List<String> suggestionsForType(String name) {
+		return catalog.suggestionsForType(name, { String type -> enumSuggestions(type) } as Function<String, List<String>>)
 	}
 
 	/** Null outside the builder-type argument; empty when the event's registry is unknown. */
@@ -1030,6 +1064,7 @@ class TypeSuggestionPsi {
 
 	/** Finds all supported types at the caret, preferring applicable methods before sibling overloads and casts. */
 	List<String> completionTypes(PsiElement position, int offset) {
+		project = position.getProject()
 		// A cast's type is inside the argument range, but is not a value completion site.
 		if (PsiTreeUtil.getParentOfType(position, GrTypeElement.class, false) != null) return []
 		List<String> types = new ArrayList<>()
@@ -1159,7 +1194,7 @@ class TypeSuggestionPsi {
 				String qn = ((PsiClass) resolved).getQualifiedName()
 				if (qn != null) text = qn + (text.contains("<") ? text.substring(text.indexOf('<')) : "")
 			}
-			String supported = catalog.resolveTypeName(text)
+			String supported = resolveSupportedType(text)
 			if (supported != null) return supported
 		} catch (Exception error) { recover(error) }
 		return null
@@ -1406,6 +1441,7 @@ class TypeSuggestionPsi {
 	 * before an offset-checked text fallback, so unrelated nearby casts cannot trigger suggestions.
 	 */
 	String getCoercedSpec(PsiElement position, int offset) {
+		project = position.getProject()
 		GrLiteral lit = null
 		try {
 			lit = PsiTreeUtil.getParentOfType(position, GrLiteral.class, false)
@@ -1447,7 +1483,7 @@ class TypeSuggestionPsi {
 						String rt = castType.getText()?.trim()
 						if (rt != null) {
 							String textType = normalizeType(rt)
-							String supported = catalog.resolveTypeName(textType)
+							String supported = resolveSupportedType(textType)
 							if (supported != null) return supported
 						}
 					} catch (Exception error) { recover(error) }
@@ -1464,7 +1500,7 @@ class TypeSuggestionPsi {
 					Matcher m = AS_CAST_TEXT.matcher(text)
 					while (m.find()) {
 						if (base + m.start() <= offset && offset <= base + m.end()) {
-							String textType = catalog.resolveTypeName(m.group(1))
+							String textType = resolveSupportedType(m.group(1))
 							if (textType != null) return textType
 						}
 					}
@@ -1627,10 +1663,10 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 		PsiElement position = parameters.getPosition()
 		int offset = parameters.getOffset()
 		long inferenceStarted = System.nanoTime()
-		TypeSuggestionPsi psi = new TypeSuggestionPsi(catalog)
+		TypeSuggestionPsi psi = new TypeSuggestionPsi(catalog, position.getProject())
 		List<String> builders = psi.builderSuggestions(position, offset)
 		List<String> types = builders == null ? psi.completionTypes(position, offset) : []
-		List<List<String>> suggestionGroups = builders == null ? types.collect { String type -> catalog.suggestionsForType(type) } : [builders]
+		List<List<String>> suggestionGroups = builders == null ? types.collect { String type -> psi.suggestionsForType(type) } : [builders]
 		long inferenceNanos = System.nanoTime() - inferenceStarted
 		if (suggestionGroups.isEmpty() || suggestionGroups.every { List<String> group -> group.isEmpty() }) return
 		int originalOffset = Math.max(0, offset - 1)

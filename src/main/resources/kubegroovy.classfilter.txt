@@ -84,6 +84,7 @@
 # NeoForge
 + net.neoforged
 - net.neoforged.fml
++ net.neoforged.fml.ModList
 - net.neoforged.accesstransformer
 - net.neoforged.coremod
 

@@ -7,6 +7,7 @@ import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
+import groovy.lang.Closure;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
@@ -31,6 +32,8 @@ public interface ItemPredicate extends Predicate<ItemStack>, IngredientSupplierK
 			return NONE;
 		} else if (from instanceof BaseFunction func) {
 			return (ItemPredicate) cx.createInterfaceAdapter(TYPE_INFO, func);
+		} else if (from instanceof Closure<?> cl) {
+			return cx.createInterfaceAdapter(TYPE_INFO, cl);
 		} else {
 			if (from instanceof CharSequence s) {
 				if (s.equals("*")) {

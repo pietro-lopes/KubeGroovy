@@ -9,6 +9,7 @@ import dev.uncandango.kubegroovy.util.NBTUtils;
 import dev.uncandango.kubegroovy.util.OrderedCompoundTag;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
+import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CollectionTag;
@@ -27,6 +28,9 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -42,6 +46,10 @@ public interface NBTWrapper {
 
 	static boolean isTagCollection(Object o) {
 		return o == null || Undefined.isUndefined(o) || o instanceof CharSequence || o instanceof Collection<?> || o instanceof JsonArray;
+	}
+
+	static ValueInput toValueInput(CompoundTag compoundTag) {
+		return TagValueInput.create(ProblemReporter.DISCARDING, RegistryAccessContainer.of().registryAccess(), compoundTag);
 	}
 
 	@Nullable

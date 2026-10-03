@@ -1,6 +1,8 @@
 package dev.uncandango.kubegroovy.utiltest;
 
 import com.google.gson.JsonPrimitive;
+import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.util.TickDuration;
 import dev.uncandango.kubegroovy.util.TickTemporalUnit;
 import dev.uncandango.kubegroovy.util.TimeGY;
@@ -46,13 +48,15 @@ class TimeTests {
 
 	@Test
 	void tickDurationWrap() {
-		assertSame(TickDuration.ZERO, TickDuration.wrap(null));
-		var same = TickDuration.of(7L);
-		assertSame(same, TickDuration.wrap(same));
-		assertEquals(42L, TickDuration.wrap(42).ticks());
-		assertEquals(9L, TickDuration.wrap(new JsonPrimitive(9L)).ticks());
-		assertEquals(20L, TickDuration.wrap("1s").ticks());
-		assertEquals(10L, TickDuration.wrap("10t").ticks());
+		ScopedValue.where(Context.CURRENT, new Context(new ContextFactory())).run(() -> {
+			assertSame(TickDuration.ZERO, TickDuration.wrap(null));
+			var same = TickDuration.of(7L);
+			assertSame(same, TickDuration.wrap(same));
+			assertEquals(42L, TickDuration.wrap(42).ticks());
+			assertEquals(9L, TickDuration.wrap(new JsonPrimitive(9L)).ticks());
+			assertEquals(20L, TickDuration.wrap("1s").ticks());
+			assertEquals(10L, TickDuration.wrap("10t").ticks());
+		});
 	}
 
 	@Test
@@ -70,19 +74,21 @@ class TimeTests {
 
 	@Test
 	void wrapTemporalAmount() {
-		assertEquals(Duration.ofMillis(123L), TimeGY.wrapTemporalAmount(123));
-		var amount = TickDuration.of(3L);
-		assertSame(amount, TimeGY.wrapTemporalAmount(amount));
-		assertEquals(Duration.ofSeconds(5L), TimeGY.wrapTemporalAmount("5s"));
-		assertEquals(TickDuration.of(10L), TimeGY.wrapTemporalAmount("10t"));
-		assertEquals(Duration.ofMillis(1500L), TimeGY.wrapDuration("1.5s"));
+		ScopedValue.where(Context.CURRENT, new Context(new ContextFactory())).run(() -> {
+			assertEquals(Duration.ofMillis(123L), TimeGY.wrapTemporalAmount(123));
+			var amount = TickDuration.of(3L);
+			assertSame(amount, TimeGY.wrapTemporalAmount(amount));
+			assertEquals(Duration.ofSeconds(5L), TimeGY.wrapTemporalAmount("5s"));
+			assertEquals(TickDuration.of(10L), TimeGY.wrapTemporalAmount("10t"));
+			assertEquals(Duration.ofMillis(1500L), TimeGY.wrapDuration("1.5s"));
 
-		assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
-			() -> TimeGY.wrapTemporalAmount(null));
-		assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
-			() -> TimeGY.wrapTemporalAmount("not a time"));
-		assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
-			() -> TimeGY.wrapTemporalAmount(new Object()));
+			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+				() -> TimeGY.wrapTemporalAmount(null));
+			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+				() -> TimeGY.wrapTemporalAmount("not a time"));
+			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+				() -> TimeGY.wrapTemporalAmount(new Object()));
+		});
 	}
 
 	@Test

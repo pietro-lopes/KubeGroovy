@@ -33,6 +33,11 @@ completion or resolution request without reloading the plugin. Missing or
 malformed updates retain only that project's last valid catalog; a project
 without a generated catalog starts empty.
 
+Object-overload targets include explicitly registered string-coercible wrappers
+and every known element type from the built-in and server registries, resolved
+through `RegistryType`. Registry types need no explicit coercion marker. Run
+`/kgy generate-typings` after updating the mod to refresh these targets.
+
 Method aliases copy the declared `from` overloads when the editor can see them.
 Generated `aliases.json` entries also include `signatures`, an array of Java method
 declarations with the original name, parameters, return type, type parameters,
@@ -41,6 +46,19 @@ without runtime interface injection), those declarations supply the alias method
 An existing `to` with the same erased parameter signature still wins. Older entries
 without `signatures` continue to require `from`. Regenerate typings and reload the
 updated method-aliases script to enable this in a modpack project.
+
+The object-overload script also reads these fallback signatures, so aliases such
+as `tell(Component)` receive `tell(Object)` even when the editor cannot see the
+injected `kgy$tell` declaration. Reload object-overload after updating it.
+
+The catalog also includes public script-visible methods from injected interfaces
+and their parent interfaces under their original names (`from` equals `to`).
+For example, `IngredientKGY` inherits `WithCodec`, so `Ingredient` receives
+`getCodec()`, `toJson()`, and `toNBT()` in script completion. Signatures retain
+generic types, and existing methods with matching signatures take precedence.
+Hidden methods and static interface helpers are excluded. Object coercion
+overloads also apply to these injected signatures. Regenerate with
+`/kgy generate-typings`, then reload method-aliases and object-overload.
 
 The standalone IDE fixture project loads these actual scripts without executing
 their LivePlugin registration bodies. It uses the IDE's Groovy runtime and an
@@ -107,6 +125,14 @@ builder metadata retain the declared builder types too. Run the updated mod's
 `/kgy generate-typings`, then reload the events script in LivePlugin.
 
 ## Type suggestions
+
+Enum values default to lowercase constant names read from IntelliJ PSI, without
+entries in `suggestions.json`. During typing generation, enums implementing
+`StringRepresentable` are checked against those names. Only enums whose runtime
+names differ are exported, using the complete lowercase value list accepted by
+KubeGroovy (including its fallback for empty serialized names). Exported values
+override PSI names; explicit addon providers keep their precedence. Regenerate
+typings and reload type-suggestions to enable enum completion.
 
 The type-suggestions script reads
 `local/kubegroovy/live-plugin/type-suggestions/suggestions.json` directly from

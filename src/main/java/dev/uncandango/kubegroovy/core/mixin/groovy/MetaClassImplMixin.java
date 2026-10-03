@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import dev.uncandango.kubegroovy.error.MissingContextException;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -177,7 +178,7 @@ public abstract class MetaClassImplMixin {
 	private void kgy$injectConstructor(MetaClassRegistry registry, Class<?> theClass, CallbackInfo ci){
 		List<MetaMethod> candidates = new ArrayList<>();;
 		for (var constructor : this.constructors.getArray()) {
-			if (kgy$shouldTypeWrap(((CachedConstructor)constructor).getCachedConstructor(), theClass) && Context.getCurrent() != null){
+			if (kgy$shouldTypeWrap(((CachedConstructor)constructor).getCachedConstructor(), theClass)){
 				MetaMethod wrapped = new TypeWrapperGeneratedConstructor((CachedConstructor)constructor);
 				candidates.add(wrapped);
 			}
@@ -223,7 +224,12 @@ public abstract class MetaClassImplMixin {
 
 	@Unique
 	private static boolean kgy$shouldTypeWrap(Constructor<?> method, Class<?> concreteClass) {
-		var context = Context.getCurrent();
+		Context context;
+		try {
+			context = Context.getCurrent();
+		} catch (MissingContextException e) {
+			return false;
+		}
 		var typeWrappers = context == null ? null : context.factory.getTypeWrappers();
 		for (var param : WithTypeInfo.generateParamsTypeInfo(method, concreteClass, false)) {
 			if (param.asClass().isArray()) {
@@ -238,7 +244,12 @@ public abstract class MetaClassImplMixin {
 
 	@Unique
 	private static boolean kgy$shouldTypeWrap(Method method, Class<?> concreteClass) {
-		var context = Context.getCurrent();
+		Context context;
+		try {
+			context = Context.getCurrent();
+		} catch (MissingContextException e) {
+			return false;
+		}
 		var typeWrappers = context == null ? null : context.factory.getTypeWrappers();
 		for (var param : WithTypeInfo.generateParamsTypeInfo(method, concreteClass, false)) {
 			if (param.asClass().isArray()) {

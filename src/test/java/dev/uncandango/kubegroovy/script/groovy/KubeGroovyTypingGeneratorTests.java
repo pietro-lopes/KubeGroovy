@@ -11,6 +11,7 @@ import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.typing.KubeGroovyTypingGenerator;
 import dev.uncandango.kubegroovy.typing.MethodAliasGenerator;
@@ -235,21 +236,23 @@ class KubeGroovyTypingGeneratorTests {
 
 	@Test
 	void gdslEscapesBindingDataAndUsesScriptContexts() {
-		var hostile = new TypingBinding("addon'\\name", "addon.Type", false, false,
-			dev.uncandango.kubegroovy.script.ScriptType.SERVER);
-		var text = KubeGroovyTypingGenerator.renderGdsl(temp, Map.of(
-			dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.of(hostile)));
-		assertTrue(text.contains("addon\\'\\\\name"));
-		assertTrue(text.contains("def startupRegexp = [pathRegexp: \".*/startup_scripts/.*\"]"));
-		assertTrue(text.contains("def serverRegexp = [pathRegexp: \".*/server_scripts/.*\"]"));
-		assertTrue(text.contains("def clientRegexp = [pathRegexp: \".*/client_scripts/.*\"]"));
-		assertTrue(text.contains("def startupCtx = context(base + startupRegexp)"));
-		assertTrue(text.contains("def serverCtx = context(base + serverRegexp)"));
-		assertTrue(text.contains("def clientCtx = context(base + clientRegexp)"));
-		assertFalse(text.contains("__kgyFile"));
-		assertFalse(text.contains("__kgyUnder"));
-		assertFalse(text.contains("params: []"));
-		new GroovyShell().parse(text);
+		ScopedValue.where(Context.CURRENT, new Context(new ContextFactory())).run(() -> {
+			var hostile = new TypingBinding("addon'\\name", "addon.Type", false, false,
+				dev.uncandango.kubegroovy.script.ScriptType.SERVER);
+			var text = KubeGroovyTypingGenerator.renderGdsl(temp, Map.of(
+				dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.of(hostile)));
+			assertTrue(text.contains("addon\\'\\\\name"));
+			assertTrue(text.contains("def startupRegexp = [pathRegexp: \".*/startup_scripts/.*\"]"));
+			assertTrue(text.contains("def serverRegexp = [pathRegexp: \".*/server_scripts/.*\"]"));
+			assertTrue(text.contains("def clientRegexp = [pathRegexp: \".*/client_scripts/.*\"]"));
+			assertTrue(text.contains("def startupCtx = context(base + startupRegexp)"));
+			assertTrue(text.contains("def serverCtx = context(base + serverRegexp)"));
+			assertTrue(text.contains("def clientCtx = context(base + clientRegexp)"));
+			assertFalse(text.contains("__kgyFile"));
+			assertFalse(text.contains("__kgyUnder"));
+			assertFalse(text.contains("params: []"));
+			new GroovyShell().parse(text);
+		});
 	}
 
 	@Test
@@ -604,6 +607,36 @@ class KubeGroovyTypingGeneratorTests {
 	}
 
 	@Test
+	void injectedMethodsIncludeTransitiveInterfacesAndConcreteGenericTypes() {
+		var bridge = new MethodAliasGenerator.ReceiverBridge(net.minecraft.world.item.crafting.Ingredient.class,
+			List.of(dev.uncandango.kubegroovy.core.IngredientKGY.class), List.of());
+		var genericBridge = new MethodAliasGenerator.ReceiverBridge(GeneratorFixture.class, List.of(InjectedParent.class, InjectedChild.class), List.of());
+		var mod = new MethodAliasGenerator.ModData("injected", List.of(), List.of(bridge, genericBridge));
+		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(mod, mod));
+		var ingredient = net.minecraft.world.item.crafting.Ingredient.class.getCanonicalName();
+		assertEquals(List.of("public net.minecraft.nbt.Tag toNBT();"),
+			signatures.get(new MethodAliasGenerator.MethodAlias(ingredient, "toNBT", "toNBT")));
+		assertEquals(List.of("public com.google.gson.JsonElement toJson();"),
+			signatures.get(new MethodAliasGenerator.MethodAlias(ingredient, "toJson", "toJson")));
+		assertEquals(List.of("public com.mojang.serialization.Codec<?> getCodec();"),
+			signatures.get(new MethodAliasGenerator.MethodAlias(ingredient, "getCodec", "getCodec")));
+		var receiver = GeneratorFixture.class.getCanonicalName();
+		assertEquals(List.of("public java.util.List<java.lang.String> inherited(java.lang.String[] arg0);"),
+			signatures.get(new MethodAliasGenerator.MethodAlias(receiver, "inherited", "inherited")));
+		assertFalse(signatures.keySet().stream().anyMatch(alias -> alias.from().equals("hiddenInjected")
+			|| alias.from().equals("staticHelper")));
+	}
+
+	public interface InjectedParent<T> {
+		default List<T> inherited(T[] values) { return List.of(values); }
+		@HideFromGY
+		default void hiddenInjected() {}
+		static void staticHelper() {}
+	}
+
+	public interface InjectedChild extends InjectedParent<String> {}
+
+	@Test
 	void methodAliasSignaturesPreserveOverloadsAndGenericDeclarations() {
 		var mod = new MethodAliasGenerator.ModData("signatures", List.of(AliasSignatureFixture.class), List.of());
 		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(mod, mod));
@@ -654,6 +687,28 @@ class KubeGroovyTypingGeneratorTests {
 		assertEquals("java.util.List<java.lang.Object>", rewrite.get("collection").getAsString());
 		assertTrue(parsed.has("_notes"));
 		assertTrue(text.endsWith("\n"));
+	}
+
+	@Test
+	void generatedObjectOverloadsIncludeRegistryTypesWithoutExplicitWrappers() throws Exception {
+		var blockType = TypeInfo.of(net.minecraft.world.level.block.Block.class).toStringFQN();
+		var registryTargets = List.of(
+			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("minecraft:block", blockType),
+			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("addon:block", blockType),
+			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("addon:generic", "example.Generic<java.lang.String>"),
+			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("addon:nested", "example.Outer$Entry"),
+			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("addon:unknown", "?")
+		);
+		var catalog = new KubeGroovyTypingGenerator.LivePluginValueCatalog(List.of(), List.of(), List.of(),
+			List.of(), List.of(), List.of(), List.of("example.Wrapper"));
+		var game = temp.resolve("registry-overloads-game");
+		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("live-plugins"),
+			registryTargets, List.of(), catalog);
+		var generated = com.google.gson.JsonParser.parseString(Files.readString(
+			game.resolve("local/kubegroovy/live-plugin/object-overload/overloads.json"))).getAsJsonObject();
+		assertEquals(List.of("example.Generic", "example.Outer.Entry", "example.Wrapper", blockType),
+			java.util.stream.StreamSupport.stream(generated.getAsJsonArray("targets").spliterator(), false)
+				.map(com.google.gson.JsonElement::getAsString).toList());
 	}
 
 	@Test

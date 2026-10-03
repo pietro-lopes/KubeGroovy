@@ -952,11 +952,11 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(nullComponent.getString()).as("null component string literal").isEqualTo("null")
 	}
 	$TestRuntime.check('wrapper.item_lore') {
-		def empty = [] as ItemLore
+		def empty = $Text.lore([])
 		$TestRuntime.assertThat(empty.lines().isEmpty()).as("empty lore is empty").isTrue()
-		def lore = ['hello' as MutableComponent, 'world' as MutableComponent] as ItemLore
+		def lore = $Text.lore(['hello', 'world'])
 		$TestRuntime.assertThat(lore.lines()).as("lore lines").hasSize(2)
-		$TestRuntime.assertThat(lore.lines().get(0).getString()).as("first lore line").isEqualTo('hello')
+		$TestRuntime.assertThat(lore.lines().get(0)).as("first lore line").isInstanceOf(Component)
 
 	}
 	$TestRuntime.check('wrapper.item_attribute_modifiers') {

@@ -531,7 +531,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(Vec3i.class, MiscWrappers::wrapBlockPos, false);
 
 		registry.register(Item.class, ItemWrapper::wrapItem, true);
-		registry.register(ItemLike.class, ItemWrapper::wrapItem, true);
+		registry.register(ItemLike.class, ItemWrapper::wrapItemLike, true);
 		registry.registerEnumFromStringCodec(MobCategory.class, MobCategory.CODEC);
 		registry.register(ItemEnchantments.class, ItemEnchantmentsWrapper::wrap, false);
 

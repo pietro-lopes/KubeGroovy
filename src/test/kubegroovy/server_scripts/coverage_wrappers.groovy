@@ -26,5 +26,9 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(byteArray.getId()).isEqualTo(Tag.TAG_BYTE_ARRAY)
 		$TestRuntime.assertThat(intArray.getId()).isEqualTo(Tag.TAG_INT_ARRAY)
 		$TestRuntime.assertThat(longArray.getId()).isEqualTo(Tag.TAG_LONG_ARRAY)
+		["minecraft:diamond"].each(aaa -> {
+			def exists = $Item.exists(aaa)
+			$TestRuntime.assertThat(exists).isTrue()
+		})
 	}
 }

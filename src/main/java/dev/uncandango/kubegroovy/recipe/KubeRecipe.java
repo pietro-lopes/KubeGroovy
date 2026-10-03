@@ -36,6 +36,9 @@ import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import groovy.lang.GroovyObject;
+import groovy.lang.MetaClass;
+import groovy.lang.MetaClassRegistry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
@@ -46,15 +49,19 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import org.apache.commons.lang3.mutable.MutableObject;
+import org.codehaus.groovy.reflection.ClassInfo;
+import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 @NullUnmarked
-public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
+public class KubeRecipe implements RecipeLikeKGY, GroovyObject { // , CustomJavaToGyWrapper
 	public static final String CHANGED_MARKER = "_KubeGroovy_changed_marker";
 	public static final TypeInfo TYPE_INFO = TypeInfo.of(KubeRecipe.class);
 
@@ -146,12 +153,14 @@ public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 			}
 		}
 
-		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(key);
-		if (builderFunction != null) {
-			return builderFunction;
-		}
+		return null;
+		// moved to invokeMethod
+//		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(key);
+//		if (builderFunction != null) {
+//			return builderFunction;
+//		}
 
-		throw new MissingComponentException(key, null, valueMap.keySet()).source(sourceLine);
+		//throw new MissingComponentException(key, null, valueMap.keySet()).source(sourceLine);
 	}
 
 	// intended for use by scripts
@@ -678,5 +687,32 @@ public class KubeRecipe implements RecipeLikeKGY { // , CustomJavaToGyWrapper
 		modifyResult = id;
 		save();
 		return this;
+	}
+
+	@Override
+	public MetaClass getMetaClass() {
+		return ClassInfo.getClassInfo(this.getClass()).getMetaClass();
+	}
+
+	@Override
+	public void setMetaClass(MetaClass metaClass) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Object getProperty(String propertyName) {
+		return get(propertyName);
+	}
+
+	@Override
+	public Object invokeMethod(String name, Object args) {
+		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(name);
+		if (builderFunction != null) {
+			if (args instanceof Object[] objArray && objArray.length == 1) {
+				return builderFunction.call(objArray[0]);
+			}
+			return builderFunction.call(args);
+		}
+		throw new MissingComponentException(name, null, valueMap.keySet()).source(sourceLine);
 	}
 }

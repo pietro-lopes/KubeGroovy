@@ -156,7 +156,7 @@ class MethodAliasSupport {
                                 entry.signatures = ((Collection) m.get("signatures")).findAll { it instanceof String && !it.isBlank() }
                             }
                             if (entry.type.isEmpty() || entry.from.isEmpty() || entry.to.isEmpty()) continue
-                            if (entry.from.equals(entry.to)) continue
+                            if (entry.from.equals(entry.to) && entry.signatures.isEmpty()) continue
                             List<MethodAliasEntry> l = next.byClass.get(entry.type)
                             if (l == null) {
                                 l = new ArrayList<MethodAliasEntry>()
@@ -364,7 +364,7 @@ class MethodAliasContributor extends NonCodeMembersContributor implements DumbAw
             if (entry == null) continue
             try {
                 if (nameHint != null && !nameHint.equals(entry.to)) continue
-                List<PsiMethod> originals = own.findAll { it != null && !MethodAliasSupport.isOurs(it) && !it.isConstructor() && entry.from.equals(it.getName()) }
+                List<PsiMethod> originals = entry.from == entry.to ? [] : own.findAll { it != null && !MethodAliasSupport.isOurs(it) && !it.isConstructor() && entry.from.equals(it.getName()) }
                 if (originals.isEmpty()) {
                     def factory = JavaPsiFacade.getElementFactory(cls.getProject())
                     for (String declaration : entry.signatures) {
@@ -386,7 +386,7 @@ class MethodAliasContributor extends NonCodeMembersContributor implements DumbAw
                         if (!made.add(key)) continue
                         // Real `to` with the same signature wins.
                         boolean collision = false
-                        for (PsiMethod other : own) {
+                        for (PsiMethod other : cls.findMethodsByName(entry.to, true)) {
                             if (other == null || other == original || MethodAliasSupport.isOurs(other)) continue
                             try {
                                 try {

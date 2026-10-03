@@ -4,11 +4,14 @@ import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
+import dev.uncandango.kubegroovy.script.type.TypeConsolidator;
+import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforgespi.language.IModInfo;
 import net.neoforged.neoforgespi.language.ModFileScanData;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.transformer.throwables.IllegalClassLoadError;
 
@@ -31,7 +34,8 @@ import java.util.TreeSet;
 
 /**
  * Collects runtime-backed method renames derived from {@link RemapForGY} and
- * {@link RemapPrefixForGY}, keyed by the receiver type the editor resolves.
+ * {@link RemapPrefixForGY}, plus public injected methods under their existing
+ * names, keyed by the receiver type the editor resolves.
  * Feeds {@code aliases.json} for the LivePlugin method-alias augment provider,
  * replacing the former hand-maintained list. Mod discovery and visibility
  * filtering mirror the retired {@code ModGdslGenerator} traversal so the
@@ -241,7 +245,7 @@ public final class MethodAliasGenerator {
 			.sorted(Comparator.comparing(MethodAlias::type).thenComparing(MethodAlias::from).thenComparing(MethodAlias::to)).toList();
 	}
 
-	/** Java declarations used by the editor when runtime-injected methods are absent from its classpath. */
+	/** Java declarations for renamed and injected methods missing from the editor's classpath. */
 	public static Map<MethodAlias, List<String>> methodAliasSignatures(Collection<ModData> mods) {
 		var seen = new TreeSet<String>();
 		Map<MethodAlias, List<String>> out = new java.util.LinkedHashMap<>();
@@ -261,16 +265,21 @@ public final class MethodAliasGenerator {
 				var receiver = bridge.receiverType();
 				if (isHidden(receiver)) continue;
 				var receiverName = pluginTypeName(receiver);
-				for (var iface : bridge.interfaces()) {
+				// Start at the most specific interfaces: their inherited methods
+				// retain concrete generic arguments supplied by child interfaces.
+				for (var iface : bridge.interfaces().stream()
+					.filter(parent -> bridge.interfaces().stream().noneMatch(child -> parent != child && parent.isAssignableFrom(child)))
+					.toList()) {
 					if (isHidden(iface)) continue;
-					for (var method : methods(iface, true)) {
-						addMethodAlias(seen, out, receiverName, method);
+					for (var method : methods(iface, false)) {
+						if (Modifier.isStatic(method.getModifiers())) continue;
+						addMethodAlias(seen, out, receiverName, method, iface);
 					}
 				}
 				for (var mixin : bridge.mixins()) {
 					if (isHidden(mixin)) continue;
 					for (var method : methods(mixin, true)) {
-						addMethodAlias(seen, out, receiverName, method);
+						addMethodAlias(seen, out, receiverName, method, mixin);
 					}
 				}
 			}
@@ -280,18 +289,25 @@ public final class MethodAliasGenerator {
 	}
 
 	private static void addMethodAlias(Set<String> seen, Map<MethodAlias, List<String>> out, String receiverName, Method method) {
+		addMethodAlias(seen, out, receiverName, method, null);
+	}
+
+	private static void addMethodAlias(Set<String> seen, Map<MethodAlias, List<String>> out, String receiverName, Method method,
+		@Nullable Class<?> injectedType) {
 		if (!Modifier.isPublic(method.getModifiers()) || method.isSynthetic() || method.isBridge()) return;
 		if (method.isAnnotationPresent(HideFromGY.class) || isHidden(method.getDeclaringClass())) return;
 		if (method.getName().isBlank()) return;
-		for (var alias : aliases(method)) {
-			if (alias.isBlank() || alias.equals(method.getName())) continue;
+		var names = aliases(method);
+		if (injectedType != null && names.isEmpty()) names = List.of(method.getName());
+		for (var alias : names) {
+			if (alias.isBlank()) continue;
 			var key = receiverName + "\u0000" + method.toGenericString() + "\u0000" + alias;
 			if (seen.add(key)) out.computeIfAbsent(new MethodAlias(receiverName, method.getName(), alias), ignored -> new ArrayList<>())
-				.add(methodDeclaration(method));
+				.add(methodDeclaration(method, injectedType));
 		}
 	}
 
-	private static String methodDeclaration(Method method) {
+	private static String methodDeclaration(Method method, @Nullable Class<?> injectedType) {
 		var declaration = new StringBuilder("public ");
 		if (Modifier.isStatic(method.getModifiers())) declaration.append("static ");
 		var variables = method.getTypeParameters();
@@ -300,28 +316,30 @@ public final class MethodAliasGenerator {
 			for (int i = 0; i < variables.length; i++) {
 				if (i > 0) declaration.append(", ");
 				declaration.append(variables[i].getName());
-				var bounds = Arrays.stream(variables[i].getBounds()).map(MethodAliasGenerator::signatureType).toList();
+				var bounds = Arrays.stream(variables[i].getBounds()).map(type -> signatureType(type, injectedType)).toList();
 				if (!bounds.equals(List.of("java.lang.Object"))) declaration.append(" extends ").append(String.join(" & ", bounds));
 			}
 			declaration.append("> ");
 		}
-		declaration.append(signatureType(method.getGenericReturnType())).append(' ').append(method.getName()).append('(');
+		declaration.append(signatureType(method.getGenericReturnType(), injectedType)).append(' ').append(method.getName()).append('(');
 		var types = method.getGenericParameterTypes();
 		var parameters = method.getParameters();
 		for (int i = 0; i < types.length; i++) {
 			if (i > 0) declaration.append(", ");
-			var type = signatureType(types[i]);
+			var type = signatureType(types[i], injectedType);
 			if (method.isVarArgs() && i == types.length - 1) type = type.substring(0, type.length() - 2) + "...";
 			declaration.append(type).append(' ').append(parameters[i].getName());
 		}
 		declaration.append(')');
-		var exceptions = Arrays.stream(method.getGenericExceptionTypes()).map(MethodAliasGenerator::signatureType).toList();
+		var exceptions = Arrays.stream(method.getGenericExceptionTypes()).map(type -> signatureType(type, injectedType)).toList();
 		if (!exceptions.isEmpty()) declaration.append(" throws ").append(String.join(", ", exceptions));
 		return declaration.append(';').toString();
 	}
 
-	private static String signatureType(java.lang.reflect.Type type) {
-		return type.getTypeName().replace('$', '.');
+	private static String signatureType(java.lang.reflect.Type type, @Nullable Class<?> injectedType) {
+		var text = injectedType == null ? type.getTypeName()
+			: TypeInfo.of(type).consolidate(TypeConsolidator.getMapping(injectedType)).toStringFQN();
+		return text.replace('$', '.');
 	}
 
 	private static List<Method> methods(Class<?> type, boolean declared) {
