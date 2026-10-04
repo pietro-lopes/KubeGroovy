@@ -230,7 +230,7 @@ public class Context {
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public <T> T createInterfaceAdapter(TypeInfo type, Object fn) {
 		Class<?> raw = type == null ? Object.class : type.asClass();
-		if (raw.isInterface() && (fn instanceof Closure || fn instanceof BaseFunction)) {
+		if (raw.isInterface() && fn instanceof Closure<?>) {
 			return (T) GroovyConversions.toFunctionalInterface(fn, raw);
 		}
 		return (T) DefaultGroovyMethods.asType(fn, (Class) raw);

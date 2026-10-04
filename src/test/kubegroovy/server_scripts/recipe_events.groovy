@@ -10,13 +10,15 @@ def stackOf = { value, count = 1 ->
 	stack
 }
 
-$ServerEvents.recipes { event ->
+def registerRecipes = $ServerEvents.recipes
+registerRecipes { event ->
 	$TestRuntime.check('recipes.wiki') {
 		event.shaped(stackOf('minecraft:stone', 3), ['A B', ' C ', 'B A'], [A: 'minecraft:andesite', B: 'minecraft:diorite', C: 'minecraft:granite']).with {
 			id('kubegroovy:wiki_shaped')
 		}
 		event.shapeless(stackOf('minecraft:dandelion', 3), ['minecraft:bone_meal', 'minecraft:yellow_dye', '3x minecraft:ender_pearl'])
-		event.smelting(stackOf('3x minecraft:gravel'), 'minecraft:stone')
+		def savedSmelting = event.smelting
+		savedSmelting(stackOf('3x minecraft:gravel'), 'minecraft:stone')
 		event.blasting(stackOf('10x minecraft:iron_nugget'), 'minecraft:iron_ingot')
 		event.smoking(stackOf('minecraft:tinted_glass'), 'minecraft:glass').with {
 			xp(0.35)

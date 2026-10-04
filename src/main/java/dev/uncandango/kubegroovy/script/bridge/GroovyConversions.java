@@ -116,10 +116,7 @@ public final class GroovyConversions {
 				}
 				return Enum.valueOf((Class<Enum>) target, name.toUpperCase(java.util.Locale.ROOT));
 			}
-			// Functional interfaces from Closure/BaseFunction
-			if (target.isInterface() && from instanceof BaseFunction fn) {
-				return toFunctionalInterface(fn.getWrapped() == null ? fn : fn.getWrapped(), target);
-			}
+			// Functional interfaces from closures
 			if (target.isInterface() && from instanceof Closure<?> c) {
 				return toFunctionalInterface(c, target);
 			}
@@ -182,14 +179,7 @@ public final class GroovyConversions {
 		if (type.isInstance(fn)) {
 			return (T) fn;
 		}
-		Object delegate = fn instanceof BaseFunction bf ? bf.getWrapped() : fn;
-		if (delegate == null) {
-			delegate = fn;
-		}
-		if (type.isInstance(delegate)) {
-			return (T) delegate;
-		}
-		final Object target = delegate;
+		final Object target = fn;
 		if (!type.isInterface() || type.getMethods().length == 0) {
 			return (T) target;
 		}
@@ -205,6 +195,17 @@ public final class GroovyConversions {
 				if (method.getDeclaringClass() == Object.class) {
 					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> method.invoke(target, args));
 				}
+				if (method.isDefault()) {
+					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> {
+						try {
+							return InvocationHandler.invokeDefault(proxy, method, args == null ? new Object[0] : args);
+						} catch (RuntimeException | Error error) {
+							throw error;
+						} catch (Throwable error) {
+							throw new RuntimeException(error);
+						}
+					});
+				}
 				if (target instanceof Closure<?> c) {
 					if (args == null || args.length == 0) {
 						return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(c::call);
@@ -213,9 +214,6 @@ public final class GroovyConversions {
 						return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> c.call(args[0]));
 					}
 					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> c.call(args));
-				}
-				if (target instanceof BaseFunction bf) {
-					return bf.call(cx, null, null, args == null ? new Object[0] : args);
 				}
 				if (target instanceof java.util.function.Function<?, ?> f) {
 					@SuppressWarnings("rawtypes")

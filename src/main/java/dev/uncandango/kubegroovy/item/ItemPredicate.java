@@ -3,7 +3,6 @@ package dev.uncandango.kubegroovy.item;
 import dev.uncandango.kubegroovy.core.IngredientSupplierKGY;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.IngredientWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
@@ -30,8 +29,8 @@ public interface ItemPredicate extends Predicate<ItemStack>, IngredientSupplierK
 		var cx = Context.getCurrent();
 		if (from == null) {
 			return NONE;
-		} else if (from instanceof BaseFunction func) {
-			return (ItemPredicate) cx.createInterfaceAdapter(TYPE_INFO, func);
+		} else if (from instanceof ItemPredicate predicate) {
+			return predicate;
 		} else if (from instanceof Closure<?> cl) {
 			return cx.createInterfaceAdapter(TYPE_INFO, cl);
 		} else {

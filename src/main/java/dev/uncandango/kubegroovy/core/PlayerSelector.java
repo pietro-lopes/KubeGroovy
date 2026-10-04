@@ -4,9 +4,9 @@ import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.UUIDWrapper;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.util.Cast;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import groovy.lang.Closure;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jspecify.annotations.Nullable;
@@ -22,9 +22,10 @@ public interface PlayerSelector {
 		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> throw new KubeRuntimeException("PlayerSelector cannot be null!").source(SourceLine.of());
+			case PlayerSelector selector -> selector;
 			case ServerPlayer sp -> identity(sp);
 			case UUID uuid -> uuid(uuid);
-			case BaseFunction fn -> Cast.to(cx.createInterfaceAdapter(TYPE_INFO, fn));
+			case Closure<?> fn -> Cast.to(cx.createInterfaceAdapter(TYPE_INFO, fn));
 			default -> fromString(cx, String.valueOf(o).trim().toLowerCase(Locale.ROOT));
 		};
 	}

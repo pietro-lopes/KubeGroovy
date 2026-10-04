@@ -183,6 +183,18 @@ public final class RecipeKey<T> {
 		return this;
 	}
 
+	public static boolean isValidIdentifier(char[] name) {
+		if (name.length == 0 || !Character.isJavaIdentifierStart(name[0])) {
+			return false;
+		}
+		for (int i = 1; i < name.length; i++) {
+			if (!Character.isJavaIdentifierPart(name[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public List<String> getValidFunctionNames() {
 		if (validFunctionNames == null) {
 			var list = functionNames == null ? names : functionNames;
@@ -192,7 +204,7 @@ public final class RecipeKey<T> {
 			for (var n : list) {
 				n = StringUtilsWrapper.snakeCaseToCamelCase(n.replace(':', '_').replace('/', '_'));
 
-				if (RecipeFunction.isValidIdentifier(n.toCharArray())) {
+				if (RecipeKey.isValidIdentifier(n.toCharArray())) {
 					validFunctionNames.add(n);
 				}
 			}

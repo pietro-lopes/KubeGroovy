@@ -16,7 +16,6 @@ import dev.uncandango.kubegroovy.item.ItemTintFunction
 import dev.uncandango.kubegroovy.recipe.filter.RecipeFilter
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatch
 import dev.uncandango.kubegroovy.recipe.match.ReplacementMatchInfo
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction
 import dev.uncandango.kubegroovy.testmod.TestRuntime
 import dev.uncandango.kubegroovy.util.KubeIdentifier
 import dev.uncandango.kubegroovy.util.registrypredicate.RegistryHolderPredicate
@@ -353,7 +352,7 @@ $ServerEvents.tick { event ->
 
 		$TestRuntime.assertThat((('/diamond/' as Pattern) as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("pattern predicate matches diamond").isTrue()
 		$TestRuntime.assertThat((new JsonPrimitive('minecraft:diamond') as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("json predicate matches diamond").isTrue()
-		$TestRuntime.assertThat(((new BaseFunction({ holder -> true })) as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("function predicate matches diamond").isTrue()
+		$TestRuntime.assertThat((({ holder -> true }) as RegistryPredicate).test(Items.DIAMOND.builtInRegistryHolder())).as("function predicate matches diamond").isTrue()
 		$TestRuntime.assertThat(Items.DIAMOND as RegistryPredicate).as("item predicate").isNotNull()
 	}
 	$TestRuntime.check('wrapper.json_object') {
@@ -479,6 +478,8 @@ $ServerEvents.tick { event ->
 		def components = [(DataComponents.CUSTOM_NAME): ('wrapped' as MutableComponent)] as DataComponentMap
 		def name = components.get(DataComponents.CUSTOM_NAME)
 		$TestRuntime.assertThat(name.getString()).as("component map name").isEqualTo('wrapped')
+		def built = { builder -> builder.set(DataComponents.CUSTOM_NAME, 'closure map' as MutableComponent) } as DataComponentMap
+		$TestRuntime.assertThat(built.get(DataComponents.CUSTOM_NAME).getString()).isEqualTo('closure map')
 		def empty = [:] as DataComponentMap
 		$TestRuntime.assertThat(empty.isEmpty()).as("empty component map is empty").isTrue()
 
@@ -489,6 +490,8 @@ $ServerEvents.tick { event ->
 		def patch = [(DataComponents.CUSTOM_NAME): ('patched' as MutableComponent)] as DataComponentPatch
 		def name = patch.getPatch(DataComponents.CUSTOM_NAME).orElseThrow()
 		$TestRuntime.assertThat(name.getString()).as("component patch name").isEqualTo('patched')
+		def built = { builder -> builder.set(DataComponents.CUSTOM_NAME, 'closure patch' as MutableComponent) } as DataComponentPatch
+		$TestRuntime.assertThat(built.getPatch(DataComponents.CUSTOM_NAME).orElseThrow().getString()).isEqualTo('closure patch')
 		def removed = [(DataComponents.CUSTOM_NAME): null] as DataComponentPatch
 		$TestRuntime.assertThat(removed.entrySet().iterator().next().getValue().isEmpty()).as("removed component patch is empty").isTrue()
 		$TestRuntime.assertThat(([:] as DataComponentPatch).isEmpty()).as("empty patch is empty").isTrue()
@@ -660,7 +663,7 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(('' as ItemPredicate).test(new ItemStack(Items.DIAMOND))).as("empty predicate rejects diamond").isFalse()
 
 		$TestRuntime.assertThat((('minecraft:diamond' as Ingredient) as ItemPredicate).test(new ItemStack(Items.DIAMOND))).as("ingredient predicate matches diamond").isTrue()
-		$TestRuntime.assertThat(((new BaseFunction({ stack -> true })) as ItemPredicate).test(new ItemStack(Items.STICK))).as("function predicate matches stick").isTrue()
+		$TestRuntime.assertThat((({ stack -> true }) as ItemPredicate).test(new ItemStack(Items.STICK))).as("function predicate matches stick").isTrue()
 	}
 	$TestRuntime.check('wrapper.sized_ingredient') {
 		def ingredient = '3x minecraft:diamond' as SizedIngredient
@@ -766,7 +769,7 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat((['-', '*'] as RecipeFilter).test(null)).as("compound filter matches").isTrue()
 		$TestRuntime.assertThat([id: 'minecraft:stone'] as RecipeFilter).as("id filter").isNotNull()
 		$TestRuntime.assertThat([type: 'minecraft:crafting_shaped'] as RecipeFilter).as("type filter").isNotNull()
-		$TestRuntime.assertThat(((new BaseFunction({ recipe -> true })) as RecipeFilter).test(null)).as("function filter matches").isTrue()
+		$TestRuntime.assertThat((({ recipe -> true }) as RecipeFilter).test(null)).as("function filter matches").isTrue()
 		Assertions.assertThatThrownBy(() -> [unknown: 'value'] as RecipeFilter).as("unknown keys should not cast to RecipeFilter")
 	}
 	$TestRuntime.check('wrapper.slot_filter') {
@@ -847,6 +850,9 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(mapped.getMaxTintIndex()).as("mapped tint max index").isEqualTo(2)
 		$TestRuntime.assertThat(mapped.getColor(ItemStack.EMPTY, 2).toHexString()).as("mapped tint color").isEqualTo('#A0B0C0')
 		$TestRuntime.assertThat(mapped.getColor(ItemStack.EMPTY, 1)).as("mapped tint hole").isNull()
+		def callback = { stack, index -> '#123456' as KubeColor } as ItemTintFunction
+		$TestRuntime.assertThat(callback.getColor(ItemStack.EMPTY, 0).toHexString()).isEqualTo('#123456')
+		$TestRuntime.assertThat(callback.getMaxTintIndex()).isEqualTo(0)
 		$TestRuntime.assertThat(('map' as ItemTintFunction).getColor(ItemStack.EMPTY, 0)).as("map tint color").isNull()
 
 	}
@@ -858,6 +864,9 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat(mapped.getMaxTintIndex()).as("mapped block tint max index").isEqualTo(2)
 		$TestRuntime.assertThat(mapped.getColor(state, null, null, 2).toHexString()).as("mapped block tint color").isEqualTo('#A0B0C0')
 		$TestRuntime.assertThat(mapped.getColor(state, null, null, 1)).as("mapped block tint hole").isNull()
+		def callback = { blockState, level, pos, index -> '#654321' as KubeColor } as BlockTintFunction
+		$TestRuntime.assertThat(callback.getColor(state, null, null, 0).toHexString()).isEqualTo('#654321')
+		$TestRuntime.assertThat(callback.getMaxTintIndex()).isEqualTo(0)
 		$TestRuntime.assertThat(('water' as BlockTintFunction).getColor(state, null, null, 0)).as("water block tint color").isNull()
 
 	}
@@ -938,7 +947,7 @@ $ServerEvents.tick { event ->
 		def uuid = UUID.fromString('12345678-1234-1234-1234-123456789abc')
 		$TestRuntime.assertThat(uuid as PlayerSelector).as("uuid player selector").isNotNull()
 		$TestRuntime.assertThat('12345678-1234-1234-1234-123456789abc' as PlayerSelector).as("string player selector").isNotNull()
-		$TestRuntime.assertThat(new BaseFunction({ server -> null }) as PlayerSelector).as("function player selector").isNotNull()
+		$TestRuntime.assertThat(({ server -> null } as PlayerSelector).getPlayer(null)).as("closure player selector executes").isNull()
 		Assertions.assertThatThrownBy(() -> '' as PlayerSelector).as("empty string should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)
 		Assertions.assertThatThrownBy(() -> '   ' as PlayerSelector).as("blank string should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)
 		Assertions.assertThatThrownBy(() -> 'steve' as PlayerSelector).as("name should not cast to PlayerSelector").isInstanceOf(KubeRuntimeException)

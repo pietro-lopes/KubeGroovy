@@ -4,9 +4,9 @@ import com.google.gson.JsonPrimitive;
 import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import groovy.lang.Closure;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -30,7 +30,7 @@ public interface RegistryPredicate<T> extends Predicate<Holder<T>> {
 			case Pattern pattern -> new RegistryRegExpPredicate<>(pattern);
 			case CharSequence cs -> ofString(target, cs.toString());
 			case JsonPrimitive p -> ofString(target, p.getAsString());
-			case BaseFunction fn -> {
+			case Closure<?> fn -> {
 				var t = target.param(0);
 				var predicate = (Predicate) cx.gyToJava(fn, t.shouldConvert() ? TypeInfo.RAW_PREDICATE.withParams(t) : TypeInfo.RAW_PREDICATE);
 				yield predicate::test;

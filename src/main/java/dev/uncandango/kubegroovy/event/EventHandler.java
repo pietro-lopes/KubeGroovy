@@ -5,14 +5,10 @@ import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.script.ScriptTypeHolder;
 import dev.uncandango.kubegroovy.script.ScriptTypePredicate;
 import dev.uncandango.kubegroovy.util.ListGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
-import groovy.lang.GroovySystem;
-import groovy.lang.MetaClassRegistry;
-import org.codehaus.groovy.runtime.MethodClosure;
 import org.jspecify.annotations.Nullable;
 
 import java.util.function.Consumer;
@@ -21,7 +17,7 @@ import java.util.function.Supplier;
 /// ### Example
 ///
 /// `public static final EventHandler CLIENT\_RIGHT\_CLICKED = ItemEvents.GROUP.client("clientRightClicked", () -> ItemClickedEventGY.class).extra(ItemEvents.SUPPORTS\_ITEM);`
-public class EventHandler extends BaseFunction {
+public class EventHandler {
 	private static final TypeInfo EVENT_HANDLER_TYPE_INFO = TypeInfo.of(IEventHandler.class);
 
 	public final EventGroup group;
@@ -245,9 +241,8 @@ public class EventHandler extends BaseFunction {
 		return group + "." + name;
 	}
 
-	//@Override
 	@Nullable
-	public Object call(Object[] args) {
+	public Object call(Object... args) {
 		var cx = Context.getCurrent();
 		ScriptType type = ((KubeGroovyContext) cx).getType();
 

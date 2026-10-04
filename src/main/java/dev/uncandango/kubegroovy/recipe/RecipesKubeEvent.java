@@ -621,13 +621,13 @@ public class RecipesKubeEvent implements KubeEvent {
 			for (var key : entry.getKey().keys) {
 				var name = key.getPrimaryFunctionName();
 
-				if (RecipeFunction.isValidIdentifier(name.toCharArray())) {
+				if (RecipeKey.isValidIdentifier(name.toCharArray())) {
 					ConsoleGY.SERVER.info("  - ." + name + "(" + key.component + ")");
 				}
 			}
 
 			for (var f : entry.getKey().functions.values()) {
-				if (RecipeFunction.isValidIdentifier(f.name().toCharArray())) {
+				if (RecipeKey.isValidIdentifier(f.name().toCharArray())) {
 					ConsoleGY.SERVER.info("  - ." + f);
 				}
 			}

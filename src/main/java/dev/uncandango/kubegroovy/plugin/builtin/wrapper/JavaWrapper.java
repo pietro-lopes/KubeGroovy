@@ -4,12 +4,12 @@ import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.Cast;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import org.jspecify.annotations.Nullable;
+import groovy.lang.Closure;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
@@ -40,7 +40,7 @@ public interface JavaWrapper {
 		return new ConsoleGY(cx.getType(), LoggerFactory.getLogger(name));
 	}
 
-	static <T> T makeFunctionProxy(TypeInfo targetClass, BaseFunction function) {
+	static <T> T makeFunctionProxy(TypeInfo targetClass, Closure<?> function) {
 		var cx = Context.getCurrent();
 		return Cast.to(cx.createInterfaceAdapter(targetClass, function));
 	}

@@ -6,11 +6,11 @@ import dev.uncandango.kubegroovy.event.EventResult;
 import dev.uncandango.kubegroovy.event.EventExit;
 import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
+import dev.uncandango.kubegroovy.util.ScheduledEvents;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -142,38 +143,25 @@ class KubeGroovyInteropTests {
 	}
 
 	@Test
-	void callableFunctionsRestoreTheirOriginatingContext() {
-		var context = new Context(new ContextFactory());
-		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
-			var function = new BaseFunction((Function<Object[], Object>) args -> {
-				assertSame(context, Context.getCurrent());
-				return args[0];
-			});
-			assertEquals("value", function.call("value"));
-		});
-		var previous = new Context(new ContextFactory());
-		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
-			assertSame(previous, Context.getCurrent());
-		});
-	}
-
-	@Test
 	@SuppressWarnings("unchecked")
 	void callbackAdaptersRestoreTheirOriginatingContext() {
 		var context = new Context(new ContextFactory());
-		ScopedValue.where(KubeGroovyContext.CURRENT, context).run( () -> {
+		var callback = ScopedValue.where(Context.CURRENT, context).call(() -> {
 			Closure<Object> closure = new Closure<Object>(this) {
 				public Object doCall(Object value) {
 					assertSame(context, Context.getCurrent());
+					if ("fail".equals(value)) throw new IllegalStateException("callback failure");
 					return value;
 				}
 			};
-			var callback = GroovyConversions.toFunctionalInterface(closure, Function.class);
-			assertEquals("value", ((Function<Object, Object>) callback).apply("value"));
+			return (Function<Object, Object>) GroovyConversions.toFunctionalInterface(closure, Function.class);
 		});
-
+		assertEquals("outside", callback.apply("outside"));
 		var previous = new Context(new ContextFactory());
-		ScopedValue.where(KubeGroovyContext.CURRENT, previous).run(() -> {
+		ScopedValue.where(Context.CURRENT, previous).run(() -> {
+			assertEquals("value", callback.apply("value"));
+			assertSame(previous, Context.getCurrent());
+			assertThrows(IllegalStateException.class, () -> callback.apply("fail"));
 			assertSame(previous, Context.getCurrent());
 		});
 	}
@@ -195,6 +183,38 @@ class KubeGroovyInteropTests {
 		});
 		assertSame(context, seenRun.get());
 		assertSame(context, seenSupply.get());
+	}
+
+	@Test
+	void timerBindingsRemainCallableAndRestoreContextWhenTheyFire() {
+		var origin = new Context(new ContextFactory());
+		var scheduled = new ScheduledEvents(ScheduledEvents.ScheduledEvent::new);
+		var timeout = new ScheduledEvents.TimeoutFunction(scheduled, false, false);
+		var interval = new ScheduledEvents.TimeoutFunction(scheduled, false, true);
+		var clear = new ScheduledEvents.TimeoutFunction(scheduled, true, false);
+		var seen = new java.util.ArrayList<Context>();
+		ScopedValue.where(Context.CURRENT, origin).run(() -> {
+			var binding = new Binding(new java.util.HashMap<>(Map.of("setTimeout", timeout, "setInterval", interval, "clearTimeout", clear, "clearInterval", clear, "delay", Duration.ZERO)));
+			binding.setVariable("callback", new Closure<Object>(this) {
+				public Object doCall(Object event) {
+					seen.add(Context.getCurrent());
+					return null;
+				}
+			});
+			new GroovyShell(binding).evaluate("""
+				def saved = setTimeout
+				saved(callback, delay)
+				clearTimeout(setTimeout(callback, delay))
+				clearInterval(setInterval(callback, delay))
+				setInterval(callback, delay)
+				""");
+		});
+		var previous = new Context(new ContextFactory());
+		ScopedValue.where(Context.CURRENT, previous).run(() -> {
+			for (int tick = 0; tick < 3; tick++) scheduled.tickAll(tick);
+			assertEquals(List.of(origin, origin, origin, origin), seen);
+			assertSame(previous, Context.getCurrent());
+		});
 	}
 
 	@Test

@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.event;
 
 import dev.uncandango.kubegroovy.script.ScriptType;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import groovy.lang.Closure;
 import org.codehaus.groovy.runtime.GeneratedClosure;
 

@@ -428,15 +428,14 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 
 		bindings.add("Duration", Duration.class);
 
-		// event.add("onEvent", new LegacyCodeHandler("onEvent()"));
 
 		if (bindings.type().isServer() && bindings.context().kgyFactory.manager instanceof ServerScriptManager) {
 			var se = ScheduledServerEvent.EVENTS;
 
-			bindings.add("setTimeout", new ScheduledEvents.TimeoutJSFunction(se, false, false));
-			bindings.add("clearTimeout", new ScheduledEvents.TimeoutJSFunction(se, true, false));
-			bindings.add("setInterval", new ScheduledEvents.TimeoutJSFunction(se, false, true));
-			bindings.add("clearInterval", new ScheduledEvents.TimeoutJSFunction(se, true, true));
+			bindings.add("setTimeout", new ScheduledEvents.TimeoutFunction(se, false, false));
+			bindings.add("clearTimeout", new ScheduledEvents.TimeoutFunction(se, true, false));
+			bindings.add("setInterval", new ScheduledEvents.TimeoutFunction(se, false, true));
+			bindings.add("clearInterval", new ScheduledEvents.TimeoutFunction(se, true, true));
 		}
 
 		bindings.add("KMath", KMath.class);

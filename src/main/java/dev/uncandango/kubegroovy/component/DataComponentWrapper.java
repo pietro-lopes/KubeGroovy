@@ -19,11 +19,11 @@ import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.EvaluatorException;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import groovy.lang.Closure;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
@@ -277,7 +277,10 @@ public interface DataComponentWrapper {
 
 
 	static boolean filter(Object from, TypeInfo target) {
-		return from == null || from instanceof DataComponentMap || from instanceof DataComponentPatch || from instanceof Map || from instanceof String s && (s.isEmpty() || s.charAt(0) == '[');
+		return from == null || from instanceof DataComponentMap || from instanceof DataComponentPatch || from instanceof Map
+			|| from instanceof Closure<?> || target.is(TypeInfo.of(DataComponentMap.class)) && from instanceof MapBuilder
+			|| target.is(TypeInfo.of(DataComponentPatch.class)) && from instanceof PatchBuilder
+			|| from instanceof String s && (s.isEmpty() || s.charAt(0) == '[');
 	}
 
 	static DataComponentMap mapOf(Object from) {
@@ -314,7 +317,8 @@ public interface DataComponentWrapper {
 		return switch (o) {
 			case DataComponentMap map -> success(map);
 			case DataComponentPatch patch -> success(PatchedDataComponentMap.fromPatch(DataComponentMap.EMPTY, patch));
-			case BaseFunction fn -> fnToBuilder(cx, MapBuilder.class, fn,
+			case MapBuilder builder -> success(Util.make(DataComponentMap.builder(), builder).build());
+			case Closure<?> fn -> fnToBuilder(cx, MapBuilder.class, fn,
 				builder -> Util.make(DataComponentMap.builder(), builder).build());
 			case JsonObject json -> DataComponentMap.CODEC.parse(reg.json(), json);
 			case CompoundTag tag -> DataComponentMap.CODEC.parse(reg.nbt(), tag);
@@ -356,7 +360,8 @@ public interface DataComponentWrapper {
 		var reg = RegistryAccessContainer.of();
 		return switch (o) {
 			case DataComponentPatch patch -> success(patch);
-			case BaseFunction fn -> fnToBuilder(cx, PatchBuilder.class, fn,
+			case PatchBuilder builder -> success(Util.make(DataComponentPatch.builder(), builder).build());
+			case Closure<?> fn -> fnToBuilder(cx, PatchBuilder.class, fn,
 				builder -> Util.make(DataComponentPatch.builder(), builder).build());
 			case JsonObject json -> DataComponentPatch.CODEC.parse(reg.json(), json);
 			case CompoundTag tag -> DataComponentPatch.CODEC.parse(reg.nbt(), tag);
@@ -453,7 +458,7 @@ public interface DataComponentWrapper {
 			.ifError(error -> errorBuilder.accept(type, error.message()));
 	}
 
-	private static <B, T> DataResult<T> fnToBuilder(Context cx, Class<B> builderType, BaseFunction fn, Function<B, T> build) {
+	private static <B, T> DataResult<T> fnToBuilder(Context cx, Class<B> builderType, Closure<?> fn, Function<B, T> build) {
 		try {
 			B builder = Cast.to(cx.createInterfaceAdapter(TypeInfo.of(builderType), fn));
 			return success(build.apply(builder));

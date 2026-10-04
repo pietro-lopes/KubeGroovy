@@ -3,12 +3,12 @@ package dev.uncandango.kubegroovy.item;
 import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.color.SimpleColor;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ColorWrapper;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import groovy.lang.Closure;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -126,7 +126,7 @@ public interface ItemTintFunction {
 				case "display_color_nbt" -> DISPLAY_COLOR_NBT;
 				default -> new Fixed(ColorWrapper.wrap(o));
 			};
-			case BaseFunction function -> (ItemTintFunction) cx.createInterfaceAdapter(TYPE_INFO, function);
+			case Closure<?> function -> (ItemTintFunction) cx.createInterfaceAdapter(TYPE_INFO, function);
 			default -> new Fixed(ColorWrapper.wrap(o));
 		};
 	}

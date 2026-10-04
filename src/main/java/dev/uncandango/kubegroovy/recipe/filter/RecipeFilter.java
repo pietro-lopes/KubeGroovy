@@ -7,9 +7,9 @@ import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.ListGY;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import groovy.lang.Closure;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jspecify.annotations.Nullable;
 
@@ -38,7 +38,9 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 				var r = RegExpKGY.wrap(s);
 				return r == null ? new IDFilter(ID.mc(s)) : RegexIDFilter.of(r);
 			}
-		} else if (o instanceof BaseFunction func) {
+		} else if (o instanceof RecipeFilter filter) {
+			return filter;
+		} else if (o instanceof Closure<?> func) {
 			return (RecipeFilter) cx.createInterfaceAdapter(TypeInfo.of(RecipeFilter.class), func);
 		}
 

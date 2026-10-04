@@ -7,7 +7,6 @@ import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.GroovyConversions;
 import dev.uncandango.kubegroovy.script.type.TypeConsolidator;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
@@ -709,7 +708,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 					return null;
 				}
 			}
-			if (parameters[i].isInterface() && (value instanceof Closure<?> || value instanceof BaseFunction)) {
+			if (parameters[i].isInterface() && value instanceof Closure<?>) {
 				try {
 					actual[i] = GroovyConversions.toFunctionalInterface(value, parameters[i]);
 				} catch (RuntimeException ignored) {

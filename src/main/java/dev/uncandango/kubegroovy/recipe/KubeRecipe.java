@@ -38,7 +38,6 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import groovy.lang.GroovyObject;
 import groovy.lang.MetaClass;
-import groovy.lang.MetaClassRegistry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
@@ -50,7 +49,6 @@ import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.codehaus.groovy.reflection.ClassInfo;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
@@ -61,7 +59,7 @@ import java.util.List;
 import java.util.Optional;
 
 @NullUnmarked
-public class KubeRecipe implements RecipeLikeKGY, GroovyObject { // , CustomJavaToGyWrapper
+public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 	public static final String CHANGED_MARKER = "_KubeGroovy_changed_marker";
 	public static final TypeInfo TYPE_INFO = TypeInfo.of(KubeRecipe.class);
 
@@ -154,11 +152,6 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject { // , CustomJava
 		}
 
 		return null;
-		// moved to invokeMethod
-//		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(key);
-//		if (builderFunction != null) {
-//			return builderFunction;
-//		}
 
 		//throw new MissingComponentException(key, null, valueMap.keySet()).source(sourceLine);
 	}
@@ -706,13 +699,35 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject { // , CustomJava
 
 	@Override
 	public Object invokeMethod(String name, Object args) {
-		var builderFunction = new RecipeFunction(TYPE_INFO, this).get(name);
-		if (builderFunction != null) {
-			if (args instanceof Object[] objArray && objArray.length == 1) {
-				return builderFunction.call(objArray[0]);
+		Object[] arguments = args == null ? new Object[0] : args instanceof Object[] array ? array : new Object[]{args};
+		var schemaFunction = type.schemaType.schema.functions.get(name);
+		if (schemaFunction != null && RecipeKey.isValidIdentifier(name.toCharArray())) {
+			checkFunctionArguments(name, arguments, schemaFunction.arguments().size());
+			var converted = new ArrayList<>(arguments.length);
+			var cx = Context.getCurrent();
+			for (int i = 0; i < arguments.length; i++) {
+				converted.add(cx.gyToJava(arguments[i], schemaFunction.arguments().get(i).typeInfo()));
 			}
-			return builderFunction.call(args);
+			schemaFunction.function().execute(new RecipeScriptContext.Impl(this), converted);
+			return this;
+		}
+
+		RecipeComponentValue<?> component = null;
+		for (var value : getRecipeComponentValues()) {
+			if (value.key.getValidFunctionNames().contains(name)) {
+				component = value;
+			}
+		}
+		if (component != null) {
+			checkFunctionArguments(name, arguments, 1);
+			return setValue(component.key, Cast.to(component.key.component.wrap(new RecipeScriptContext.Impl(this), Wrapper.unwrapped(arguments[0]))));
 		}
 		throw new MissingComponentException(name, null, valueMap.keySet()).source(sourceLine);
+	}
+
+	private void checkFunctionArguments(String name, Object[] arguments, int expected) {
+		if (arguments.length != expected) {
+			throw new KubeRuntimeException("Recipe function '" + name + "' expects " + expected + " arguments, got " + arguments.length).source(sourceLine);
+		}
 	}
 }

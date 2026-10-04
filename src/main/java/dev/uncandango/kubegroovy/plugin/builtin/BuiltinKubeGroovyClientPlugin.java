@@ -35,10 +35,10 @@ public class BuiltinKubeGroovyClientPlugin implements KubeGroovyPlugin {
 
 		if (bindings.type().isClient()) {
 			var se = ScheduledClientEvent.EVENTS;
-			bindings.add("setTimeout", new ScheduledEvents.TimeoutJSFunction(se, false, false));
-			bindings.add("clearTimeout", new ScheduledEvents.TimeoutJSFunction(se, true, false));
-			bindings.add("setInterval", new ScheduledEvents.TimeoutJSFunction(se, false, true));
-			bindings.add("clearInterval", new ScheduledEvents.TimeoutJSFunction(se, true, true));
+			bindings.add("setTimeout", new ScheduledEvents.TimeoutFunction(se, false, false));
+			bindings.add("clearTimeout", new ScheduledEvents.TimeoutFunction(se, true, false));
+			bindings.add("setInterval", new ScheduledEvents.TimeoutFunction(se, false, true));
+			bindings.add("clearInterval", new ScheduledEvents.TimeoutFunction(se, true, true));
 		}
 		bindings.add("GLFWInput", GLFWInputWrapper.MAP.get());
 	}

@@ -10,7 +10,6 @@ import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.util.ErrorStack;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.WrappedGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import net.minecraft.resources.Identifier;
@@ -22,7 +21,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
+public class RecipeTypeFunction implements WrappedGY {
 	public static final Pattern SKIP_ERROR = ConsoleGY.methodPattern(RecipeTypeFunction.class, "call");
 
 	public final RecipesKubeEvent event;
@@ -39,8 +38,7 @@ public class RecipeTypeFunction extends BaseFunction implements WrappedGY {
 		this.schemaType = schemaType;
 	}
 
-	@Override
-	public Object call(Object[] args0) {
+	public Object call(Object... args0) {
 		var sourceLine = SourceLine.of();
 		var stack = new ErrorStack();
 

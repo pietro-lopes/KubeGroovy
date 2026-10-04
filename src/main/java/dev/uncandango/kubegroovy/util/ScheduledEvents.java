@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.util;
 
 import dev.uncandango.kubegroovy.script.ConsoleGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.RhinoException;
 import dev.uncandango.kubegroovy.script.bridge.ScriptRuntime;
@@ -74,21 +73,20 @@ public class ScheduledEvents {
 		void onCallback(ScheduledEvent event);
 	}
 
-	public static class TimeoutJSFunction extends BaseFunction {
+	public static class TimeoutFunction {
 		private static final TypeInfo TEMPORAL_AMOUNT_TYPE_INFO = TypeInfo.of(TemporalAmount.class);
 
 		public final ScheduledEvents scheduledEvents;
 		public final boolean clear;
 		public final boolean interval;
 
-		public TimeoutJSFunction(ScheduledEvents scheduledEvents, boolean clear, boolean interval) {
+		public TimeoutFunction(ScheduledEvents scheduledEvents, boolean clear, boolean interval) {
 			this.scheduledEvents = scheduledEvents;
 			this.clear = clear;
 			this.interval = interval;
 		}
 
-		@Override
-		public Object call(Object[] args) {
+		public Object call(Object... args) {
 			if (clear) {
 				scheduledEvents.clear(ScriptRuntime.toInt32(args[0]));
 				return Undefined.INSTANCE;

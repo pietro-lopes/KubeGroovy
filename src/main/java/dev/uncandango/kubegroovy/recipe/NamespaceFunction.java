@@ -2,12 +2,10 @@ package dev.uncandango.kubegroovy.recipe;
 
 import dev.uncandango.kubegroovy.recipe.schema.RecipeNamespace;
 import dev.uncandango.kubegroovy.util.WrappedGY;
-import dev.uncandango.kubegroovy.script.bridge.BaseFunction;
-import dev.uncandango.kubegroovy.script.bridge.Context;
 
 import java.util.Map;
 
-public class NamespaceFunction extends BaseFunction implements WrappedGY {
+public class NamespaceFunction implements WrappedGY {
 	private final RecipeNamespace namespace;
 	private final Map<String, RecipeTypeFunction> map;
 
@@ -16,8 +14,7 @@ public class NamespaceFunction extends BaseFunction implements WrappedGY {
 		this.map = map;
 	}
 
-	@Override
-	public Object call(Object[] args0) {
+	public Object call(Object... args0) {
 		if (args0.length == 0) {
 			return namespace.keySet();
 		}
