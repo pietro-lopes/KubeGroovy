@@ -86,6 +86,7 @@ import dev.uncandango.kubegroovy.plugin.builtin.wrapper.DataMapWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.DirectionWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.EntitySelectorWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.IngredientWrapper;
+import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemStackTemplateWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ItemWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.JavaWrapper;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.KMath;
@@ -113,6 +114,7 @@ import dev.uncandango.kubegroovy.recipe.component.FluidStackComponent;
 import dev.uncandango.kubegroovy.recipe.component.IgnoreComponent;
 import dev.uncandango.kubegroovy.recipe.component.IngredientComponent;
 import dev.uncandango.kubegroovy.recipe.component.ItemStackComponent;
+import dev.uncandango.kubegroovy.recipe.component.ItemStackTemplateComponent;
 import dev.uncandango.kubegroovy.recipe.component.ListRecipeComponent;
 import dev.uncandango.kubegroovy.recipe.component.MapRecipeComponent;
 import dev.uncandango.kubegroovy.recipe.component.NestedRecipeComponent;
@@ -224,6 +226,7 @@ import net.minecraft.world.entity.animal.wolf.WolfVariant;
 import net.minecraft.world.entity.decoration.painting.PaintingVariant;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.JukeboxSong;
 import net.minecraft.world.item.ToolMaterial;
@@ -553,8 +556,8 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(ColorRGBA.class, ColorWrapper::wrapColorRGBA, true);
 
 		// KubeGroovy //
-		// TODO(low): which way makes more sense for wrappers? stack => template or template => stack?
 		registry.register(ItemStack.class, ItemWrapper::wrap, true);
+		registry.register(ItemStackTemplate.class, ItemStackTemplateWrapper::wrap, true);
 		registry.register(Ingredient.class, IngredientWrapper::wrap, true);
 		registry.register(ItemPredicate.class, ItemPredicate::wrap, true);
 		registry.registerCodec(net.minecraft.advancements.criterion.ItemPredicate.class, net.minecraft.advancements.criterion.ItemPredicate.CODEC);
@@ -674,6 +677,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.unit(SizedIngredientComponent.OPTIONAL_SIZED_INGREDIENT);
 
 		registry.unit(ItemStackComponent.ITEM_STACK);
+		registry.unit(ItemStackTemplateComponent.ITEM_STACK_TEMPLATE);
 		registry.unit(ItemStackComponent.OPTIONAL_ITEM_STACK);
 		registry.register(ItemStackComponent.FILTERED_TYPE, ItemStackComponent.FILTERED_CODEC);
 

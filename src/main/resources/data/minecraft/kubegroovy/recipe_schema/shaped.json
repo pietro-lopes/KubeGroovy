@@ -4,7 +4,7 @@
 		{
 			"name": "result",
 			"role": "output",
-			"type": "item_stack"
+			"type": "item_stack_template"
 		},
 		{
 			"name": "pattern",

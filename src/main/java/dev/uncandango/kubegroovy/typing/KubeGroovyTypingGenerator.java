@@ -40,6 +40,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.resources.ResourceKey;
@@ -1153,6 +1154,7 @@ public final class KubeGroovyTypingGenerator {
 		// delegates
 		registry.registerDelegate(ItemLike.class, Item.class);
 		registry.registerDelegate(ItemStack.class, Item.class);
+		registry.registerDelegate(ItemStackTemplate.class, Item.class);
 		registry.registerDelegate(FluidStack.class, Fluid.class);
 		registry.registerDelegate(Ingredient.class, Item.class);
 		registry.registerDelegate(Ingredient.class, TypeInfo.of(TagKey.class).withParams(TypeInfo.of(Item.class)), "#");

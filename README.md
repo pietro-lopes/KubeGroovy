@@ -119,6 +119,8 @@ KubeGroovy offers native Java/Groovy type access in script files. While builtin 
 
 ### Recipe Schemas
 
+Vanilla crafting, cooking, stonecutting, and smithing-transform results use the `item_stack_template` component. It accepts vanilla item IDs or objects with `id`, `count`, and `components`, and exposes an `ItemStackTemplate` through `recipe.get('result')`. Call `.create()` to obtain an `ItemStack`. Recipe builders also accept item strings and `ItemStack` values, converting them to templates.
+
 In addition to registering recipe schemas through your plugin, they can be made via a json file in the `kubegroovy/recipe_schema` registry. Json schemas are the preferred method of declaring schemas and can be [datagenned](https://docs.neoforged.net/docs/1.21.1/resources/#data-generation) with the provided `RecipeSchemaProvider`!
 
 **Important!** In order to use this data provider, you *must* add kubegroovy as an existing mod with the `'--existing-mod', 'kubegroovy'` arguments. See [NeoForge's docs](https://docs.neoforged.net/docs/1.21.1/resources/#command-line-arguments) for how to do that.

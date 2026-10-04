@@ -1,5 +1,8 @@
+import net.minecraft.world.item.Items
 import net.minecraft.world.item.crafting.Ingredient
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.ItemStackTemplate
+import net.minecraft.core.component.DataComponents
 
 def stackOf = { value, count = 1 ->
 	def stack = value as ItemStack
@@ -38,5 +41,47 @@ $ServerEvents.recipes { event ->
 		event.remove([output: '#minecraft:wool'])
 		event.remove([mod: 'farmersdelight'])
 		event.remove([id: 'minecraft:glowstone'])
+		def testItemStackTemplate = event.custom(
+				[
+						"type": "minecraft:crafting_shaped",
+						"category": "misc",
+						"key": [
+								"W": "#minecraft:planks",
+								"C": "#c:ingots/copper"
+						],
+						"pattern": [
+								"CC",
+								"WW",
+								"WW"
+						],
+						"result": "minecraft:apple"
+				]
+		)
+		$TestRuntime.assertThat(ItemStack.isSameItem(((ItemStackTemplate)testItemStackTemplate.get("result")).create(), Items.APPLE.defaultInstance)).isTrue()
+		def shapelessTemplate = event.custom([
+			type: 'minecraft:crafting_shapeless',
+			ingredients: ['minecraft:stone'],
+			result: 'minecraft:apple'
+		])
+		$TestRuntime.assertThat(ItemStack.isSameItem(((ItemStackTemplate)shapelessTemplate.get('result')).create(), Items.APPLE.defaultInstance)).isTrue()
+		def componentTemplate = event.custom([
+			type: 'minecraft:crafting_shapeless',
+			ingredients: ['minecraft:dirt'],
+			result: [id: 'minecraft:apple', count: 3, components: ['minecraft:enchantment_glint_override': true]]
+		])
+		def componentResult = (ItemStackTemplate)componentTemplate.get('result')
+		$TestRuntime.assertThat(componentResult.count()).isEqualTo(3)
+		$TestRuntime.assertThat(componentResult.get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE)).isTrue()
+		componentTemplate.set('result', componentResult)
+		componentTemplate.serialize()
+		def roundTripJson = componentTemplate.@json.deepCopy()
+		roundTripJson.addProperty('type', 'minecraft:crafting_shapeless')
+		def roundTrip = event.custom(roundTripJson)
+		$TestRuntime.assertThat(ItemStack.isSameItemSameComponents(((ItemStackTemplate)roundTrip.get('result')).create(), componentResult.create())).isTrue()
+		$TestRuntime.assertThat(((ItemStackTemplate)roundTrip.get('result')).count()).isEqualTo(3)
+		event.replaceOutput([id: 'minecraft:arrow'], 'minecraft:arrow', 'minecraft:golden_apple')
+		def replacedResult = (ItemStackTemplate)event.findRecipes([id: 'minecraft:arrow']).first().get('result')
+		$TestRuntime.assertThat(replacedResult.item().value()).isEqualTo(Items.GOLDEN_APPLE)
+		$TestRuntime.assertThat(replacedResult.count()).isEqualTo(4)
 	}
 }
