@@ -896,7 +896,7 @@ class ObjectOverloadSupport {
                     if (idx < 0 || idx >= params.length) continue
                     PsiType nw = null
                     try {
-                        nw = rewriteType(params[idx], c, seen)
+                        nw = rewriteType(params[idx], c, new HashSet<String>(seen))
                     } catch (Throwable ignored) {}
                     out.add(nw != null ? nw : params[idx])
                 }
@@ -912,7 +912,7 @@ class ObjectOverloadSupport {
                 if (idx < 0 || idx >= params.length) continue
                 PsiType nw = null
                 try {
-                    nw = rewriteType(params[idx], c, seen)
+                    nw = rewriteType(params[idx], c, new HashSet<String>(seen))
                 } catch (Throwable ignored) {}
                 if (nw != null) {
                     next[idx] = nw
@@ -926,23 +926,27 @@ class ObjectOverloadSupport {
         }
     }
 
-    static String erasedName(PsiType type) {
+    static String signatureTypeName(PsiType type) {
         try {
-            String text = type.getCanonicalText()
+            String text = type instanceof PsiEllipsisType
+                ? ((PsiEllipsisType) type).getComponentType().getCanonicalText() + "[]"
+                : type.getCanonicalText()
             if (text == null || text.isEmpty()) return "java.lang.Object"
-            return eraseGenerics(text)
+            return text
         } catch (Throwable ignored) {
             return "java.lang.Object"
         }
     }
 
     static String keyFor(String name, boolean ctor, List<PsiType> types) {
-        List<String> erased = new ArrayList<String>()
+        // Groovy synthetics can differ only in generic arguments. Erasing here
+        // suppresses List<Object> when an inherited List<Component> exists.
+        List<String> parameterTypes = new ArrayList<String>()
         try {
-            for (PsiType pt : types) erased.add(erasedName(pt))
+            for (PsiType pt : types) parameterTypes.add(signatureTypeName(pt))
         } catch (Throwable ignored) {}
         String prefix = ctor ? "<ctor>" : name
-        return prefix + "(" + String.join(",", erased) + ")"
+        return prefix + "(" + String.join(",", parameterTypes) + ")"
     }
 
     static String ownKey(PsiMethod method) {
@@ -1082,6 +1086,65 @@ class ObjectOverloadSupport {
     }
 }
 
+// Incomplete-call resolution used by parameter info omits dynamic members.
+// Rewrite the popup's existing methods instead of depending on that path.
+class ObjectOverloadParameterInfo implements com.intellij.lang.parameterInfo.ParameterInfoHandlerWithTabActionSupport<org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElement, Object, org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElement> {
+    @groovy.lang.Delegate
+    final org.jetbrains.plugins.groovy.lang.parameterInfo.GroovyParameterInfoHandler delegate = new org.jetbrains.plugins.groovy.lang.parameterInfo.GroovyParameterInfoHandler()
+
+    org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElement findElementForParameterInfo(com.intellij.lang.parameterInfo.CreateParameterInfoContext context) {
+        if (ObjectOverloadSupport.sideForFile(context.getFile()) == null) return null
+        def owner = delegate.findElementForParameterInfo(context)
+        if (owner == null) return null
+        def cfg = ObjectOverloadSupport.load(owner)
+        if (cfg == null || cfg.isEmpty()) return null
+        boolean changed = false
+        Object[] items = context.getItemsToShow().collect { item ->
+            if (!(item instanceof org.jetbrains.plugins.groovy.lang.psi.api.GroovyResolveResult)) return item
+            def method = item.getElement()
+            if (!(method instanceof PsiMethod)) return item
+            def c = new OverloadCtx(cfg, method.getContainingClass())
+            def types = method.getParameterList().getParameters().collect { parameter ->
+                def original = item.getSubstitutor().substitute(parameter.getType())
+                def rewritten = ObjectOverloadSupport.rewriteType(original, c, new HashSet<String>())
+                return rewritten != null ? rewritten : original
+            }
+            if (ObjectOverloadSupport.keyFor(method.getName(), method.isConstructor(), types) == ObjectOverloadSupport.ownKey(method)) return item
+            changed = true
+            def bridge = ObjectOverloadSupport.buildRewritten(method, method.getContainingClass(), types, method.getName())
+            return new org.jetbrains.plugins.groovy.lang.psi.impl.GroovyResolveResultImpl(bridge, true)
+        }.toArray()
+        if (!changed) return null
+        context.setItemsToShow(items)
+        return owner
+    }
+
+    void showParameterInfo(org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElement owner, com.intellij.lang.parameterInfo.CreateParameterInfoContext context) {
+        context.showHint(owner, owner.getTextRange().getStartOffset(), this)
+    }
+}
+
+class ObjectOverloadCollectionConverter extends org.jetbrains.plugins.groovy.lang.psi.typeEnhancers.GrTypeConverter {
+    boolean isApplicableTo(org.jetbrains.plugins.groovy.lang.psi.typeEnhancers.GrTypeConverter.Position position) {
+        return position == org.jetbrains.plugins.groovy.lang.psi.typeEnhancers.GrTypeConverter.Position.METHOD_PARAMETER
+    }
+
+    org.jetbrains.plugins.groovy.lang.psi.impl.statements.expressions.ConversionResult isConvertible(PsiType target, PsiType source,
+        org.jetbrains.plugins.groovy.lang.psi.typeEnhancers.GrTypeConverter.Position position, org.jetbrains.plugins.groovy.lang.psi.GroovyPsiElement place) {
+        if (!isApplicableTo(position) || ObjectOverloadSupport.sideForFile(place?.getContainingFile()) == null || !(target instanceof PsiClassType)) return null
+        def cfg = ObjectOverloadSupport.load(place)
+        def cls = target.resolve()
+        if (cfg == null || cfg.isEmpty() || cls == null) return null
+        def c = new OverloadCtx(cfg, cls)
+        def collection = c.findClass("java.util.Collection")
+        def map = c.findClass("java.util.Map")
+        if (!(cls == collection || cls == map || (collection != null && cls.isInheritor(collection, true)) || (map != null && cls.isInheritor(map, true)))) return null
+        if (ObjectOverloadSupport.rewriteType(target, c, new HashSet<String>()) == null) return null
+        if (!com.intellij.psi.util.TypeConversionUtil.isAssignable(com.intellij.psi.util.TypeConversionUtil.erasure(target), com.intellij.psi.util.TypeConversionUtil.erasure(source))) return null
+        return org.jetbrains.plugins.groovy.lang.psi.impl.statements.expressions.ConversionResult.OK
+    }
+}
+
 class ObjectOverloadContributor extends NonCodeMembersContributor implements DumbAware {
     @Override
     void processDynamicElements(PsiType qualifierType, PsiScopeProcessor processor, PsiElement place, ResolveState state) {
@@ -1196,3 +1259,9 @@ class ObjectOverloadContributor extends NonCodeMembersContributor implements Dum
 // --- LivePlugin registration (unregistered automatically via pluginDisposable) ---
 def objectOverloadPoint = NonCodeMembersContributor.EP_NAME.point
 objectOverloadPoint.registerExtension(new ObjectOverloadContributor(), pluginDisposable)
+
+org.jetbrains.plugins.groovy.lang.psi.typeEnhancers.GrTypeConverter.EP_NAME.point.registerExtension(new ObjectOverloadCollectionConverter(), pluginDisposable)
+def parameterInfoExtension = com.intellij.lang.parameterInfo.LanguageParameterInfo.INSTANCE
+def parameterInfoHandler = new ObjectOverloadParameterInfo()
+parameterInfoExtension.addExplicitExtension(org.jetbrains.plugins.groovy.GroovyLanguage.INSTANCE, parameterInfoHandler)
+com.intellij.openapi.util.Disposer.register(pluginDisposable, { parameterInfoExtension.removeExplicitExtension(org.jetbrains.plugins.groovy.GroovyLanguage.INSTANCE, parameterInfoHandler) } as com.intellij.openapi.Disposable)

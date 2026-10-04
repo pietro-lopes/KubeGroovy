@@ -38,6 +38,14 @@ and every known element type from the built-in and server registries, resolved
 through `RegistryType`. Registry types need no explicit coercion marker. Run
 `/kgy generate-typings` after updating the mod to refresh these targets.
 
+Eligible collection elements are rewritten recursively, including both map keys
+and values. Parameter information replaces the original generic signature with
+the rewritten signature, such as `add(Object, List<Object>)`, because IntelliJ's
+incomplete-call resolver omits dynamic overloads. A script-scoped method-argument
+converter also allows these wrapped collections through Groovy's applicability
+inspection. Ordinary collections and calls outside the script folders retain
+their native checking.
+
 Method aliases copy the declared `from` overloads when the editor can see them.
 Generated `aliases.json` entries also include `signatures`, an array of Java method
 declarations with the original name, parameters, return type, type parameters,

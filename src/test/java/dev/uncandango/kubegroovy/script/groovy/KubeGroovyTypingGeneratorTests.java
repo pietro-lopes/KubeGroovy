@@ -69,10 +69,10 @@ class KubeGroovyTypingGeneratorTests {
 		assertTrue(text.contains("LANGUAGE_LEVEL=\"JDK_25\""));
 		assertTrue(text.contains("<content url=\"file://$MODULE_DIR$/kubegroovy\">"));
 		assertFalse(text.contains("file://$MODULE_DIR$/../kubegroovy"));
-		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/startup_scripts\" isTestSource=\"false\" />"));
-		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/server_scripts\" isTestSource=\"false\" />"));
-		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/client_scripts\" isTestSource=\"false\" />"));
-		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/typings\" isTestSource=\"false\" />"));
+		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/startup_scripts\" isTestSource=\"false\" packagePrefix=\"startup_scripts\" />"));
+		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/server_scripts\" isTestSource=\"false\" packagePrefix=\"server_scripts\" />"));
+		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/client_scripts\" isTestSource=\"false\" packagePrefix=\"client_scripts\" />"));
+		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/typings\" isTestSource=\"false\" packagePrefix=\"typings\" />"));
 		assertFalse(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy\" isTestSource=\"false\" />"));
 		assertTrue(text.contains("<excludeFolder url=\"file://$MODULE_DIR$/kubegroovy/config\" />"));
 		assertTrue(text.contains("<sourceFolder url=\"file://$MODULE_DIR$/kubegroovy/assets\" type=\"java-resource\" />"));
