@@ -1,0 +1,4 @@
+interface:
+  display_name: "Recipe JSON Schemas"
+  short_description: "Create KubeGroovy schemas from serializer codecs"
+  default_prompt: "Use $recipe-json-schema to create a KubeGroovy JSON recipe schema from this recipe serializer codec."

@@ -22,6 +22,8 @@ import dev.uncandango.kubegroovy.script.groovy.KubeGroovySandbox;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import groovy.lang.Binding;
 import groovy.lang.GroovyShell;
+import groovy.lang.MissingMethodException;
+import groovy.lang.MissingPropertyException;
 import net.minecraft.resources.ResourceKey;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.junit.jupiter.api.Test;
@@ -137,6 +139,45 @@ class RecipeDispatchTests {
 			assertEquals(namespace.keySet(), shell.evaluate("namespace()"));
 			assertSame(function, shell.evaluate("def saved = namespace; saved('dispatch')"));
 			assertThrows(IllegalArgumentException.class, () -> shell.evaluate("namespace('a', 'b')"));
+		});
+	}
+
+	@Test
+	void dottedNamespaceDispatchPreservesArgumentsAndNativeMembersInSandbox() {
+		ScopedValue.where(Context.CURRENT, context).run(() -> {
+			var namespace = new RecipeNamespace(null, "test");
+			namespace.register("dispatch", new RecipeSchema());
+			var received = new AtomicReference<Object[]>();
+			var result = new KubeRecipe();
+			var function = new RecipeTypeFunction(null, namespace.get("dispatch")) {
+				@Override
+				public Object call(Object... args) {
+					received.set(args);
+					return result;
+				}
+			};
+			var callable = new NamespaceFunction(namespace, Map.of("dispatch", function, "mod", function, "toString", function));
+			var shell = shell(result);
+			shell.getContext().setVariable("namespace", callable);
+			assertSame(function, shell.evaluate("namespace.dispatch"));
+			assertSame(result, shell.evaluate("namespace.dispatch('output', ['A'], [A:'input'])"));
+			assertArrayEquals(new Object[]{"output", List.of("A"), Map.of("A", "input")}, received.get());
+			assertSame(result, shell.evaluate("def saved = namespace.dispatch; saved('saved')"));
+			assertArrayEquals(new Object[]{"saved"}, received.get());
+			assertSame(result, shell.evaluate("namespace.dispatch.call('explicit')"));
+			var array = new Object[]{"a", "b"};
+			shell.getContext().setVariable("array", array);
+			assertSame(result, shell.evaluate("namespace.dispatch(array)"));
+			assertEquals(1, received.get().length);
+			assertSame(array, received.get()[0]);
+			assertSame(result, shell.evaluate("namespace.dispatch()"));
+			assertEquals(0, received.get().length);
+			assertSame(function, shell.evaluate("namespace('dispatch')"));
+			assertEquals(namespace.keySet(), shell.evaluate("namespace()"));
+			assertEquals("test", shell.evaluate("namespace.mod"));
+			assertEquals("test", shell.evaluate("namespace.toString()"));
+			assertThrows(MissingPropertyException.class, () -> shell.evaluate("namespace.missing"));
+			assertThrows(MissingMethodException.class, () -> shell.evaluate("namespace.missing('argument')"));
 		});
 	}
 

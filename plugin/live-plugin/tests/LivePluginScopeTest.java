@@ -28,7 +28,7 @@ public final class LivePluginScopeTest extends LivePluginTestCase {
 		String[][] scripts = {
 			{"bindings", "BindingsSupport"}, {"events", "EventMethodSupport"},
 			{"method-aliases", "MethodAliasSupport"}, {"object-overload", "ObjectOverloadSupport"},
-			{"type-suggestions", "TypeSuggestionSupport"}, {"info-docs", "InfoDocSupport"}
+			{"type-suggestions", "TypeSuggestionSupport"}, {"info-docs", "InfoDocSupport"}, {"recipes", "RecipeSupport"}
 		};
 		for (String[] script : scripts) {
 			var scope = loadScript(script[0]).loadClass(script[1]).getMethod("sideForFile", PsiFile.class);

@@ -13,7 +13,6 @@ import dev.uncandango.kubegroovy.error.RecipeComponentException;
 import dev.uncandango.kubegroovy.event.KubeEvent;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.plugin.builtin.event.ServerEvents;
-import dev.uncandango.kubegroovy.plugin.builtin.wrapper.StringUtilsWrapper;
 import dev.uncandango.kubegroovy.recipe.filter.ConstantFilter;
 import dev.uncandango.kubegroovy.recipe.filter.IDFilter;
 import dev.uncandango.kubegroovy.recipe.filter.OrFilter;
@@ -117,62 +116,31 @@ public class RecipesKubeEvent implements KubeEvent {
 		this.originalRecipes = new HashMap<>();
 		this.addedRecipes = new ConcurrentLinkedQueue<>();
 		this.removedRecipes = new ConcurrentLinkedQueue<>();
-		this.recipeFunctions = new HashMap<>();
 		this.takenIds = new ConcurrentHashMap<>();
+		var canonicalFunctions = new HashMap<String, RecipeTypeFunction>();
+		this.recipeFunctions = RecipeFunctionLookup.<Object>create(recipeSchemaStorage, CommonProperties.get().serverOnly,
+			type -> {
+				var function = new RecipeTypeFunction(this, type);
+				canonicalFunctions.put(type.id.toString(), function);
+				return function;
+			},
+			(name, members) -> {
+				var typed = new HashMap<String, RecipeTypeFunction>();
+				members.forEach((key, value) -> typed.put(key, (RecipeTypeFunction) value));
+				return new NamespaceFunction(recipeSchemaStorage.namespaces.get(name), typed);
+			});
 
-		// var itemTags = manager.getLoadedTags(Registries.ITEM);
-		// System.out.println(itemTags);
-
-		for (var namespace : recipeSchemaStorage.namespaces.values()) {
-			var nsMap = new HashMap<String, RecipeTypeFunction>();
-			recipeFunctions.put(namespace.name, new NamespaceFunction(namespace, nsMap));
-
-			for (var entry : namespace.entrySet()) {
-				var func = new RecipeTypeFunction(this, entry.getValue());
-				nsMap.put(entry.getValue().id.getPath(), func);
-				recipeFunctions.put(entry.getValue().id.toString(), func);
-			}
-		}
-
-		vanillaShaped = (RecipeTypeFunction) recipeFunctions.get("minecraft:crafting_shaped");
-		vanillaShapeless = (RecipeTypeFunction) recipeFunctions.get("minecraft:crafting_shapeless");
-		shaped = CommonProperties.get().serverOnly ? vanillaShaped : (RecipeTypeFunction) recipeFunctions.get("kubegroovy:shaped");
-		shapeless = CommonProperties.get().serverOnly ? vanillaShapeless : (RecipeTypeFunction) recipeFunctions.get("kubegroovy:shapeless");
-		smelting = (RecipeTypeFunction) recipeFunctions.get("minecraft:smelting");
-		blasting = (RecipeTypeFunction) recipeFunctions.get("minecraft:blasting");
-		smoking = (RecipeTypeFunction) recipeFunctions.get("minecraft:smoking");
-		campfireCooking = (RecipeTypeFunction) recipeFunctions.get("minecraft:campfire_cooking");
-		stonecutting = (RecipeTypeFunction) recipeFunctions.get("minecraft:stonecutting");
-		smithing = (RecipeTypeFunction) recipeFunctions.get("minecraft:smithing_transform");
-		smithingTrim = (RecipeTypeFunction) recipeFunctions.get("minecraft:smithing_trim");
-
-		for (var entry : new ArrayList<>(recipeFunctions.entrySet())) {
-			if (entry.getValue() instanceof RecipeTypeFunction && entry.getKey().indexOf(':') != -1) {
-				var s = StringUtilsWrapper.snakeCaseToCamelCase(entry.getKey());
-
-				if (!s.equals(entry.getKey())) {
-					recipeFunctions.put(s, entry.getValue());
-				}
-			}
-		}
-
-		for (var entry : recipeSchemaStorage.mappings.entrySet()) {
-			var type = recipeFunctions.get(entry.getValue().toString());
-
-			if (type instanceof RecipeTypeFunction) {
-				recipeFunctions.put(entry.getKey(), type);
-			}
-		}
-
-		recipeFunctions.put("shaped", shaped);
-		recipeFunctions.put("shapeless", shapeless);
-		recipeFunctions.put("smelting", smelting);
-		recipeFunctions.put("blasting", blasting);
-		recipeFunctions.put("smoking", smoking);
-		recipeFunctions.put("campfireCooking", campfireCooking);
-		recipeFunctions.put("stonecutting", stonecutting);
-		recipeFunctions.put("smithing", smithing);
-		recipeFunctions.put("smithingTrim", smithingTrim);
+		vanillaShaped = canonicalFunctions.get("minecraft:crafting_shaped");
+		vanillaShapeless = canonicalFunctions.get("minecraft:crafting_shapeless");
+		shaped = CommonProperties.get().serverOnly ? vanillaShaped : canonicalFunctions.get("kubegroovy:shaped");
+		shapeless = CommonProperties.get().serverOnly ? vanillaShapeless : canonicalFunctions.get("kubegroovy:shapeless");
+		smelting = canonicalFunctions.get("minecraft:smelting");
+		blasting = canonicalFunctions.get("minecraft:blasting");
+		smoking = canonicalFunctions.get("minecraft:smoking");
+		campfireCooking = canonicalFunctions.get("minecraft:campfire_cooking");
+		stonecutting = canonicalFunctions.get("minecraft:stonecutting");
+		smithing = canonicalFunctions.get("minecraft:smithing_transform");
+		smithingTrim = canonicalFunctions.get("minecraft:smithing_trim");
 	}
 
 	@HideFromGY

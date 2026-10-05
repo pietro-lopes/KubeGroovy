@@ -66,6 +66,7 @@ import com.intellij.psi.PsiSubstitutor
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.SmartPsiFileRange
 import com.intellij.openapi.util.Segment
+import com.intellij.openapi.util.Key
 import groovy.transform.CompileStatic
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrSafeCastExpression
 import org.jetbrains.plugins.groovy.lang.psi.api.types.GrTypeElement
@@ -1161,6 +1162,16 @@ class TypeSuggestionPsi {
 			if (params == null || params.length == 0) return null
 			if (index < params.length) {
 				try {
+					// Recipe signatures can accept Object while retaining their component's suggestion types.
+					Key<List<String>> recipeKey = (Key<List<String>>) Key.findKeyByName('kubegroovy.recipe.suggestionTypes')
+					List<String> recipeTypes = recipeKey == null ? null : params[index].getUserData(recipeKey)
+					if (recipeTypes != null && position != null) {
+						for (String recipeType : recipeTypes) {
+							PsiType expected = JavaPsiFacade.getElementFactory(position.getProject()).createTypeFromText(recipeType, position)
+							String spec = typeAtArgument(expected, expression, position, offset)
+							if (spec != null) return spec
+						}
+					}
 					PsiType paramType = params[index].getType()
 					if (substitutor != null) paramType = substitutor.substitute(paramType)
 					String s = typeAtArgument(paramType, expression, position, offset)

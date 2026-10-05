@@ -1,0 +1,26 @@
+{
+	"testmod:delegated_result": {
+		"type": "with_codec",
+		"component": "item_stack_template",
+		"codec": "dev.uncandango.kubegroovy.testmod.recipe.CodecDelegateTests"
+	},
+	"testmod:converted_item": {
+		"type": "with_codec",
+		"component": "sized_ingredient",
+		"codec": "dev.uncandango.kubegroovy.testmod.recipe.CodecDelegateTests$CustomItem",
+		"conversion": {
+			"class": "dev.uncandango.kubegroovy.testmod.recipe.CodecDelegateTests$CustomItem",
+			"properties": {"count": "amount"},
+			"parent_constructor": ["ingredient", "count"]
+		}
+	},
+	"testmod:converted_fluid": {
+		"type": "with_codec",
+		"component": "sized_fluid_ingredient",
+		"codec": "dev.uncandango.kubegroovy.testmod.recipe.CodecDelegateTests$CustomFluid",
+		"conversion": {
+			"class": "dev.uncandango.kubegroovy.testmod.recipe.CodecDelegateTests$CustomFluid",
+			"parent_constructor": ["ingredient", "amount"]
+		}
+	}
+}

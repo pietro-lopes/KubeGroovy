@@ -1,6 +1,6 @@
 # LivePlugin scripts
 
-All six scripts apply only to Groovy PSI files with a `.groovy` filename under:
+All seven scripts apply only to Groovy PSI files with a `.groovy` filename under:
 
 - `kubegroovy/startup_scripts/**`
 - `kubegroovy/client_scripts/**`
@@ -17,13 +17,13 @@ check the **call site** before contributing methods. They must not use a global
 no call-site context. Documentation likewise checks the requesting location,
 while reading annotations from the referenced Java declaration.
 
-After updating the scripts, run each folder's `install.bat` and reload the six
+After updating the scripts, run each folder's `install.bat` and reload the seven
 scripts in LivePlugin. Restart IDEA once after replacing the old global augment
 providers to clear any existing resolution caches.
 
 Generated catalogs are read directly from the current IntelliJ project's
 `local/kubegroovy/live-plugin/<script>/` directory, using the same project root as
-exported icons. `/kgy generate-typings` writes the five JSON files there and
+exported icons. `/kgy generate-typings` writes the six JSON files there and
 installs only scripts and logo assets into the discovered JetBrains LivePlugin
 folders. The manual installers also skip JSON files. Existing JSON copies in
 JetBrains folders are ignored.
@@ -241,3 +241,63 @@ rendering and PNG encoding still cost time, so this is not an overall speedup
 guarantee. JVM tests cover grid bounds and resized framebuffers. The client
 `icon_export` holder checks representative sizes, mixed entries across rows and
 batches, exact item pixels, fluid tints, tag ordering, and an unwritable PNG.
+
+
+## Recipe typing
+
+Run `/kgy generate-typings` after loading server scripts to export the resolved
+recipe schemas, including addon and datapack registrations. The `recipes`
+LivePlugin script reads `local/kubegroovy/live-plugin/recipes/recipes.json` from
+the current project. Install/reload the new script once; later catalog updates
+refresh recipe members without a plugin reload. Missing or malformed updates
+retain that project's last valid catalog.
+
+Recipe maps, callable values, and results carry distinct IDE types. Constructor
+parameter hints and fluent builder completion survive local-variable assignment:
+
+```groovy
+$ServerEvents.recipes { event ->
+    def recipes = event.recipes
+    def smelting = recipes.smelting
+    def recipe = smelting('minecraft:glass', 'minecraft:sand')
+    recipe.id('example:glass').xp(0.35).cookingTime(200)
+}
+```
+
+Supported lookups include `event.smelting`, `event.getRecipes().smelting`,
+`event.recipes['minecraft:smelting']`, and
+`event.recipes.get('minecraft:smelting')`. Namespaces support dotted calls such as
+`event.recipes.kubegroovy.shaped(result, pattern, keys)` and saved callables such
+as `def shaped = event.recipes.kubegroovy.shaped`. Their existing callable syntax
+also remains available: `event.recipes.minecraft('smelting')`. Ordinary native
+namespace properties and methods take precedence over colliding recipe names.
+Saved functions support
+both `function(...)` and `function.call(...)`. Dynamic or unknown keys retain
+ordinary declared typing, and normal map methods remain available.
+
+Constructors, setter aliases, and schema functions come from the resolved
+schemas. A factory class extending `KubeRecipe`, such as `ShapedKubeRecipe` or
+`ShapelessKubeRecipe`, supplies the result type directly and receives schema
+methods only at script use sites. Schema aliases sharing that factory and the
+same method signatures retain its native type, including the three built-in
+shaped schema IDs. Schemas with different method APIs retain separate synthetic
+types to avoid mixing their setters. Other results use readable
+names such as `kubegroovy.ide.KgyRecipeTheurgyAccumulation`; normalized name
+collisions receive a disambiguating suffix. The factory class supplies native
+recipe members. Verified base recipe
+methods such as `id` and `group` preserve fluent identity; methods returning
+another recipe do not. Unknown schemas expose their actual constructors
+(including the runtime's zero-argument constructor), JSON/map fallback, and
+factory API, without inventing component setters.
+
+The provider reads the existing object-overload catalog for coercion signatures
+and retains component metadata for value suggestions even when an input accepts
+`Object`. Quick documentation shows the recipe ID, component descriptions, and
+safe literal defaults. Custom default suppliers and recipe factories are never
+executed during snapshotting. Large union-overload expansions fall back to
+permissive inputs, retaining the descriptive metadata.
+
+Typing applies only inside the existing KubeGroovy Groovy script folders.
+Schema property reads/writes and arbitrary data-flow narrowing are not added
+by this provider. Re-run the generation command after
+changing schemas or mappings.

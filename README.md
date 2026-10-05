@@ -119,6 +119,40 @@ KubeGroovy offers native Java/Groovy type access in script files. While builtin 
 
 ### Recipe Schemas
 
+To reuse a component with a mod's runtime codec, use `with_codec`:
+
+```json
+{
+	"type": "with_codec",
+	"component": "item_stack_template",
+	"codec": {
+		"class": "com.example.mod.RecipeSerializer",
+		"field": "RESULT_CODEC"
+	}
+}
+```
+
+The codec's `field` is optional and defaults to `CODEC`; a class-path string such as `"codec": "com.example.mod.Result"` is shorthand for that default. The class must declare a static `Codec` or `MapCodec` field. Private fields are supported, and a `MapCodec` is converted to its value codec. The parent supplies script conversion, matching, replacement, and validation. Without `conversion`, the reflected codec must produce the parent's value type; erased Java generics cannot verify this during schema loading. Missing classes, fields, and invalid field types report schema decode errors. Reflection handles are not exposed to scripts.
+
+For a codec returning a mod-specific value class, add a bidirectional `conversion`:
+
+```json
+{
+	"type": "with_codec",
+	"component": "sized_ingredient",
+	"codec": {"class": "com.example.mod.IngredientStack", "field": "ITEM_CODEC"},
+	"conversion": {
+		"class": "com.example.mod.IngredientStack$Item",
+		"properties": {"count": "amount"},
+		"parent_constructor": ["ingredient", "count"]
+	}
+}
+```
+
+Properties map parent names to foreign names; omitted entries keep the same name. Readers use an exact-name no-argument method, then a field. Use `{"field": "amount"}` or `{"method": "amount"}` to choose explicitly. Constructors are inferred from record components or retained parameter names when there is one compatible candidate. Otherwise provide `parent_constructor` and/or `codec_constructor` as ordered arrays of parent property names. Incompatible properties and ambiguous constructors report decode errors. Conversion invokes the selected constructors and readers in both directions; the foreign codec retains its JSON defaults and validation. For `sized_fluid_ingredient`, both classes using `ingredient` and `amount` need no property aliases.
+
+Use `fluid_stack_template` for serializer fields backed by NeoForge's `FluidStackTemplate.CODEC`. Values are `FluidStackTemplate` instances; call `.create()` to obtain a `FluidStack`. JSON accepts a fluid ID (defaulting to one bucket) or an object with `id`, required positive `amount`, and optional `components`. Script inputs also accept fluid strings and non-empty `FluidStack` values.
+
 Vanilla crafting, cooking, stonecutting, and smithing-transform results use the `item_stack_template` component. It accepts vanilla item IDs or objects with `id`, `count`, and `components`, and exposes an `ItemStackTemplate` through `recipe.get('result')`. Call `.create()` to obtain an `ItemStack`. Recipe builders also accept item strings and `ItemStack` values, converting them to templates.
 
 In addition to registering recipe schemas through your plugin, they can be made via a json file in the `kubegroovy/recipe_schema` registry. Json schemas are the preferred method of declaring schemas and can be [datagenned](https://docs.neoforged.net/docs/1.21.1/resources/#data-generation) with the provided `RecipeSchemaProvider`!

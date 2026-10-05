@@ -25,6 +25,8 @@ public class RecipeEventTests {
 		test.onGameTest(helper -> {
 			assertFired(helper, "recipes.wiki");
 			assertVerified(helper, "recipes.wiki");
+			assertFired(helper, "recipes.namespace");
+			assertVerified(helper, "recipes.namespace");
 
 			var ids = helper.getLevel().getServer().getRecipeManager().getRecipes().stream()
 				.map(holder -> holder.id().identifier().toString())
@@ -32,6 +34,8 @@ public class RecipeEventTests {
 
 			assertj(helper, () -> {
 				assertThat(ids).as("added wiki shaped recipe").contains("kubegroovy:wiki_shaped");
+				assertThat(ids).as("namespace calls registered recipes").contains("kubegroovy:namespace_shaped",
+					"kubegroovy:namespace_saved_shapeless", "kubegroovy:namespace_explicit_shapeless", "kubegroovy:namespace_callable_shapeless");
 				assertThat(ids).as("control vanilla recipe").contains("minecraft:diamond_block");
 				assertThat(ids).as("removed glowstone recipe").doesNotContain("minecraft:glowstone");
 			});

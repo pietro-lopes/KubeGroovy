@@ -86,4 +86,17 @@ registerRecipes { event ->
 		$TestRuntime.assertThat(replacedResult.item().value()).isEqualTo(Items.GOLDEN_APPLE)
 		$TestRuntime.assertThat(replacedResult.count()).isEqualTo(4)
 	}
+	$TestRuntime.check('recipes.namespace') {
+		def allthemods = event
+		allthemods.recipes.kubegroovy.shaped(stackOf('minecraft:stone'), ['A'], [A:'minecraft:dirt'])
+			.id('kubegroovy:namespace_shaped').group('namespace_test').noMirror()
+		def namespace = event.recipes.kubegroovy
+		def shapeless = namespace.shapeless
+		shapeless(stackOf('minecraft:gravel'), ['minecraft:dirt']).id('kubegroovy:namespace_saved_shapeless')
+		namespace.shapeless.call(stackOf('minecraft:sand'), ['minecraft:dirt']).id('kubegroovy:namespace_explicit_shapeless')
+		namespace('shapeless')(stackOf('minecraft:clay'), ['minecraft:dirt']).id('kubegroovy:namespace_callable_shapeless')
+		$TestRuntime.assertThat(namespace.mod).isEqualTo('kubegroovy')
+		$TestRuntime.assertThat(namespace().contains('shaped')).isTrue()
+	}
+
 }

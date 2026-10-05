@@ -2,6 +2,8 @@ package dev.uncandango.kubegroovy.recipe;
 
 import dev.uncandango.kubegroovy.recipe.schema.RecipeNamespace;
 import dev.uncandango.kubegroovy.util.WrappedGY;
+import groovy.lang.MissingMethodException;
+import groovy.lang.MissingPropertyException;
 
 import java.util.Map;
 
@@ -22,6 +24,25 @@ public class NamespaceFunction implements WrappedGY {
 			return map.get(args0[0]);
 		}
 		throw  new IllegalArgumentException("Namespace function has to be passed as arguments");
+	}
+
+	/// Resolves a recipe callable without replacing ordinary Java properties.
+	public RecipeTypeFunction propertyMissing(String name) {
+		var function = map.get(name);
+		if (function == null) {
+			throw new MissingPropertyException(name, getClass());
+		}
+		return function;
+	}
+
+	/// Dispatches dotted recipe calls after ordinary Java method resolution.
+	public Object methodMissing(String name, Object args) {
+		Object[] arguments = args == null ? new Object[0] : args instanceof Object[] array ? array : new Object[]{args};
+		var function = map.get(name);
+		if (function == null) {
+			throw new MissingMethodException(name, getClass(), arguments);
+		}
+		return function.call(arguments);
 	}
 
 	@Override

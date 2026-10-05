@@ -6,6 +6,7 @@ import dev.uncandango.kubegroovy.event.EventTargetType;
 import dev.uncandango.kubegroovy.event.KubeEvent;
 import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.typing.TypeTree;
+import dev.uncandango.kubegroovy.typing.RecipeTypingGenerator;
 import dev.uncandango.kubegroovy.recipe.filter.RecipeMatchContext;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
@@ -742,12 +743,35 @@ class KubeGroovyTypingGeneratorTests {
 	@Test
 	void bundledLivePluginScriptsArePackaged() throws Exception {
 		var scripts = KubeGroovyTypingGenerator.readBundledLivePluginScripts();
-		assertEquals(List.of("bindings", "events", "info-docs", "method-aliases", "object-overload", "type-suggestions"),
+		assertEquals(List.of("bindings", "events", "info-docs", "method-aliases", "object-overload", "recipes", "type-suggestions"),
 			scripts.keySet().stream().sorted().toList());
 		for (var text : scripts.values()) {
 			assertFalse(text.isBlank());
 			assertTrue(text.contains("registerExtension"));
 		}
+	}
+
+	@Test
+	void generationWritesRecipeSnapshotAndReportsRecipeCount() throws Exception {
+		var recipe = new RecipeTypingGenerator.Recipe("addon:recipe", "example.Recipe",
+			List.of(new RecipeTypingGenerator.Method("call", List.of())), List.of());
+		var snapshot = new RecipeTypingGenerator.Snapshot(1,
+			Map.of("addon:recipe", new RecipeTypingGenerator.Target("recipe", "addon:recipe")),
+			Map.of(), Map.of(), Map.of("addon:recipe", recipe));
+		var game = temp.resolve("recipe-catalog-game");
+		var result = KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("recipe-live-plugins"),
+			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot, false);
+		assertEquals(1, result.recipeCount());
+		var file = game.resolve("local/kubegroovy/live-plugin/recipes/recipes.json");
+		var text = Files.readString(file);
+		var json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		assertEquals(1, json.get("schemaVersion").getAsInt());
+		assertEquals("example.Recipe", json.getAsJsonObject("recipes").getAsJsonObject("addon:recipe").get("factoryType").getAsString());
+		var modified = Files.getLastModifiedTime(file);
+		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("recipe-live-plugins"),
+			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot, false);
+		assertEquals(text, Files.readString(file));
+		assertEquals(modified, Files.getLastModifiedTime(file));
 	}
 
 	@Test

@@ -125,7 +125,13 @@ public final class KubeGroovyTypingGenerator {
 
 	public record GenerationResult(Path module, Path modules, Path gdsl, Path livePlugin, int bindingCount, int eventCount,
 		int bridgeMemberCount, int classpathRootCount, boolean moduleChanged, boolean modulesChanged, boolean gdslChanged,
-		boolean livePluginChanged, LivePluginInstall livePluginInstall) {
+		boolean livePluginChanged, LivePluginInstall livePluginInstall, int recipeCount) {
+		public GenerationResult(Path module, Path modules, Path gdsl, Path livePlugin, int bindingCount, int eventCount,
+			int bridgeMemberCount, int classpathRootCount, boolean moduleChanged, boolean modulesChanged, boolean gdslChanged,
+			boolean livePluginChanged, LivePluginInstall livePluginInstall) {
+			this(module, modules, gdsl, livePlugin, bindingCount, eventCount, bridgeMemberCount, classpathRootCount,
+				moduleChanged, modulesChanged, gdslChanged, livePluginChanged, livePluginInstall, 0);
+		}
 	}
 
 	public record LivePluginInstall(List<Path> roots, boolean jetBrainsFound) {
@@ -197,10 +203,14 @@ public final class KubeGroovyTypingGenerator {
 			+ (forceModuleReplacement ? " Force mode will replace .idea/kubegroovy.iml." : "");
 		source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(progressMessage), false);
 		LivePluginValueCatalog valueCatalog;
+		RecipeTypingGenerator.Snapshot recipeCatalog;
 		try {
 			// Some catalog sources are lazy and may post startup script events on first access.
 			// Snapshot them on the server thread before moving file generation to the worker.
 			valueCatalog = snapshotLivePluginValueCatalog(source);
+			var manager = source.getServer().getServerResources().managers().kgy$getServerScriptManager();
+			if (manager == null) throw new IllegalStateException("Load server scripts before generating recipe typings");
+			recipeCatalog = RecipeTypingGenerator.snapshot(manager.recipeSchemaStorage, dev.uncandango.kubegroovy.CommonProperties.get().serverOnly);
 		} catch (Throwable error) {
 			KubeGroovy.LOGGER.error("Failed to snapshot KubeGroovy LivePlugin value catalog", error);
 			RUNNING.set(false);
@@ -210,10 +220,10 @@ public final class KubeGroovyTypingGenerator {
 		var catalogSnapshot = valueCatalog;
 		CompletableFuture.runAsync(() -> {
 			try {
-				var result = generate(source, catalogSnapshot, forceModuleReplacement);
+				var result = generate(source, catalogSnapshot, recipeCatalog, forceModuleReplacement);
 				postToServer(source, () -> source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
 					"Generated KubeGroovy typings: " + result.bindingCount() + " bindings, " + result.eventCount()
-							+ " events, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
+							+ " events, " + result.recipeCount() + " recipe types, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
 							+ " classpath roots. Files: " + result.module()
 							+ ". Select a Java 25 project SDK."
 							+ " plugin.kts and catalog.json are retired and no longer written."
@@ -243,14 +253,14 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	private static GenerationResult generate(CommandSourceStack source, LivePluginValueCatalog valueCatalog,
-		boolean forceModuleReplacement) throws IOException {
+		RecipeTypingGenerator.Snapshot recipeCatalog, boolean forceModuleReplacement) throws IOException {
 		var gameDir = FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
 		var bindings = snapshotBindings(source);
 		var mods = MethodAliasGenerator.discoverLoadedMods();
 		var registryTargets = snapshotLivePluginRegistryTargets(source);
 		var builderTypes = snapshotLivePluginBuilderTypes();
 		return generate(gameDir, bindings, mods, List.of(), resolveLivePluginDirectory(), registryTargets, builderTypes,
-			valueCatalog, forceModuleReplacement);
+			valueCatalog, recipeCatalog, forceModuleReplacement);
 	}
 
 	/**
@@ -323,6 +333,16 @@ public final class KubeGroovyTypingGenerator {
 		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
 		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
 		boolean forceModuleReplacement) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
+			valueCatalog, RecipeTypingGenerator.Snapshot.empty(), forceModuleReplacement);
+	}
+
+	/** File-generation overload accepting an immutable recipe snapshot. */
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<MethodAliasGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
+		RecipeTypingGenerator.Snapshot recipeCatalog, boolean forceModuleReplacement) throws IOException {
 		gameDir = gameDir.toAbsolutePath().normalize();
 		livePluginDirectory = livePluginDirectory.toAbsolutePath().normalize();
 		var idea = gameDir.resolve(".idea").normalize();
@@ -344,6 +364,9 @@ public final class KubeGroovyTypingGenerator {
 			.resolve("events").resolve("events.json").normalize();
 		var typeSuggestionsFile = gameDir.resolve("local").resolve("kubegroovy").resolve("live-plugin")
 			.resolve("type-suggestions").resolve("suggestions.json").normalize();
+		var recipesFile = gameDir.resolve("local/kubegroovy/live-plugin/recipes/recipes.json").normalize();
+		ensureInside(gameDir, recipesFile);
+		ensureNoSymlinkComponents(gameDir, recipesFile);
 		ensureInside(gameDir, idea);
 		ensureInside(gameDir, module);
 		ensureInside(gameDir, modules);
@@ -428,6 +451,8 @@ public final class KubeGroovyTypingGenerator {
 		writeChanged(eventMethodsFile, eventMethodsText);
 		Files.createDirectories(typeSuggestionsFile.getParent());
 		writeChanged(typeSuggestionsFile, typeSuggestionsText);
+		Files.createDirectories(recipesFile.getParent());
+		writeChanged(recipesFile, RecipeTypingGenerator.render(recipeCatalog));
 		var livePluginInstall = installLivePluginScripts();
 		boolean modulesChanged = writeChanged(modules, mergedModules);
 		writeChanged(misc, mergedMisc);
@@ -437,7 +462,7 @@ public final class KubeGroovyTypingGenerator {
 		int eventCount = countEvents(bindings);
 		int memberCount = countBridgeMembers();
 		return new GenerationResult(module, modules, gdsl, livePlugin, bindingCount, eventCount, memberCount, runtimeRoots.roots().size(),
-			moduleChanged, modulesChanged, gdslChanged, livePluginChanged, livePluginInstall);
+			moduleChanged, modulesChanged, gdslChanged, livePluginChanged, livePluginInstall, recipeCatalog.recipes().size());
 	}
 
 	private static Path resolveLivePluginDirectory() throws IOException {
@@ -471,7 +496,7 @@ public final class KubeGroovyTypingGenerator {
 
 	/** LivePlugin script folders bundled under {@code META-INF/kubegroovy/live-plugin}. */
 	public static final List<String> BUNDLED_LIVE_PLUGIN_SCRIPTS =
-		List.of("method-aliases", "object-overload", "type-suggestions", "bindings", "events", "info-docs");
+		List.of("method-aliases", "object-overload", "type-suggestions", "bindings", "events", "info-docs", "recipes");
 
 	/** Reads every bundled {@code plugin.groovy} keyed by its LivePlugin script folder. */
 	public static Map<String, String> readBundledLivePluginScripts() throws IOException {

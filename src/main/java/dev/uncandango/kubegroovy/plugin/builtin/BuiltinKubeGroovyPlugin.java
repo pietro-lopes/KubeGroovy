@@ -40,6 +40,7 @@ import dev.uncandango.kubegroovy.event.EventGroupWrapper;
 import dev.uncandango.kubegroovy.event.EventGroups;
 import dev.uncandango.kubegroovy.fluid.FluidBuilder;
 import dev.uncandango.kubegroovy.fluid.FluidTypeBuilder;
+import dev.uncandango.kubegroovy.fluid.FluidStackTemplateWrapper;
 import dev.uncandango.kubegroovy.fluid.FluidWrapper;
 import dev.uncandango.kubegroovy.fluid.ThickFluidBuilder;
 import dev.uncandango.kubegroovy.fluid.ThinFluidBuilder;
@@ -111,6 +112,7 @@ import dev.uncandango.kubegroovy.recipe.component.EitherRecipeComponent;
 import dev.uncandango.kubegroovy.recipe.component.EnumComponent;
 import dev.uncandango.kubegroovy.recipe.component.FluidIngredientComponent;
 import dev.uncandango.kubegroovy.recipe.component.FluidStackComponent;
+import dev.uncandango.kubegroovy.recipe.component.FluidStackTemplateComponent;
 import dev.uncandango.kubegroovy.recipe.component.IgnoreComponent;
 import dev.uncandango.kubegroovy.recipe.component.IngredientComponent;
 import dev.uncandango.kubegroovy.recipe.component.ItemStackComponent;
@@ -120,6 +122,7 @@ import dev.uncandango.kubegroovy.recipe.component.MapRecipeComponent;
 import dev.uncandango.kubegroovy.recipe.component.NestedRecipeComponent;
 import dev.uncandango.kubegroovy.recipe.component.NumberComponent;
 import dev.uncandango.kubegroovy.recipe.component.RecipeComponentTypeRegistry;
+import dev.uncandango.kubegroovy.recipe.component.RecipeComponentWithCodec;
 import dev.uncandango.kubegroovy.recipe.component.RegistryComponent;
 import dev.uncandango.kubegroovy.recipe.component.ResourceKeyComponent;
 import dev.uncandango.kubegroovy.recipe.component.SizedFluidIngredientComponent;
@@ -279,6 +282,7 @@ import net.neoforged.neoforge.common.ItemAbility;
 import net.neoforged.neoforge.common.SoundAction;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStackTemplate;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
@@ -564,6 +568,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(BlockStatePredicate.class, BlockStatePredicate::wrap, true);
 		registry.register(RuleTest.class, BlockStatePredicate::wrapRuleTest, true);
 		registry.register(FluidStack.class, FluidWrapper::wrap, true);
+		registry.register(FluidStackTemplate.class, FluidStackTemplateWrapper::wrap, true);
 		registry.register(FluidIngredient.class, FluidWrapper::wrapIngredient, true);
 		registry.register(SizedFluidIngredient.class, FluidWrapper::wrapSizedIngredient, true);
 		registry.register(RecipeFilter.class, RecipeFilter::wrap, true);
@@ -663,6 +668,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.unit(NumberComponent.POSITIVE_DOUBLE);
 
 		registry.register(ListRecipeComponent.TYPE, ListRecipeComponent.MAP_CODEC);
+		registry.register(RecipeComponentWithCodec.TYPE, RecipeComponentWithCodec.MAP_CODEC);
 		registry.register(EnumComponent.TYPE, EnumComponent.MAP_CODEC);
 		registry.register(MapRecipeComponent.TYPE, MapRecipeComponent.MAP_CODEC);
 		registry.register(MapRecipeComponent.PATTERN_TYPE, MapRecipeComponent.PATTERN_MAP_CODEC);
@@ -681,6 +687,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(ItemStackComponent.FILTERED_TYPE, ItemStackComponent.FILTERED_CODEC);
 
 		registry.unit(FluidStackComponent.FLUID_STACK);
+		registry.unit(FluidStackTemplateComponent.FLUID_STACK_TEMPLATE);
 		registry.unit(FluidStackComponent.OPTIONAL_FLUID_STACK);
 
 		registry.unit(FluidIngredientComponent.FLUID_INGREDIENT);
