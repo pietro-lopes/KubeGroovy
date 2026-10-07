@@ -168,6 +168,9 @@ public class RecipeSchema {
 
 			if (value != null) {
 				var builder = new UniqueIdBuilder(new StringBuilder());
+				if (key.role.isInput()) {
+					builder.append("from_");
+				}
 				key.component.buildUniqueId(builder, Cast.to(value));
 				return builder.build();
 			}
@@ -182,6 +185,9 @@ public class RecipeSchema {
 				var value = r.getValue(key);
 
 				if (value != null) {
+					if (key.role.isInput()) {
+						builder.append("from_");
+					}
 					key.component.buildUniqueId(builder, Cast.to(value));
 					var result = builder.build();
 

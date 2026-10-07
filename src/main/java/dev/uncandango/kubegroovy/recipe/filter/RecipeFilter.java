@@ -8,11 +8,12 @@ import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.ListGY;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import groovy.lang.Closure;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jspecify.annotations.Nullable;
+import org.codehaus.groovy.runtime.ConvertedClosure;
 
+import java.lang.reflect.Proxy;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -21,9 +22,24 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 	@Override
 	boolean test(RecipeMatchContext cx);
 
+	static void rejectClosure(@Nullable Object value) {
+		if (value instanceof Closure<?> || value != null && Proxy.isProxyClass(value.getClass())
+			&& Proxy.getInvocationHandler(value) instanceof ConvertedClosure) {
+			throw new KubeRuntimeException("Closures are not supported as recipe filters. Use a Groovy map with square brackets, for example event.remove([id: 'minecraft:diamond_block']), instead of curly braces {...}.");
+		}
+		if (value instanceof AndFilter and) {
+			and.list.forEach(RecipeFilter::rejectClosure);
+		} else if (value instanceof OrFilter or) {
+			or.list.forEach(RecipeFilter::rejectClosure);
+		} else if (value instanceof NotFilter not) {
+			rejectClosure(not.original());
+		}
+	}
+
 	static RecipeFilter wrap(@Nullable Object o) {
+		rejectClosure(o);
 		var cx = Context.getCurrent();
-		if (o == null || o == ConstantFilter.TRUE) {
+		if (o == ConstantFilter.TRUE) {
 			return ConstantFilter.TRUE;
 		} else if (o == ConstantFilter.FALSE) {
 			return ConstantFilter.FALSE;
@@ -40,8 +56,6 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 			}
 		} else if (o instanceof RecipeFilter filter) {
 			return filter;
-		} else if (o instanceof Closure<?> func) {
-			return (RecipeFilter) cx.createInterfaceAdapter(TypeInfo.of(RecipeFilter.class), func);
 		}
 
 		var list = ListGY.orSelf(o);
@@ -66,9 +80,9 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 
 		var map = cx.optionalMapOf(list.getFirst());
 
-		if (map == null || map.isEmpty()) {
-			return ConstantFilter.TRUE;
-		}
+//		if (map == null || map.isEmpty()) {
+//			return ConstantFilter.TRUE;
+//		}
 
 		var predicate = new AndFilter();
 
@@ -136,7 +150,7 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 				throw Context.reportRuntimeError("Unable to parse recipe filter " + map, cx);
 			}
 
-			return predicate.list.isEmpty() ? ConstantFilter.TRUE : predicate.list.size() == 1 ? predicate.list.getFirst() : predicate;
+			return predicate.list.isEmpty() ? ConstantFilter.FALSE : predicate.list.size() == 1 ? predicate.list.getFirst() : predicate;
 		} catch (KubeRuntimeException rex) {
 			ConsoleGY.getCurrent().warn("", rex, RecipesKubeEvent.POST_SKIP_ERROR);
 			return ConstantFilter.FALSE;

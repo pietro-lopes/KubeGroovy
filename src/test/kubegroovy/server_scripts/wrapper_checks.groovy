@@ -769,7 +769,10 @@ $ServerEvents.tick { event ->
 		$TestRuntime.assertThat((['-', '*'] as RecipeFilter).test(null)).as("compound filter matches").isTrue()
 		$TestRuntime.assertThat([id: 'minecraft:stone'] as RecipeFilter).as("id filter").isNotNull()
 		$TestRuntime.assertThat([type: 'minecraft:crafting_shaped'] as RecipeFilter).as("type filter").isNotNull()
-		$TestRuntime.assertThat((({ recipe -> true }) as RecipeFilter).test(null)).as("function filter matches").isTrue()
+		Assertions.assertThatThrownBy(() -> ({ recipe -> true }) as RecipeFilter)
+			.as("closure filters must be rejected by the recipe wrapper")
+			.hasMessageContaining('Closures are not supported as recipe filters')
+			.hasMessageContaining('square brackets')
 		Assertions.assertThatThrownBy(() -> [unknown: 'value'] as RecipeFilter).as("unknown keys should not cast to RecipeFilter")
 	}
 	$TestRuntime.check('wrapper.slot_filter') {

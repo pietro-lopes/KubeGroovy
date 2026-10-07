@@ -1,6 +1,8 @@
 # changelog
 
 ## Unreleased
+- Recipe operations now reject closures and Groovy closure proxies with an error explaining square-bracket map syntax.
+  Replace closure filters with maps such as `event.remove([id: 'minecraft:diamond_block'])`.
 - Builder instance fields are now encapsulated; scripts should migrate direct writes such as
   `builder.maxDamage = 100` to the fluent DSL (`builder.maxDamage(100)`). Direct field linkage is
   intentionally source- and binary-breaking, while builder methods and IDs remain compatible.

@@ -44,6 +44,7 @@ public class AfterRecipesLoadedKubeEvent implements KubeEvent {
 	}
 
 	public void forEachRecipe(RecipeFilter filter, Consumer<RecipeLikeKGY> consumer) {
+		RecipeFilter.rejectClosure(filter);
 		var cx = Context.getCurrent();
 		if (filter == ConstantFilter.TRUE) {
 			getOriginalRecipes().forEach(consumer);
@@ -53,6 +54,7 @@ public class AfterRecipesLoadedKubeEvent implements KubeEvent {
 	}
 
 	public int countRecipes(RecipeFilter filter) {
+		RecipeFilter.rejectClosure(filter);
 		var cx = Context.getCurrent();
 		if (filter == ConstantFilter.TRUE) {
 			return getOriginalRecipes().size();
@@ -64,6 +66,7 @@ public class AfterRecipesLoadedKubeEvent implements KubeEvent {
 	}
 
 	public int remove(RecipeFilter filter) {
+		RecipeFilter.rejectClosure(filter);
 		var cx = Context.getCurrent();
 		int count = 0;
 		var itr = getOriginalRecipes().iterator();

@@ -60,7 +60,7 @@ import java.util.Optional;
 
 @NullUnmarked
 public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
-	public static final String CHANGED_MARKER = "_KubeGroovy_changed_marker";
+	public static final String CHANGED_MARKER = "_kubegroovy_changed_marker";
 	public static final TypeInfo TYPE_INFO = TypeInfo.of(KubeRecipe.class);
 
 	public Identifier id;
@@ -151,6 +151,12 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 			}
 		}
 
+		if (key.equals("json")) {
+			return json;
+		}
+		if (key.equals("id")) {
+			return id;
+		}
 		return null;
 
 		//throw new MissingComponentException(key, null, valueMap.keySet()).source(sourceLine);
@@ -260,6 +266,9 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 	}
 
 	public final void save() {
+		if (sourceLine == SourceLine.UNKNOWN) {
+			sourceLine = SourceLine.of();
+		}
 		changed = true;
 	}
 
@@ -465,7 +474,7 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 			var gy = getSerializationTypeFunction();
 			var ids = CommonProperties.get().ignoreCustomUniqueRecipeIds ? null : gy.schemaType.schema.buildUniqueId(this);
 
-			var prefix = gy.id.getNamespace() + ":kgy/";
+			var prefix = gy.id.getNamespace() + ":kgy/" + gy.id.getPath() + "/";
 
 			if (ids == null || ids.isEmpty()) {
 				ids = StringUtilsWrapper.getUniqueId(json);

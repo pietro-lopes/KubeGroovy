@@ -398,6 +398,10 @@ public class RecipesKubeEvent implements KubeEvent {
 	}
 
 	private record RecipeStreamFilter(Context cx, RecipeFilter filter) implements Predicate<KubeRecipe> {
+		private RecipeStreamFilter {
+			RecipeFilter.rejectClosure(filter);
+		}
+
 		@Override
 		public boolean test(KubeRecipe r) {
 			return r != null && !r.removed && filter.test(new RecipeMatchContext.Impl(r));
