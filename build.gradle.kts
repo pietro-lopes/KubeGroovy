@@ -14,6 +14,12 @@ plugins {
 
 val runningInCI = System.getenv("CI").toBoolean()
 
+val modVersion: String by extra
+val minecraftVersion: String by extra
+
+// SemVer pls rlnt :pepesadge:
+project.version = "$modVersion+$minecraftVersion-neoforge"
+
 almostgradle.setup {
 	javaVersion = 25
 
