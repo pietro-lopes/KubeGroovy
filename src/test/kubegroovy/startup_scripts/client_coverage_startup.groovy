@@ -11,6 +11,9 @@ import net.neoforged.neoforge.client.settings.KeyModifier
 // Exhaust every KeybindRegistryKubeEvent.Builder branch.
 $KeyBindEvents.registry { event ->
 	$TestRuntime.passStartup('client.keybind.registry')
+	// Default and explicitly selected main categories must register only once.
+	event.register('coverage_key_default_a')
+	event.register('coverage_key_default_b').category('kubegroovy')
 	event.register('coverage_key_a', 'key.keyboard.v').with {
 		category('coverage')
 		inGame()

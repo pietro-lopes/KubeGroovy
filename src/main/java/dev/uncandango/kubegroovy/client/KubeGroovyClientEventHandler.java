@@ -28,7 +28,6 @@ import dev.uncandango.kubegroovy.util.StackTraceCollector;
 import dev.uncandango.kubegroovy.util.Tristate;
 import dev.uncandango.kubegroovy.web.LocalWebServer;
 import dev.uncandango.kubegroovy.web.WebServerProperties;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.gui.components.ImageButton;
@@ -147,14 +146,11 @@ public class KubeGroovyClientEventHandler {
 
 	@SubscribeEvent
 	public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-		var mainCategory = new KeyMapping.Category(Identifier.fromNamespaceAndPath("kubegroovy", "kubegroovy"));
-		event.registerCategory(mainCategory);
-
 		var kubeEvent = new KeybindRegistryKubeEvent();
 		KeyBindEvents.REGISTRY.post(kubeEvent);
 
-		for (var catId : kubeEvent.categories()) {
-			event.registerCategory(new KeyMapping.Category(catId));
+		for (var category : kubeEvent.categories.values()) {
+			event.registerCategory(category);
 		}
 
 		for (var bind : kubeEvent.build()) {

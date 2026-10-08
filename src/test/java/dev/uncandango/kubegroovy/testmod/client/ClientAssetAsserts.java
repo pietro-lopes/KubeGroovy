@@ -125,6 +125,7 @@ public final class ClientAssetAsserts {
 	public static void assertLang(final GameTestHelper helper) {
 		assertj(helper, () -> {
 			var enUs = internalLangJson("kubegroovy", "en_us");
+			assertThat(enUs.get("key.category.kubegroovy.kubegroovy").getAsString()).isEqualTo("KubeGroovy");
 			assertThat(enUs.has("coverage.client.key")).as("en_us coverage key present").isTrue();
 			assertThat(enUs.get("coverage.client.key").getAsString()).as("en_us coverage value").isEqualTo("Coverage Value");
 			var esEs = internalLangJson("kubegroovy", "es_es");
@@ -186,6 +187,11 @@ public final class ClientAssetAsserts {
 			var key = KubeGroovyKeybinds.get("coverage_key_a");
 			assertThat(key).as("coverage key registered").isNotNull();
 			assertThat(key.mapping).as("coverage key mapping").isNotNull();
+			assertThat(KubeGroovyKeybinds.get("coverage_key_b").mapping.getCategory()).isSameAs(key.mapping.getCategory());
+			var mainCategory = KubeGroovyKeybinds.get("coverage_key_default_a").mapping.getCategory();
+			assertThat(mainCategory.id()).isEqualTo(Identifier.parse("kubegroovy:kubegroovy"));
+			assertThat(KubeGroovyKeybinds.get("coverage_key_default_b").mapping.getCategory()).isSameAs(mainCategory);
+			assertThat(mainCategory.label().getString()).isEqualTo("KubeGroovy");
 			assertThat(KubeGroovyKeybinds.get("coverage_key_unknown_default")).as("unknown-default key registered").isNotNull();
 			assertThat(KubeGroovyModelPropertyRegistry.getConditional(Identifier.parse("kubegroovy:coverage_cb")))
 				.as("conditional callback").isNotNull();

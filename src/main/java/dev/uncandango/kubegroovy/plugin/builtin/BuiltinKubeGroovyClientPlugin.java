@@ -60,7 +60,7 @@ public class BuiltinKubeGroovyClientPlugin implements KubeGroovyPlugin {
 
 	@Override
 	public void generateLang(LangKubeEvent event) {
-		event.add(KubeGroovy.MOD_ID, "key.categories.KubeGroovy", "KubeGroovy");
+		event.add(KubeGroovy.MOD_ID, "key.category.kubegroovy.kubegroovy", "KubeGroovy");
 		event.add(KubeGroovy.MOD_ID, "key.kubegroovy.kubedex", "Kubedex");
 
 		if (ModList.get().isLoaded("jade")) {

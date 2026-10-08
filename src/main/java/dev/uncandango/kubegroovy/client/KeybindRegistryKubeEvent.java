@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.GLFWInputWrapper;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.client.KeyMapping;
@@ -9,13 +10,24 @@ import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import net.neoforged.neoforge.client.settings.KeyModifier;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 	private final List<Builder> builders = new ArrayList<>();
+	@HideFromGY
+	public final transient Map<Identifier, KeyMapping.Category> categories;
+	@HideFromGY
+	public final transient KeyMapping.Category mainCategory;
+
+	public KeybindRegistryKubeEvent() {
+		categories = new LinkedHashMap<>();
+		mainCategory = categories.computeIfAbsent(KubeGroovy.id("kubegroovy"), KeyMapping.Category::new);
+	}
 
 	public Builder register(String id) {
-		var builder = new Builder(id);
+		var builder = new Builder(this, id);
 		builders.add(builder);
 		return builder;
 	}
@@ -33,22 +45,24 @@ public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 	public List<Identifier> categories() {
 		var out = new ArrayList<Identifier>();
 		for (var b : builders) {
-			out.add(b.categoryId);
+			out.add(b.category.id());
 		}
 		return out.stream().distinct().toList();
 	}
 
 	public static class Builder {
+		private final KeybindRegistryKubeEvent event;
 		private final String id;
 		private KeyConflictContext keyConflictContext = KeyConflictContext.UNIVERSAL;
 		private KeyModifier modifier = KeyModifier.NONE;
 		private InputConstants.Type inputType = InputConstants.Type.KEYSYM;
 		private int defaultKey = -1;
-		private Identifier categoryId;
+		private KeyMapping.Category category;
 
-		private Builder(String id) {
+		private Builder(KeybindRegistryKubeEvent event, String id) {
+			this.event = event;
 			this.id = id;
-			this.categoryId = Identifier.fromNamespaceAndPath("kubegroovy", "kubegroovy");
+			this.category = event.mainCategory;
 		}
 
 		public Builder conflictContext(KeyConflictContext keyConflictContext) {
@@ -88,7 +102,7 @@ public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 		}
 
 		public Builder category(String category) {
-			this.categoryId = Identifier.fromNamespaceAndPath("kubegroovy", category);
+			this.category = event.categories.computeIfAbsent(KubeGroovy.id(category), KeyMapping.Category::new);
 			return this;
 		}
 
@@ -101,7 +115,7 @@ public class KeybindRegistryKubeEvent implements ClientKubeEvent {
 				modifier,
 				inputType,
 				defaultKey,
-				new KeyMapping.Category(categoryId)
+				category
 			);
 			return key;
 		}
