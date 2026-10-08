@@ -86,7 +86,7 @@ public class KubeGroovy {
 		if (Files.notExists(KubeGroovyPaths.README)) {
 			try {
 				Files.writeString(KubeGroovyPaths.README, """
-					Find out more info on the website: https://kubejs.com/
+					Find out more info on the website: https://mods.uncandango.dev/kubegroovy/
 					
 					Directory information:
 					

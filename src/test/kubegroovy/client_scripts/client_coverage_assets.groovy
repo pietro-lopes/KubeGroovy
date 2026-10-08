@@ -210,9 +210,9 @@ def coverAssets = { gen ->
 				$TestRuntime.assertThat(maskedMissing).isFalse()
 				$TestRuntime.assertThat(maskedSame == true || maskedSame == false).isTrue()
 			}
-			def logo = gen.loadTexture('kubegroovy:kubejs_logo')
+			def logo = gen.loadTexture('kubegroovy:kubegroovy_logo')
 			if (logo.width > 0) {
-				// kubejs_logo ships a .mcmeta: covers texture()'s mcmeta branch.
+				// kubegroovy_logo ships a .mcmeta: covers texture()'s mcmeta branch.
 				gen.texture('kubegroovy:coverage_client/logo', logo)
 				$TestRuntime.pass('client.assets.logo')
 			}

@@ -1,19 +1,19 @@
 modLoader = "javafml"
 loaderVersion = "[2,)"
-issueTrackerURL = "https://kubejs.com/support?source=kubegroovy&mc=2101&loader=neoforge"
+issueTrackerURL = "https://github.com/pietro-lopes/KubeGroovy/"
 license = "GNU LGPLv3"
 
 [[mods]]
 modId = "kubegroovy"
 version = "${version}"
 displayName = "KubeGroovy"
-authors = "uncandango"
+authors = "Uncandango, latvian.dev"
 description = '''
 Customize your modpack or server with Groovy!
 '''
 logoFile = "kubegroovy_logo.png"
-modUrl = "https://kubejs.com"
-displayURL = "https://kubejs.com"
+modUrl = "https://mods.uncandango.dev/kubegroovy"
+displayURL = "https://mods.uncandango.dev/kubegroovy"
 
 [[dependencies.kubegroovy]]
 modId = "neoforge"

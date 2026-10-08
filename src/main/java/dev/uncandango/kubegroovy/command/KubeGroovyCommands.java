@@ -285,14 +285,14 @@ public class KubeGroovyCommands {
 	}
 
 	private static int help(CommandSourceStack source) {
-		link(source, ChatFormatting.GOLD, TextIcons.crafting(), "Wiki", null, "https://kubejs.com/?" + KubeGroovy.QUERY);
-		link(source, ChatFormatting.GREEN, TextIcons.info(), "Support", null, "https://kubejs.com/support?" + KubeGroovy.QUERY);
-		link(source, ChatFormatting.BLUE, TextIcons.copy(), "Changelog", null, "https://kubejs.com/changelog?" + KubeGroovy.QUERY);
+		link(source, ChatFormatting.GOLD, TextIcons.crafting(), "Wiki", null, "https://mods.uncandango.dev/kubegroovy/?" + KubeGroovy.QUERY);
+		link(source, ChatFormatting.GREEN, TextIcons.info(), "Support", null, "https://mods.uncandango.dev/kubegroovy/support?" + KubeGroovy.QUERY);
+		link(source, ChatFormatting.BLUE, TextIcons.copy(), "Changelog", null, "https://mods.uncandango.dev/kubegroovy/changelog?" + KubeGroovy.QUERY);
 
 		var server = LocalWebServer.instance();
 
 		if (server != null && !server.explorerCode().isEmpty() && source.getServer().isSingleplayer()) {
-			link(source, ChatFormatting.LIGHT_PURPLE, TooltipTagType.ENTITY_TYPE.component(), "Explore", null, "https://kubejs.com/explorer#" + server.explorerCode());
+			link(source, ChatFormatting.LIGHT_PURPLE, TooltipTagType.ENTITY_TYPE.component(), "Explore", null, "https://mods.uncandango.dev/kubegroovy/explorer#" + server.explorerCode());
 		}
 
 		return Command.SINGLE_SUCCESS;

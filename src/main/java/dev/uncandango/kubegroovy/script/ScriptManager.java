@@ -138,8 +138,10 @@ public class ScriptManager {
 			}
 
 			try (var out = Files.newOutputStream(path.resolve("main.groovy"))) {
-				out.write(("""
-					// Visit the wiki for more info - https://kubejs.com/
+				out.write((
+					"package " + scriptType.path.getFileName().toString() + "\n\n" +
+					"""
+					// Visit the wiki for more info - https://mods.uncandango.dev/kubegroovy/
 					console.info('Hello, World! (Loaded\s""" + name + " example script)')\n\n").getBytes(StandardCharsets.UTF_8));
 			} catch (Exception ex) {
 				scriptType.console.error("Failed to write main.groovy", ex);

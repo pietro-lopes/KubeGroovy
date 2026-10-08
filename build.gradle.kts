@@ -168,7 +168,7 @@ dependencies {
 
 	patchedJarConfig("org.apache.groovy:groovy:$groovyVersion")
 	//api("org.apache.groovy:groovy-callsite:$groovyVersion")
-	testImplementation("org.assertj:assertj-core:3.27.3")
+	testImplementation("org.assertj:assertj-core:3.27.7")
 	implementation("dev.latvian.mods:better-advanced-tooltips") {
 		version {
 			strictly("[$batVersion,)")
