@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+// for debug
 @Mixin(DefaultTypeTransformation.class)
 public class DefaultTypeTransformationMixin {
 	@Inject(method = "castToType", at = @At(value = "HEAD"))

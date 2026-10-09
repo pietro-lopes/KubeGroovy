@@ -63,6 +63,9 @@ public class Context {
 
 	@Nullable
 	public static Context from(@Nullable Object obj) {
+		if (CURRENT.isBound()) {
+			return CURRENT.get();
+		}
 		return switch (obj) {
 			case WithScriptContext script -> script.cx();
 			case Closure<?> cl -> from(cl.getDelegate());
@@ -135,7 +138,8 @@ public class Context {
 				}
 				String packageName = null;
 				try {
-					packageName = (frame.getDeclaringClass().getPackageName() + ".").replace(".", "/");
+					var origPackage = frame.getDeclaringClass().getPackageName();
+					packageName = (origPackage.isEmpty() ? "" : origPackage + ".").replace(".", "/");
 				} catch (Throwable ignore) {
 				}
 				return packageName + frame.getFileName();
@@ -149,7 +153,7 @@ public class Context {
 //				return el.getFileName();
 //			}
 //		}
-		return fileName.orElse("groovy");
+		return fileName.orElse(null);
 	}
 
 	public Object gyToJava(Object from, TypeInfo target) {

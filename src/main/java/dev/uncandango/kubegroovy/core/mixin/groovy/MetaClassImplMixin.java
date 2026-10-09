@@ -103,6 +103,44 @@ public abstract class MetaClassImplMixin {
 		return original;
 	}
 
+	@Inject(method = "addToAllMethodsIfPublic", at = @At(value = "INVOKE", target = "Ljava/util/List;add(Ljava/lang/Object;)Z"))
+	private void addAliasToAllMethods(MetaMethod metaMethod, CallbackInfo ci){
+		if (metaMethod instanceof CachedMethod cm) {
+			var alias = kgy$aliasRemapping.computeIfAbsent(cm.getCachedMethod(), MetaClassImplMixin::kgy$remappedAliases);
+			alias.forEach(entry -> {
+				var aliasMethod = kgy$aliasMethod(cm, entry.name());
+				addToAllMethodsIfPublic(aliasMethod);
+			});
+
+		}
+	}
+
+	@Inject(method = "reinitialize", at = @At(value = "INVOKE", target = "Lgroovy/lang/MetaClassImpl;setInitialized(Z)V"))
+	private void clearUpMethods(CallbackInfo ci) {
+		kgy$aliasMethods.clear();
+		kgy$aliasRemapping.clear();
+		kgy$shouldWrap.clear();
+	}
+
+	@Inject(method = "<init>(Lgroovy/lang/MetaClassRegistry;Ljava/lang/Class;)V", at = @At("TAIL"))
+	private void kgy$injectConstructor(MetaClassRegistry registry, Class<?> theClass, CallbackInfo ci){
+		var candidates = new FastArray();
+		for (var candidate : this.constructors.toList()) {
+			var constructor = (CachedConstructor) candidate;
+			if (kgy$shouldTypeWrap(constructor.getCachedConstructor(), theClass)) {
+				candidates.add(new TypeWrapperGeneratedConstructor(constructor));
+			}
+			if (kgy$hasWrappedContainer(WithTypeInfo.generateParamsTypeInfo(constructor.getCachedConstructor(), theClass, false))) {
+				candidates.add(new TypeWrapperGeneratedConstructor(constructor, true));
+			} else {
+				candidates.add(constructor);
+			}
+		}
+		this.constructors = candidates;
+	}
+
+	// ----------------- Helper methods ----------------
+
 	@Unique
 	private AliasGeneratedMethod kgy$aliasMethod(CachedMethod method, String name) {
 		return kgy$aliasMethods.computeIfAbsent(method.getCachedMethod(), key -> new HashMap<>())
@@ -140,51 +178,6 @@ public abstract class MetaClassImplMixin {
 		return false;
 	}
 
-	@Inject(method = "addToAllMethodsIfPublic", at = @At(value = "INVOKE", target = "Ljava/util/List;add(Ljava/lang/Object;)Z"))
-	private void addAliasToAllMethods(MetaMethod metaMethod, CallbackInfo ci){
-		if (metaMethod instanceof CachedMethod cm) {
-			var alias = kgy$aliasRemapping.computeIfAbsent(cm.getCachedMethod(), MetaClassImplMixin::kgy$remappedAliases);
-			alias.forEach(entry -> {
-				var aliasMethod = kgy$aliasMethod(cm, entry.name());
-				addToAllMethodsIfPublic(aliasMethod);
-			});
-
-		}
-	}
-
-	@Inject(method = "reinitialize", at = @At(value = "INVOKE", target = "Lgroovy/lang/MetaClassImpl;setInitialized(Z)V"))
-	private void clearUpMethods(CallbackInfo ci) {
-		kgy$aliasMethods.clear();
-		kgy$aliasRemapping.clear();
-		kgy$shouldWrap.clear();
-	}
-
-	@Inject(method = "setProperty(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;ZZ)V", at = @At("HEAD"))
-	private void preventBuilderFieldAssignment(Class<?> sender, Object object, String property, Object newValue, boolean useSuper, boolean fromInsideClass, CallbackInfo ci) {
-		if (object instanceof BuilderBase<?> && kgy$isBuilderStateField(object.getClass(), property)) {
-			throw new MissingPropertyException(property, object.getClass());
-		}
-	}
-
-	@Inject(method = "<init>(Lgroovy/lang/MetaClassRegistry;Ljava/lang/Class;)V", at = @At("TAIL"))
-	private void kgy$injectConstructor(MetaClassRegistry registry, Class<?> theClass, CallbackInfo ci){
-		var candidates = new FastArray();
-		for (var candidate : this.constructors.toList()) {
-			var constructor = (CachedConstructor) candidate;
-			if (kgy$shouldTypeWrap(constructor.getCachedConstructor(), theClass)) {
-				candidates.add(new TypeWrapperGeneratedConstructor(constructor));
-			}
-			if (kgy$hasWrappedContainer(WithTypeInfo.generateParamsTypeInfo(constructor.getCachedConstructor(), theClass, false))) {
-				candidates.add(new TypeWrapperGeneratedConstructor(constructor, true));
-			} else {
-				candidates.add(constructor);
-			}
-		}
-		this.constructors = candidates;
-	}
-
-	// ----------------- Helper methods ----------------
-
 	@Unique
 	private static boolean kgy$shouldTypeWrap(Constructor<?> method, Class<?> concreteClass) {
 		Context context;
@@ -220,19 +213,6 @@ public abstract class MetaClassImplMixin {
 			}
 			if (typeWrappers != null && typeWrappers.hasAnyWrapper(param)) {
 				return true;
-			}
-		}
-		return false;
-	}
-
-	@Unique
-	private static boolean kgy$isBuilderStateField(Class<?> type, String property) {
-		for (var current = type; current != null && BuilderBase.class.isAssignableFrom(current); current = current.getSuperclass()) {
-			try {
-				var field = current.getDeclaredField(property);
-				return !java.lang.reflect.Modifier.isStatic(field.getModifiers());
-			} catch (NoSuchFieldException ignored) {
-				// Continue through the builder hierarchy.
 			}
 		}
 		return false;
