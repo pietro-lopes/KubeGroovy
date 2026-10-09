@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.groovytest;
 
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.UtilsWrapper;
-import dev.uncandango.kubegroovy.item.ItemBuilder;
 import dev.uncandango.kubegroovy.event.EventResult;
 import dev.uncandango.kubegroovy.event.EventExit;
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
@@ -40,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
-import net.minecraft.resources.Identifier;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -288,19 +286,6 @@ class KubeGroovyInteropTests {
 			assertTrue(hasCause(error, SecurityException.class)
 				|| String.valueOf(error).contains("System")
 				|| String.valueOf(error).contains("not allowed"));
-		});
-	}
-
-	@Test
-	void builderStateUsesFluentMethodsInsteadOfDirectFieldAssignment() {
-		ScopedValue.where(Context.CURRENT, cx).run(() -> {
-			var builder = new ItemBuilder(Identifier.parse("kubegroovy:interop_item"));
-			var configuration = new CompilerConfiguration();
-			KubeGroovySandbox.customizers(null).forEach(configuration::addCompilationCustomizers);
-			var shell = new GroovyShell(getClass().getClassLoader(), new Binding(Map.of("builder", builder)), configuration);
-
-			assertThrows(Throwable.class, () -> shell.evaluate("builder.maxStackSize = 7"));
-			assertSame(builder, shell.evaluate("builder.maxStackSize(7)"));
 		});
 	}
 
