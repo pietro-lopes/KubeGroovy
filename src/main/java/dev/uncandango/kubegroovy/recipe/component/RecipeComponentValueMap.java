@@ -2,7 +2,6 @@ package dev.uncandango.kubegroovy.recipe.component;
 
 import dev.uncandango.kubegroovy.recipe.RecipeKey;
 import dev.uncandango.kubegroovy.util.Cast;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import org.jspecify.annotations.Nullable;
 
 import java.util.AbstractMap;
@@ -48,7 +47,7 @@ public class RecipeComponentValueMap extends AbstractMap<RecipeKey<?>, Object> {
 	public Object put(RecipeKey<?> key, Object value) {
 		for (var holder : holders) {
 			if (holder.key == key) {
-				return holder.setValue(Cast.to(Wrapper.unwrapped(value)));
+				return holder.setValue(Cast.to(value));
 			}
 		}
 

@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.plugin.builtin.wrapper.UtilsWrapper;
 import dev.uncandango.kubegroovy.item.ItemBuilder;
 import dev.uncandango.kubegroovy.event.EventResult;
 import dev.uncandango.kubegroovy.event.EventExit;
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.registry.RegistryKubeEvent;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.util.ScheduledEvents;
@@ -60,6 +61,16 @@ class KubeGroovyInteropTests {
 	@AfterEach
 	void clearContext() {
 		//Context.setCurrent(null);
+	}
+
+	@Test
+	void scriptRuntimeErrorsPreserveRuntimeIdentityAndCheckedCauses() {
+		var runtime = new IllegalArgumentException("runtime failure");
+		assertSame(runtime, Context.throwAsScriptRuntimeEx(runtime, cx));
+		var checked = new java.io.IOException("checked failure");
+		var wrapped = Context.throwAsScriptRuntimeEx(checked, cx);
+		assertTrue(wrapped instanceof KubeRuntimeException);
+		assertSame(checked, wrapped.getCause());
 	}
 
 	@Test

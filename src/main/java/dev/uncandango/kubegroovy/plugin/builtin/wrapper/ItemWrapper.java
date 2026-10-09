@@ -23,7 +23,6 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.Holder;
@@ -129,9 +128,6 @@ public interface ItemWrapper {
 	@HideFromGY
 	@Nullable
 	private static ItemStack wrapTrivial(Context cx, @Nullable Object from) {
-		while (from instanceof Wrapper w) {
-			from = w.unwrap();
-		}
 
 		return switch (from) {
 			case null -> ItemStack.EMPTY;
@@ -147,9 +143,6 @@ public interface ItemWrapper {
 	@HideFromGY
 	static DataResult<ItemStack> wrapResult(@Nullable Object from) {
 		var cx = Context.getCurrent();
-		if (from instanceof Wrapper w) {
-			from = w.unwrap();
-		}
 
 		var trivial = wrapTrivial(cx, from);
 		if (trivial != null) {

@@ -6,7 +6,6 @@ import dev.uncandango.kubegroovy.script.ScriptTypeHolder;
 import dev.uncandango.kubegroovy.script.ScriptTypePredicate;
 import dev.uncandango.kubegroovy.util.ListGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import org.jspecify.annotations.Nullable;
@@ -112,7 +111,6 @@ public class EventHandler {
 		}
 
 		if (extraId != null && target != null) {
-			extraId = Wrapper.unwrapped(extraId);
 			extraId = target.transformer.transform(extraId);
 		}
 

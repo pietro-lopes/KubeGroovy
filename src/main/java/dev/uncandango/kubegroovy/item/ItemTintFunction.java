@@ -4,7 +4,6 @@ import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.color.SimpleColor;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.ColorWrapper;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -103,8 +102,6 @@ public interface ItemTintFunction {
 		var cx = Context.getCurrent();
 		return switch (o) {
 			case null -> null;
-			case Undefined undefined -> null;
-//			case Scriptable s when Undefined.isUndefined(s) -> null;
 			case ItemTintFunction f -> f;
 			case List<?> list -> {
 				var map = new Mapped();

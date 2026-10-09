@@ -4,7 +4,6 @@ import com.mojang.serialization.MapCodec;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 
@@ -12,7 +11,6 @@ public record MapCodecTypeWrapper<T>(Class<T> target, MapCodec<T> codec, T defau
 	@Override
 	public T wrap(Object o, TypeInfo target) {
 		var cx = Context.getCurrent();
-		o = Wrapper.unwrapped(o);
 
 		if (o == null) {
 			return defaultValue;

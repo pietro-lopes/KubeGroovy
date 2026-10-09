@@ -22,9 +22,6 @@ import dev.uncandango.kubegroovy.web.KGYWSSession;
 import dev.uncandango.kubegroovy.web.local.KubeGroovyWeb;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
-import dev.uncandango.kubegroovy.script.bridge.EcmaError;
-import dev.uncandango.kubegroovy.script.bridge.RhinoException;
-import dev.uncandango.kubegroovy.script.bridge.WrappedException;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -236,19 +233,7 @@ public class ConsoleGY {
 			ex.apply(line);
 		}
 
-		if (error instanceof RhinoException ex) {
-			if (ex.lineSource() != null) {
-				line.withSourceLine(ex.lineSource(), ex.lineNumber());
-			}
-
-			if (isCapturingErrors()) {
-				for (var el : ex.getScriptStack()) {
-					if (el.fileName != null && el.lineNumber >= 0) {
-						line.withSourceLine(el.fileName, el.lineNumber);
-					}
-				}
-			}
-		} else if (error != null && isCapturingErrors()) {
+		if (error != null && isCapturingErrors()) {
 			for (var el : error.getStackTrace()) {
 				if (el.getFileName() != null && el.getLineNumber() >= 0 && el.getClassName().startsWith("dev.uncandango.kubegroovy.")) {
 					line.withSourceLine(el.getFileName(), el.getLineNumber());
@@ -593,11 +578,7 @@ public class ConsoleGY {
 	}
 
 	public void handleError(ConsoleLine line, @Nullable Throwable error, @Nullable Pattern exitPattern, boolean print) {
-		while (error instanceof WrappedException ex) {
-			error = ex.getWrappedException();
-		}
-
-		if (error == null || error instanceof EcmaError) {
+		if (error == null) {
 			return;
 		}
 

@@ -11,7 +11,6 @@ import dev.uncandango.kubegroovy.util.ErrorStack;
 import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.WrappedGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -59,10 +58,6 @@ public class RecipeTypeFunction implements WrappedGY {
 	public KubeRecipe createRecipe(SourceLine sourceLine, ErrorStack stack, Object[] args) {
 		var cx = Context.getCurrent();
 		try {
-			for (int i = 0; i < args.length; i++) {
-				args[i] = Wrapper.unwrapped(args[i]);
-			}
-
 			schemaType.getSerializer();
 
 			var constructor = schemaType.schema.constructors().get(args.length);
@@ -90,7 +85,7 @@ public class RecipeTypeFunction implements WrappedGY {
 			int index = 0;
 
 			for (var key : constructor.keys) {
-				argMap.put(key, Wrapper.unwrapped(args[index++]));
+				argMap.put(key, args[index++]);
 			}
 
 			var recipe = constructor.create(sourceLine, this, schemaType, argMap);

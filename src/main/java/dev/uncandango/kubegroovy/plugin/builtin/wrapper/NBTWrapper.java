@@ -8,7 +8,6 @@ import dev.uncandango.kubegroovy.util.NBTSerializable;
 import dev.uncandango.kubegroovy.util.NBTUtils;
 import dev.uncandango.kubegroovy.util.OrderedCompoundTag;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.ByteTag;
@@ -41,11 +40,11 @@ import java.util.Map;
 
 public interface NBTWrapper {
 	static boolean isTagCompound(Object o) {
-		return o == null || Undefined.isUndefined(o) || o instanceof CompoundTag || o instanceof CharSequence || o instanceof Map || o instanceof JsonElement;
+		return o == null || o instanceof CompoundTag || o instanceof CharSequence || o instanceof Map || o instanceof JsonElement;
 	}
 
 	static boolean isTagCollection(Object o) {
-		return o == null || Undefined.isUndefined(o) || o instanceof CharSequence || o instanceof Collection<?> || o instanceof JsonArray;
+		return o == null || o instanceof CharSequence || o instanceof Collection<?> || o instanceof JsonArray;
 	}
 
 	static ValueInput toValueInput(CompoundTag compoundTag) {

@@ -31,7 +31,7 @@ public final class ScriptRuntime {
 			return n.intValue();
 		}
 		try {
-			return Integer.parseInt(String.valueOf(Wrapper.unwrapped(o)));
+			return Integer.parseInt(String.valueOf(o));
 		} catch (Exception e) {
 			return 0;
 		}

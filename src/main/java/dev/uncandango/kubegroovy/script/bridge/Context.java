@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.error.MissingContextException;
 import dev.uncandango.kubegroovy.script.WithScriptContext;
 import dev.uncandango.kubegroovy.script.type.ArrayTypeInfo;
@@ -105,18 +106,18 @@ public class Context {
 	}
 
 	public static RuntimeException reportRuntimeError(String message, Context cx) {
-		return new RhinoException(message);
+		return new KubeRuntimeException(message);
 	}
 
 	public static RuntimeException reportRuntimeError(String message) {
-		return new RhinoException(message);
+		return new KubeRuntimeException(message);
 	}
 
 	public static RuntimeException throwAsScriptRuntimeEx(Throwable ex, Context cx) {
 		if (ex instanceof RuntimeException re) {
 			return re;
 		}
-		return new WrappedException(ex);
+		return new KubeRuntimeException(ex);
 	}
 
 	public static String getSourcePositionFromStack(int[] linep) {
@@ -153,22 +154,20 @@ public class Context {
 
 	public Object gyToJava(Object from, TypeInfo target) {
 		if (target == null || !target.shouldConvert()) {
-			return Wrapper.unwrapped(from);
+			return from;
 		}
-
-		Object unwrappedValue = Wrapper.unwrapped(from);
-		if (unwrappedValue == null) {
+		if (from == null) {
 			return null;
 		}
 
-		if (target.asClass().isInstance(unwrappedValue) && !factory.getTypeWrappers().hasWrappedContainer(target)) {
-			return unwrappedValue;
+		if (target.asClass().isInstance(from) && !factory.getTypeWrappers().hasWrappedContainer(target)) {
+			return from;
 		}
 
-		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(unwrappedValue, target);
+		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(from, target);
 
 		if (typeWrapper != null) {
-			return typeWrapper.wrap(unwrappedValue, target);
+			return typeWrapper.wrap(from, target);
 		}
 
 		if (Set.class.isAssignableFrom(target.asClass())) {
@@ -201,18 +200,17 @@ public class Context {
 			}
 		}
 
-//		Object unwrappedValue = Wrapper.unwrapped(from);
 //
 //		if (target.asClass().isInterface()){
-//			if (target.asClass().isAssignableFrom(unwrappedValue.getClass())) {
-//				return unwrappedValue;
+//			if (target.asClass().isAssignableFrom(from.getClass())) {
+//				return from;
 //			}
 //		}
 //
-//		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(unwrappedValue, target);
+//		var typeWrapper = factory.getTypeWrappers().getWrapperFactory(from, target);
 //
 //		if (typeWrapper != null) {
-//			return typeWrapper.wrap(this, unwrappedValue, target);
+//			return typeWrapper.wrap(this, from, target);
 //		}
 
 		//return GroovyConversions.toJava(from, target == null ? Object.class : target.asClass());
@@ -250,7 +248,7 @@ public class Context {
 		}
 		try {
 			var c = target.asClass();
-			if (c == Object.class || c.isInstance(Wrapper.unwrapped(from))) {
+			if (c == Object.class || c.isInstance(from)) {
 				return true;
 			}
 			// Best-effort: allow strings/numbers/maps/lists to convert
@@ -307,7 +305,7 @@ public class Context {
 //				for (Object o : arr) {
 //					try {
 //						list.add(this.gyToJava(o, target));
-//					} catch (EvaluatorException ee) {
+//					} catch (KubeRuntimeException ee) {
 //						return this.reportConversionError(arr, target);
 //					}
 //				}
@@ -329,7 +327,7 @@ public class Context {
 //			for (int i = 0; i < len; i++) {
 //				try {
 //					list.add(this.gyToJava(Array.get(from, i), target));
-//				} catch (EvaluatorException ee) {
+//				} catch (KubeRuntimeException ee) {
 //					return this.reportConversionError(from, target);
 //				}
 //			}
@@ -356,14 +354,13 @@ public class Context {
 		if (from == null) {
 			return null;
 		}
-		Object unwrapped = Wrapper.unwrapped(from);
-		if (unwrapped instanceof List<?> l) {
+		if (from instanceof List<?> l) {
 			return (List<T>) l;
 		}
-		if (unwrapped instanceof Object[] arr) {
+		if (from instanceof Object[] arr) {
 			return (List<T>) List.of(arr);
 		}
-		if (unwrapped instanceof Iterable<?> it) {
+		if (from instanceof Iterable<?> it) {
 			var out = new java.util.ArrayList<T>();
 			for (var e : it) {
 				out.add((T) gyToJava(e, element.componentType()));
@@ -412,7 +409,6 @@ public class Context {
 
 //	public Scriptable wrapAsJavaObject(Object javaObject, TypeInfo target) {
 //
-//		return new NativeJavaObject(javaObject);
 //	}
 
 	public int internalConversionWeightLast(Object fromObj, TypeInfo target) {
@@ -437,7 +433,6 @@ public class Context {
 		}
 
 		return switch (value) {
-			case Wrapper w -> arrayValueProviderOf(w.unwrap()); // other stuff like NJO wrapping set falls through to this
 			case List<?> list -> ArrayValueProvider.fromJavaList(list, list);
 			case Iterable<?> itr -> ArrayValueProvider.fromIterable(itr);
 			case null, default -> value == null ? ArrayValueProvider.FromObject.FROM_NULL : new ArrayValueProvider.FromObject(value);
@@ -518,7 +513,7 @@ public class Context {
 //				for (int i = 0; i < len; i++) {
 //					try {
 //						Array.set(array, i, this.gyToJava(arr[i], target));
-//					} catch (EvaluatorException ee) {
+//					} catch (KubeRuntimeException ee) {
 //						return this.reportConversionError(arr, target);
 //					}
 //				}
@@ -540,7 +535,7 @@ public class Context {
 //			for (int i = 0; i < len; i++) {
 //				try {
 //					Array.set(array, i, this.gyToJava(Array.get(from, i), target));
-//				} catch (EvaluatorException ee) {
+//				} catch (KubeRuntimeException ee) {
 //					return this.reportConversionError(from, target);
 //				}
 //			}
@@ -559,7 +554,7 @@ public class Context {
 //			for (int i = 0; i < len; i++) {
 //				try {
 //					Array.set(array, i, this.gyToJava(list.get(i), target));
-//				} catch (EvaluatorException ee) {
+//				} catch (KubeRuntimeException ee) {
 //					return this.reportConversionError(iterable, target);
 //				}
 //			}

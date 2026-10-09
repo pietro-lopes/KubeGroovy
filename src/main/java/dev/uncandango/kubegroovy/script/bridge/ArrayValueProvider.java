@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.bridge;
 
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
 import java.lang.reflect.Array;
@@ -45,7 +46,7 @@ public interface ArrayValueProvider {
 		for (int i = 0; i < len; i++) {
 			try {
 				Array.set(arr, i, cx.gyToJava(getArrayValue(i), target));
-			} catch (EvaluatorException ee) {
+			} catch (KubeRuntimeException ee) {
 				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
@@ -62,7 +63,7 @@ public interface ArrayValueProvider {
 		} else if (len == 1) {
 			try {
 				return List.of(cx.gyToJava(getArrayValue(0), target));
-			} catch (EvaluatorException ee) {
+			} catch (KubeRuntimeException ee) {
 				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
@@ -72,7 +73,7 @@ public interface ArrayValueProvider {
 		for (int i = 0; i < len; i++) {
 			try {
 				list.add(cx.gyToJava(getArrayValue(i), target));
-			} catch (EvaluatorException ee) {
+			} catch (KubeRuntimeException ee) {
 				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
@@ -89,7 +90,7 @@ public interface ArrayValueProvider {
 		} else if (len == 1) {
 			try {
 				return Set.of(cx.gyToJava(getArrayValue(0), target));
-			} catch (EvaluatorException ee) {
+			} catch (KubeRuntimeException ee) {
 				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}
@@ -99,7 +100,7 @@ public interface ArrayValueProvider {
 		for (int i = 0; i < len; i++) {
 			try {
 				set.add(cx.gyToJava(getArrayValue(i), target));
-			} catch (EvaluatorException ee) {
+			} catch (KubeRuntimeException ee) {
 				return cx.reportConversionError(getErrorSource(), target);
 			}
 		}

@@ -12,7 +12,6 @@ import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.Holder;
@@ -56,9 +55,6 @@ public interface FluidWrapper {
 	@HideFromGY
 	static DataResult<FluidStack> tryWrap(@Nullable Object from) {
 		var cx = Context.getCurrent();
-		while (from instanceof Wrapper w) {
-			from = w.unwrap();
-		}
 
 		return switch (from) {
 			case null -> EMPTY_STACK_RESULT;
@@ -96,9 +92,6 @@ public interface FluidWrapper {
 	@HideFromGY
 	static DataResult<FluidIngredient> tryWrapIngredient(Object from) {
 		var cx = Context.getCurrent();
-		while (from instanceof Wrapper w) {
-			from = w.unwrap();
-		}
 
 		var registries = RegistryAccessContainer.of();
 

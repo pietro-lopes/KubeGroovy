@@ -2,7 +2,6 @@ package dev.uncandango.kubegroovy.typing;
 
 import dev.uncandango.kubegroovy.event.EventGroupWrapper;
 import dev.uncandango.kubegroovy.script.ScriptType;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 
 import java.lang.reflect.Modifier;
 
@@ -22,14 +21,12 @@ public record TypingBinding(String name, String typeName, boolean classValue, bo
 			return null;
 		}
 
-		Object unwrapped = Wrapper.unwrapped(value);
-
-		if (unwrapped instanceof Class<?> type) {
+		if (value instanceof Class<?> type) {
 			return new TypingBinding(name, type.getName(), true, false, scriptType);
 		}
 
 		boolean eventGroup = value instanceof EventGroupWrapper;
-		Class<?> type = publicType(unwrapped.getClass());
+		Class<?> type = publicType(value.getClass());
 		return new TypingBinding(name, type.getName(), false, eventGroup, scriptType);
 	}
 

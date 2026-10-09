@@ -20,8 +20,6 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.EvaluatorException;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import groovy.lang.Closure;
 import net.minecraft.core.component.DataComponentMap;
@@ -404,11 +402,11 @@ public interface DataComponentWrapper {
 
 		var valueType = getTypeInfo(type);
 
-		if (value == null || value instanceof Undefined) {
+		if (value == null) {
 			return success(Optional.empty());
 		}
 
-		var evalError = new MutableObject<@Nullable EvaluatorException>();
+		var evalError = new MutableObject<@Nullable KubeRuntimeException>();
 
 		if (valueType.shouldConvert() && cx.canConvert(value, valueType)) {
 			try {
@@ -416,7 +414,7 @@ public interface DataComponentWrapper {
 				if (converted != null) {
 					return success(Optional.of(Cast.to(converted)));
 				}
-			} catch (EvaluatorException e) {
+			} catch (KubeRuntimeException e) {
 				evalError.setValue(e);
 			}
 		}
@@ -429,7 +427,7 @@ public interface DataComponentWrapper {
 			return (DataResult<Optional<T>>) switch (codec.parse(reg.json(), JsonUtils.of(value))) {
 				case DataResult.Success<?> success -> success.map(Optional::of);
 				case DataResult.Error<?> error -> error.mapError(err -> evalError.get() != null
-					? "Failed to parse component from type wrappers and codec! Native: %s, Codec: %s".formatted(evalError.get().details(), err)
+					? "Failed to parse component from type wrappers and codec! Native: %s, Codec: %s".formatted(evalError.get().getMessage(), err)
 					: "Failed to parse component from codec: %s!".formatted(err));
 			};
 		} else {

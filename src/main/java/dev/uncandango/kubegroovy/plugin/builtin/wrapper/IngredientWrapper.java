@@ -25,7 +25,6 @@ import dev.uncandango.kubegroovy.util.RegExpKGY;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.util.UtilsGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.Holder;
@@ -109,9 +108,6 @@ public interface IngredientWrapper {
 	@HideFromGY
 	static DataResult<Ingredient> wrapResult(@Nullable Object from) {
 		var cx = Context.getCurrent();
-		while (from instanceof Wrapper w) {
-			from = w.unwrap();
-		}
 
 		var registries = RegistryAccessContainer.of();
 

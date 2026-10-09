@@ -3,7 +3,6 @@ package dev.uncandango.kubegroovy.misc;
 import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
 import dev.uncandango.kubegroovy.registry.RegistryInfo;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import it.unimi.dsi.fastutil.objects.Object2BooleanFunction;
 import net.minecraft.resources.Identifier;
@@ -27,15 +26,13 @@ import java.util.Set;
 @ReturnsSelf
 public class EnchantmentBuilder extends BuilderBase<Enchantment> {
 	public static Enchantment.Cost costOf(Object o) {
-		o = Wrapper.unwrapped(o);
-
 		if (o instanceof Number n) {
 			return Enchantment.constantCost(n.intValue());
 		}
 
 		if (o instanceof Iterable<?> itr) {
 			var it = itr.iterator();
-			return Enchantment.dynamicCost(((Number) Wrapper.unwrapped(it.next())).intValue(), ((Number) Wrapper.unwrapped(it.next())).intValue());
+			return Enchantment.dynamicCost(((Number) it.next()).intValue(), ((Number) it.next()).intValue());
 		}
 
 		KubeGroovy.LOGGER.warn("Failed to parse enchantment cost " + o);

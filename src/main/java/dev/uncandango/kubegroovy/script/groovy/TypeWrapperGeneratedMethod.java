@@ -20,7 +20,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
 // TODO: try to implement class generation like DMG does
-public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements MhPostProcessor {
+public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod {
 	public static final MethodHandle GY_TO_JAVA;
 
 	static {
@@ -129,11 +129,6 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod implements M
 
 	private Object normalizeBoxedReturn(Object value) {
 		return MetaClassHelper.normalizeBoxedReturn(value, delegate.getReturnType());
-	}
-
-	@Override
-	public MethodHandle process(MethodHandle methodHandle) {
-		return applyFilters(methodHandle);
 	}
 
 	private MethodHandle applyFilters(MethodHandle methodHandle) {

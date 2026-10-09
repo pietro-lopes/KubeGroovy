@@ -5,7 +5,6 @@ import com.google.gson.JsonPrimitive;
 import dev.uncandango.kubegroovy.script.ConsoleLine;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.util.MutedError;
-import dev.uncandango.kubegroovy.script.bridge.RhinoException;
 import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashMap;
@@ -80,12 +79,6 @@ public class KubeRuntimeException extends RuntimeException implements MutedError
 					for (var entry : ex.customData.entrySet()) {
 						line.customData(entry.getKey(), entry.getValue() == null ? JsonNull.INSTANCE : new JsonPrimitive(entry.getValue().toString()), false);
 					}
-				}
-			}
-
-			if (c instanceof RhinoException ex) {
-				if (ex.lineSource() != null) {
-					line.withSourceLine(ex.lineSource(), ex.lineNumber());
 				}
 			}
 

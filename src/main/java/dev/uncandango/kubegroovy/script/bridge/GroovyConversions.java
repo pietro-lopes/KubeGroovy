@@ -24,22 +24,15 @@ public final class GroovyConversions {
 	}
 
 	public static Object toScript(Object value) {
-		if (value == null) {
-			return null;
-		}
-		return Wrapper.unwrapped(value);
+		return value;
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static Object toJava(Object from, Class<?> target) {
 		if (from == null || target == null || target == Object.class) {
-			return Wrapper.unwrapped(from);
+			return from;
 		}
-		from = Wrapper.unwrapped(from);
 
-		if (from == null) {
-			return null;
-		}
 		// Groovy interpolated strings are GString, normalize to String early
 		if (from instanceof groovy.lang.GString gs) {
 			from = gs.toString();

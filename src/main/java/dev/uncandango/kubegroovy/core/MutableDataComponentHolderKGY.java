@@ -4,7 +4,6 @@ import dev.uncandango.kubegroovy.component.DataComponentWrapper;
 import dev.uncandango.kubegroovy.core.component.DataComponentAccessor;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import net.minecraft.core.component.DataComponentMap;
@@ -27,7 +26,7 @@ public interface MutableDataComponentHolderKGY extends DataComponentAccessor {
 
 	@Override
 	default <T> void kgy$override(DataComponentType<T> type, @Nullable T value) {
-		if (value == null || Undefined.isUndefined(value)) {
+		if (value == null) {
 			kgy$self().remove(type);
 		} else {
 			kgy$self().set(type, value);

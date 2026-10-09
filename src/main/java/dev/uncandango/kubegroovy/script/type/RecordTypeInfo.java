@@ -2,7 +2,6 @@ package dev.uncandango.kubegroovy.script.type;
 
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.NativeJavaObject;
 import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import org.apache.commons.lang3.NotImplementedException;
@@ -132,8 +131,6 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 //
 //		try {
 //			return constructor.invokeWithArguments(args);
-//		} catch (RhinoException ex) {
-//			return cx.reportConversionError(original, this);
 //		} catch (Throwable ex) {
 //			throw Context.throwAsScriptRuntimeEx(ex, cx);
 //		}
@@ -192,7 +189,7 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 //			var arr = (Object[]) cx.arrayOf(from, TypeInfo.NONE);
 //			return createInstance(cx, arr);
 //		}
-		else if (from instanceof Map<?, ?> || from instanceof NativeJavaObject) {
+		else if (from instanceof Map<?, ?>) {
 			var map = (Map) cx.mapOf(from, TypeInfo.STRING, TypeInfo.NONE);
 			return createInstance(map);
 		}

@@ -2,7 +2,6 @@ package dev.uncandango.kubegroovy.event;
 
 import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
-import dev.uncandango.kubegroovy.script.bridge.WrappedException;
 import org.jspecify.annotations.Nullable;
 
 public class EventHandlerContainer {
@@ -47,18 +46,6 @@ public class EventHandlerContainer {
 				}
 			} catch (Throwable ex) {
 				var throwable = ex;
-
-				while (throwable instanceof WrappedException e) {
-					throwable = e.getWrappedException();
-				}
-
-				if (throwable instanceof EventExit exit) {
-					if (handler.getResult() == null) {
-						console.error("Error in '" + this + "': Event returned result when it's not cancellable");
-					} else {
-						throw exit;
-					}
-				}
 
 				if (handler.exceptionHandler == null || (throwable = handler.exceptionHandler.handle(event, itr, throwable)) != null) {
 					console.error("Error in '" + handler + "'", throwable);

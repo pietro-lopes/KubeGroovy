@@ -146,14 +146,15 @@ public interface RecipeFilter extends Predicate<RecipeMatchContext> {
 
 			NeoForge.EVENT_BUS.post(new RecipeFilterParseEvent(predicate.list, map));
 
-			if (predicate.list.isEmpty() && !map.isEmpty()) {
-				throw Context.reportRuntimeError("Unable to parse recipe filter " + map, cx);
-			}
-
-			return predicate.list.isEmpty() ? ConstantFilter.FALSE : predicate.list.size() == 1 ? predicate.list.getFirst() : predicate;
 		} catch (KubeRuntimeException rex) {
 			ConsoleGY.getCurrent().warn("", rex, RecipesKubeEvent.POST_SKIP_ERROR);
 			return ConstantFilter.FALSE;
 		}
+
+		if (predicate.list.isEmpty() && !map.isEmpty()) {
+			throw Context.reportRuntimeError("Unable to parse recipe filter " + map, cx);
+		}
+
+		return predicate.list.isEmpty() ? ConstantFilter.FALSE : predicate.list.size() == 1 ? predicate.list.getFirst() : predicate;
 	}
 }

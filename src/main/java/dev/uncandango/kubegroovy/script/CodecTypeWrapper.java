@@ -4,7 +4,6 @@ import com.mojang.serialization.Codec;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import org.jspecify.annotations.Nullable;
@@ -14,7 +13,6 @@ public record CodecTypeWrapper<T>(Class<T> target, Codec<T> codec, @Nullable T d
 	@Nullable
 	public T wrap(Object o, TypeInfo target) {
 		var cx = Context.getCurrent();
-		o = Wrapper.unwrapped(o);
 
 		if (o == null) {
 			return defaultValue;

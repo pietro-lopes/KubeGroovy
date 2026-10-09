@@ -29,17 +29,6 @@ public class ConvertedClosureMixin implements WithScriptContext {
 
 	@WrapOperation(method = "invokeCustom", at = @At(value = "INVOKE", target = "Lgroovy/lang/Closure;call([Ljava/lang/Object;)Ljava/lang/Object;"))
 	private Object kgy$withContext(Closure<?> closure, Object[] args, Operation<Object> original) throws Exception {
-//		var context = kgy$context;
-//		if (context == null) {
-//			context = Context.from(closure);
-//		}
-//		if (context == null) {
-//			return original.call(closure, args);
-//		}
-//		if (Context.getCurrent() == context) {
-//			return original.call(closure, args);
-//		}
-//		var capturedContext = context;
 		return ScopedValue.where(Context.CURRENT, kgy$context).call(() -> original.call(closure, args));
 	}
 

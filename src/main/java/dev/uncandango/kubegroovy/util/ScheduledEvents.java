@@ -2,9 +2,8 @@ package dev.uncandango.kubegroovy.util;
 
 import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.RhinoException;
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.bridge.ScriptRuntime;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.jspecify.annotations.NullUnmarked;
 
@@ -48,7 +47,7 @@ public class ScheduledEvents {
 			} else if ((ofTicks ? scheduledEvents.currentTick : scheduledEvents.currentMillis) >= endTime) {
 				try {
 					callback.onCallback(this);
-				} catch (RhinoException ex) {
+				} catch (KubeRuntimeException ex) {
 					ConsoleGY.SERVER.error("Error occurred while handling scheduled event callback: " + ex.getMessage());
 				} catch (Throwable ex) {
 					ex.printStackTrace();
@@ -89,7 +88,7 @@ public class ScheduledEvents {
 		public Object call(Object... args) {
 			if (clear) {
 				scheduledEvents.clear(ScriptRuntime.toInt32(args[0]));
-				return Undefined.INSTANCE;
+				return null;
 			} else {
 				var timer = (TemporalAmount) Context.getCurrent().gyToJava(args[1], TEMPORAL_AMOUNT_TYPE_INFO);
 				var callback = (Callback) Context.getCurrent().createInterfaceAdapter(Callback.TYPE_INFO, args[0]);

@@ -162,7 +162,6 @@ import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.TypeDescriptionRegistry;
 import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.RhinoException;
 import dev.uncandango.kubegroovy.server.ScheduledServerEvent;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
 import dev.uncandango.kubegroovy.util.Cast;
@@ -623,7 +622,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(SoundAction.class, obj -> switch (obj) {
 			case SoundAction sa -> sa;
 			case CharSequence cs -> SoundAction.get(cs.toString());
-			default -> throw new RhinoException("Cannot convert " + obj + " to SoundAction");
+			default -> throw new KubeRuntimeException("Cannot convert " + obj + " to SoundAction");
 		}, true);
 	}
 

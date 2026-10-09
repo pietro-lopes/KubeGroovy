@@ -10,7 +10,6 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrapperValidator;
 import dev.uncandango.kubegroovy.script.bridge.TypeWrappers;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
@@ -120,7 +119,6 @@ public class TypeWrapperRegistry {
 
 	public <T extends Enum<T> & StringRepresentable> void registerEnumFromStringCodec(Class<T> target, Codec<T> codec, @Nullable T defaultValue, boolean forceLowerCase) {
 		register(target, o -> {
-			o = Wrapper.unwrapped(o);
 
 			if (o == null) {
 				return defaultValue;

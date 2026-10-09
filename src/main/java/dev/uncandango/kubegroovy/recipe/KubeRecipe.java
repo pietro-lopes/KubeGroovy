@@ -33,7 +33,6 @@ import dev.uncandango.kubegroovy.util.JsonUtils;
 import dev.uncandango.kubegroovy.util.KubeIdentifier;
 import dev.uncandango.kubegroovy.util.SlotFilter;
 import dev.uncandango.kubegroovy.script.bridge.Context;
-import dev.uncandango.kubegroovy.script.bridge.Wrapper;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import groovy.lang.GroovyObject;
@@ -169,7 +168,7 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 			for (var name : h.key.names) {
 				if (name.equals(key)) {
 					var errors = new ErrorStack();
-					h.value = Cast.to(h.key.component.wrap(new RecipeScriptContext.Impl(this, errors), Wrapper.unwrapped(value)));
+					h.value = Cast.to(h.key.component.wrap(new RecipeScriptContext.Impl(this, errors), value));
 					h.write();
 					save();
 					return this;
@@ -729,7 +728,7 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 		}
 		if (component != null) {
 			checkFunctionArguments(name, arguments, 1);
-			return setValue(component.key, Cast.to(component.key.component.wrap(new RecipeScriptContext.Impl(this), Wrapper.unwrapped(arguments[0]))));
+			return setValue(component.key, Cast.to(component.key.component.wrap(new RecipeScriptContext.Impl(this), arguments[0])));
 		}
 		throw new MissingComponentException(name, null, valueMap.keySet()).source(sourceLine);
 	}

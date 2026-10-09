@@ -3,7 +3,6 @@ package dev.uncandango.kubegroovy.testmod;
 import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.entity.KubeEntityEvent;
 import dev.uncandango.kubegroovy.level.LevelBlock;
-import dev.uncandango.kubegroovy.script.bridge.Undefined;
 import dev.uncandango.kubegroovy.testmod.assertion.KubeEntityEventAssert;
 import dev.uncandango.kubegroovy.testmod.assertion.LevelBlockAssert;
 import dev.uncandango.kubegroovy.util.Tristate;
@@ -136,7 +135,7 @@ public class TestRuntime {
 
 	/// Fails if a script-read value is null or Groovy's legacy {@code undefined}; useful for getter fixtures.
 	public static void assertDefined(String label, @Nullable Object value) {
-		if (value == null || Undefined.isUndefined(value)) {
+		if (value == null) {
 			throw new AssertionError("Expected '" + label + "' to be defined but was: " + value);
 		}
 	}

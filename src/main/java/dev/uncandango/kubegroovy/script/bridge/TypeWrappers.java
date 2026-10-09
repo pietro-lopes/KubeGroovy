@@ -151,7 +151,6 @@ public class TypeWrappers {
 		if (target == null) {
 			throw new GroovyCastException(value, Object.class);
 		}
-		value = Wrapper.unwrapped(value);
 
 		if (target.asClass().isArray()) {
 			return coerceCollection(value, target);
@@ -229,7 +228,6 @@ public class TypeWrappers {
 		if (target == null) {
 			throw new GroovyCastException(value, Object.class);
 		}
-		value = Wrapper.unwrapped(value);
 
 		Object raw = wrappers.get(target);
 		if (raw == null && value == null || target.isInstance(value)) {
