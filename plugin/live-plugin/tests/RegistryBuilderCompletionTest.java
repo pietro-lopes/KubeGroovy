@@ -5,6 +5,7 @@ import com.intellij.codeInsight.completion.CompletionContributorEP;
 import com.intellij.codeInsight.completion.CompletionType;
 import com.intellij.codeInsight.lookup.Lookup;
 import com.intellij.codeInsight.lookup.LookupElement;
+import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.extensions.DefaultPluginDescriptor;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.extensions.LoadingOrder;
@@ -98,6 +99,18 @@ public final class RegistryBuilderCompletionTest extends LivePluginTestCase {
 		assertNotNull(elements);
 		assertTrue(Arrays.stream(elements).anyMatch(it -> "addon:item".equals(it.getObject())));
 		assertFalse(Arrays.stream(elements).anyMatch(it -> "detector".equals(it.getObject())));
+	}
+
+	public void testBuilderVariablesDoNotOfferLiteralSuggestions() {
+		for (String argument : List.of("det<caret>", "<caret>detector", "\"${det<caret>}\"", "\"${<caret>}\"")) {
+			var elements = complete("kubegroovy/startup_scripts", receiver("Block"), "event.create('id', " + argument + ")");
+			assertTrue("Builder names offered in code: " + argument, elements == null || Arrays.stream(elements)
+				.noneMatch(it -> {
+					var builder = it.as(LookupElementBuilder.class);
+					return builder != null && builder.getInsertHandler() != null &&
+						"TypeSuggestionInsertHandler".equals(builder.getInsertHandler().getClass().getSimpleName());
+				}));
+		}
 	}
 
 	public void testServerRegistryAndExplicitCastPreserveInsertion() {

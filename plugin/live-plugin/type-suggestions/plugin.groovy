@@ -49,6 +49,7 @@ import java.util.regex.Matcher
 import java.util.regex.Pattern
 import org.jetbrains.plugins.groovy.lang.psi.api.GroovyResolveResult
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.arguments.GrArgumentList
+import org.jetbrains.plugins.groovy.lang.psi.api.statements.arguments.GrArgumentLabel
 import javax.swing.Icon
 import javax.swing.ImageIcon
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrBinaryExpression
@@ -59,6 +60,8 @@ import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrRefere
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrTypeCastExpression
 import org.jetbrains.plugins.groovy.lang.psi.api.auxiliary.GrListOrMap
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.literals.GrLiteral
+import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.literals.GrString
+import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.literals.GrStringInjection
 import org.jetbrains.plugins.groovy.lang.lexer.GroovyTokenTypes
 import groovy.json.JsonSlurper
 import com.intellij.psi.PsiArrayType
@@ -93,6 +96,29 @@ class TypeSuggestionSupport {
 		if (path == null || !path.endsWith('.groovy')) return null
 		def match = (path =~ /(?:^|\/)kubegroovy\/(startup|client|server)_scripts\/.+\.groovy$/)
 		return match.find() ? match.group(1) : null
+	}
+
+	/** String text, string map labels and empty slots; variable references are code. */
+	static boolean isSuggestionPosition(PsiElement position, PsiFile originalFile, int offset) {
+		PsiElement element = position
+		while (element != null) {
+			if (element instanceof GrStringInjection) return false
+			if (element instanceof GrArgumentLabel && ((GrArgumentLabel) element).getExpression() == null) return true
+			if (element instanceof GrExpression) {
+				if (element instanceof GrLiteral) return element instanceof GrString || ((GrLiteral) element).isString()
+				break
+			}
+			element = element.getParent()
+		}
+		if (PsiTreeUtil.getParentOfType(position, GrStringInjection.class, false) != null) return false
+		// Completion can erase an identifier's suffix from its PSI copy. Consult the
+		// original text to distinguish a genuinely empty slot from a variable name.
+		String text = originalFile.getText()
+		if (offset < 0 || offset > text.length()) return false
+		if (offset < text.length() && Character.isJavaIdentifierPart(text.charAt(offset))) return false
+		int previous = offset - 1
+		while (previous >= 0 && Character.isWhitespace(text.charAt(previous))) previous--
+		return previous >= 0 && '([,:'.indexOf((int) text.charAt(previous)) >= 0
 	}
 
 	/** Diagnostics retain their existing defaults; all messages go to idea.log. */
@@ -1670,6 +1696,7 @@ class TypeSuggestionCompletionProvider extends CompletionProvider<CompletionPara
 	protected void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
 		long started = System.nanoTime()
 		if (sideForFile(parameters.getOriginalFile()) == null) return
+		if (!isSuggestionPosition(parameters.getPosition(), parameters.getOriginalFile(), parameters.getOffset())) return
 		TypeSuggestionCatalog.Snapshot catalog = TypeSuggestionCatalog.loadConfig(parameters.getOriginalFile())
 		PsiElement position = parameters.getPosition()
 		int offset = parameters.getOffset()

@@ -185,6 +185,30 @@ public final class TypeSuggestionCompletionTest extends LivePluginTestCase {
 		}
 	}
 
+	public void testVariableReferencesDoNotOfferLiteralSuggestions() {
+		for (String source : List.of(
+			"new example.Target().accept(app<caret>)",
+			"new example.Target().accept(<caret>apple)",
+			"new example.Target().accept(value.<caret>)",
+			"new example.Target().list([app<caret>])",
+			"new example.Target().map([key: app<caret>])",
+			"def value = app<caret> as example.Item",
+			"new example.Target().accept(\"${app<caret>}\")",
+			"new example.Target().accept(\"$app<caret>\")",
+			"new example.Target().accept(\"${<caret>}\")")) {
+			LookupElement[] elements = complete("kubegroovy/server_scripts/Variable" + fileNumber++ + ".groovy", source);
+			assertTrue("Literal suggestions offered in code: " + source, elements == null ||
+				Arrays.stream(elements).noneMatch(item -> List.of("addon:apple", "addon:stone", "keyChoice", "otherKey").contains(item.getObject())));
+		}
+	}
+
+	public void testGStringTextStillOffersSuggestions() {
+		LookupElement[] elements = complete("kubegroovy/server_scripts/GString.groovy",
+			"new example.Target().accept(\"addon:a<caret>${value}\")");
+		assertNotNull(elements);
+		assertTrue(Arrays.stream(elements).anyMatch(item -> "addon:apple".equals(item.getObject())));
+	}
+
 	public void testQuotesBackslashesDollarsAndControlsStayInsideOneLiteral() throws Exception {
 		String id = "a\"\\$\n\r\t\u0001";
 		writeCatalog(Map.of("example.Item", List.of(id)));

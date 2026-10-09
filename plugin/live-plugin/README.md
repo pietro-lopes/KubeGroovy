@@ -81,6 +81,10 @@ version. The fixture project has its own build and test host, separate from the
 mod build. It covers script scoping, catalog reloads, container/generic types,
 icon caches, and actual completion selection and document insertion.
 
+Type and builder suggestions appear in string/GString text, string map keys, and
+empty argument or container slots. Variable references, member access, and GString
+interpolation expressions keep normal code completion.
+
 The bindings script exposes `classValue: true` entries as implicit aliased class
 imports for the matching script side, mirroring the engine autoimports. Aliases
 such as `$Item` resolve to their classes for static member completion and type
