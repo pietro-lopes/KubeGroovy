@@ -9,7 +9,6 @@ import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.util.TickDuration;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
@@ -86,7 +85,6 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 		generateItemModels(generator);
 	}
 
-	@HideFromGY
 	public void generateItemModels(KubeAssetGenerator generator) {
 		generator.itemModel(id, model -> {
 			if (modelGenerator != null) {
@@ -104,7 +102,6 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 		}, KubeAssetGenerator.createItemTintSources(getMaxTintIndex()));
 	}
 
-	@HideFromGY
 	public boolean hasCustomModel() {
 		return modelGenerator != null ||
 			parentModel != null ||
@@ -112,7 +109,6 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 			!baseTexture.equals(id.withPath(ID.ITEM).toString());
 	}
 
-	@HideFromGY
 	public int getMaxTintIndex() {
 		int maxTintIndex = behavior.tint == null ? -1 : behavior.tint.getMaxTintIndex();
 
@@ -245,7 +241,6 @@ public class ItemBuilder extends ModelledBuilderBase<Item> implements ItemBehavi
 		return this;
 	}
 
-	@HideFromGY
 	public final int getBurnTime() {
 		return burnTime;
 	}

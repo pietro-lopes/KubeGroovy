@@ -1,8 +1,8 @@
 package dev.uncandango.kubegroovy.item;
 
 import dev.uncandango.kubegroovy.color.KubeColor;
-import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;

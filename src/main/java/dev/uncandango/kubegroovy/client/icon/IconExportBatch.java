@@ -1,5 +1,7 @@
 package dev.uncandango.kubegroovy.client.icon;
 
+import java.util.Objects;
+
 /// Pixel layout for one screenshot. Computed again each frame so resizing the
 /// window or changing the requested icon size never puts a cell outside it.
 public record IconExportBatch(int columns, int capacity, int cellSize) {
@@ -17,12 +19,12 @@ public record IconExportBatch(int columns, int capacity, int cellSize) {
 	}
 
 	public int pixelX(int index) {
-		java.util.Objects.checkIndex(index, capacity);
+		Objects.checkIndex(index, capacity);
 		return index % columns * cellSize;
 	}
 
 	public int pixelY(int index) {
-		java.util.Objects.checkIndex(index, capacity);
+		Objects.checkIndex(index, capacity);
 		return index / columns * cellSize;
 	}
 }

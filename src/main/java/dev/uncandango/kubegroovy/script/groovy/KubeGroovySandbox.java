@@ -9,6 +9,7 @@ import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassCodeExpressionTransformer;
 import org.codehaus.groovy.ast.ClassNode;
+import org.codehaus.groovy.ast.GroovyCodeVisitor;
 import org.codehaus.groovy.ast.ImportNode;
 import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.expr.ArgumentListExpression;
@@ -16,6 +17,7 @@ import org.codehaus.groovy.ast.expr.ClassExpression;
 import org.codehaus.groovy.ast.expr.ConstantExpression;
 import org.codehaus.groovy.ast.expr.CastExpression;
 import org.codehaus.groovy.ast.expr.ClosureExpression;
+import org.codehaus.groovy.ast.expr.ConstructorCallExpression;
 import org.codehaus.groovy.ast.expr.Expression;
 import org.codehaus.groovy.ast.expr.ListExpression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
@@ -27,6 +29,7 @@ import org.codehaus.groovy.ast.stmt.EmptyStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
 import org.codehaus.groovy.ast.tools.GeneralUtils;
 import org.codehaus.groovy.ast.tools.ParameterUtils;
+import org.codehaus.groovy.classgen.GeneratorContext;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.control.customizers.CompilationCustomizer;
@@ -73,7 +76,40 @@ public final class KubeGroovySandbox {
 	}
 
 	public static List<CompilationCustomizer> customizers(@Nullable ClassFilter filter, @Nullable TypeWrappers wrappers) {
-		var secure = new SecureASTCustomizer();
+		var secure = new SecureASTCustomizer() {
+			@Override
+			protected GroovyCodeVisitor createGroovyCodeVisitor() {
+				return new SecuringCodeVisitor() {
+					@Override
+					protected void assertExpressionAuthorized(Expression expression) {
+						// Groovy emits this main entrypoint; authored InvokerHelper access remains prohibited.
+						if (expression.getLineNumber() < 0 && expression instanceof StaticMethodCallExpression call
+							&& call.getOwnerType().getName().equals("org.codehaus.groovy.runtime.InvokerHelper") && call.getMethod().equals("runScript")) return;
+						super.assertExpressionAuthorized(expression);
+					}
+				};
+			}
+			@Override
+			protected void assertImportIsAllowed(String name) {
+				if (filter != null && !filter.isAllowed(name)) throw SandboxRuntime.blocked("import " + name);
+			}
+			@Override
+			protected void assertStaticImportIsAllowed(String member, String owner) {
+				assertImportIsAllowed(owner);
+				if (filter != null && member != null && !filter.isGlobalMethodNameAllowed(member)) throw SandboxRuntime.blocked("static import " + member);
+			}
+		};
+		if (filter != null) secure.addExpressionCheckers(expression -> {
+			if (expression.getLineNumber() < 0) return true;
+			ClassNode type = expression instanceof ClassExpression ce ? ce.getType()
+				: expression instanceof ConstructorCallExpression cc ? cc.getType()
+				: expression instanceof CastExpression cast ? cast.getType() : null;
+			if (type != null) {
+				while (type.isArray()) type = type.getComponentType();
+				if (!filter.isAllowed(type.getName())) return false;
+			}
+			return !(expression instanceof MethodCallExpression call) || call.getMethodAsString() == null || filter.isGlobalMethodNameAllowed(call.getMethodAsString());
+		});
 		secure.setClosuresAllowed(true);
 		secure.setMethodDefinitionAllowed(true);
 		secure.setPackageAllowed(true);
@@ -159,7 +195,7 @@ public final class KubeGroovySandbox {
 
 		CompilationCustomizer transformerCustomizer = new CompilationCustomizer(CompilePhase.CONVERSION) {
 			@Override
-			public void call(SourceUnit source, org.codehaus.groovy.classgen.GeneratorContext context, ClassNode classNode) {
+			public void call(SourceUnit source, GeneratorContext context, ClassNode classNode) {
 				transformer.setSource(source);
 				// Script statements are still held by the module at this phase; visiting
 				// the statement block directly ensures expressions in closures and script
@@ -171,7 +207,8 @@ public final class KubeGroovySandbox {
 			}
 		};
 
-		return List.of(secure, transformerCustomizer);
+		return filter == null ? List.of(secure, transformerCustomizer)
+			: List.of(SandboxCompilationCustomizer.annotations(filter), secure, transformerCustomizer, new SandboxCompilationCustomizer(filter));
 	}
 
 	private static void collectClassList(ClassNode type, ListExpression listExpression) {

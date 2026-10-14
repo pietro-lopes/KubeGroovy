@@ -10,6 +10,7 @@ import dev.uncandango.kubegroovy.script.data.GeneratedDataStage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.nio.charset.StandardCharsets;
 
@@ -162,15 +163,15 @@ public final class ClientAssetAsserts {
 		});
 	}
 
-	private static com.google.gson.JsonObject readJson(net.minecraft.server.packs.resources.ResourceManager manager, String path) {
+	private static JsonObject readJson(ResourceManager manager, String path) {
 		return JsonParser.parseString(readTextRaw(manager, path)).getAsJsonObject();
 	}
 
-	private static String readText(net.minecraft.server.packs.resources.ResourceManager manager, String path) {
+	private static String readText(ResourceManager manager, String path) {
 		return readTextRaw(manager, path);
 	}
 
-	private static String readTextRaw(net.minecraft.server.packs.resources.ResourceManager manager, String path) {
+	private static String readTextRaw(ResourceManager manager, String path) {
 		var id = Identifier.parse("kubegroovy:" + path);
 		var resource = manager.getResource(id);
 		assertThat(resource.isPresent()).as("resource present " + id).isTrue();

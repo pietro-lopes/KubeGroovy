@@ -3,6 +3,7 @@ package dev.uncandango.kubegroovy.block;
 import dev.uncandango.kubegroovy.client.LangKubeEvent;
 import dev.uncandango.kubegroovy.generator.KubeAssetGenerator;
 import dev.uncandango.kubegroovy.item.ItemBuilder;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -15,7 +16,7 @@ public class BlockItemBuilder extends ItemBuilder {
 		this.blockBuilder = b;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final BlockBuilder kgy$getBlockBuilder() {
 		return blockBuilder;
 	}

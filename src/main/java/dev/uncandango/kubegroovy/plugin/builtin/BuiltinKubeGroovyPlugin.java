@@ -69,6 +69,7 @@ import dev.uncandango.kubegroovy.misc.SoundEventBuilder;
 import dev.uncandango.kubegroovy.misc.VillagerProfessionBuilder;
 import dev.uncandango.kubegroovy.misc.VillagerTypeBuilder;
 import dev.uncandango.kubegroovy.player.PlayerStatsGY;
+import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
 import dev.uncandango.kubegroovy.plugin.builtin.event.BlockEvents;
 import dev.uncandango.kubegroovy.plugin.builtin.event.EntityEvents;
@@ -161,7 +162,9 @@ import dev.uncandango.kubegroovy.script.RecordDefaultsRegistry;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.TypeDescriptionRegistry;
 import dev.uncandango.kubegroovy.script.TypeWrapperRegistry;
+import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
+import dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory;
 import dev.uncandango.kubegroovy.server.ScheduledServerEvent;
 import dev.uncandango.kubegroovy.server.ServerScriptManager;
 import dev.uncandango.kubegroovy.util.Cast;
@@ -188,6 +191,8 @@ import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
 import dev.uncandango.kubegroovy.web.local.KubeGroovyWeb;
 import dev.uncandango.kubegroovy.script.type.RecordTypeInfo;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
+import groovy.lang.MetaClass;
+import groovy.lang.MetaClassRegistry;
 import net.minecraft.advancements.criterion.DataComponentMatchers;
 import net.minecraft.advancements.criterion.MinMaxBounds;
 import net.minecraft.commands.arguments.selector.EntitySelector;
@@ -277,6 +282,7 @@ import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.ItemAbility;
 import net.neoforged.neoforge.common.SoundAction;
 import net.neoforged.neoforge.common.crafting.SizedIngredient;
@@ -295,14 +301,30 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import javax.script.ScriptEngine;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.Writer;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URLConnection;
+import java.nio.channels.Channel;
+import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.temporal.TemporalAmount;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -416,6 +438,204 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(RecipeViewerEvents.GROUP);
 	}
 
+	private static final List<String> DESKTOP_PACKAGES = List.of("javax.swing", "java.awt", "java.applet", "javax.sound", "javax.imageio");
+
+	private static final Set<String> DANGEROUS_NAMES = Set.of(
+		"execute", "evaluate", "eval", "forName", "loadClass", "defineClass", "getClassLoader",
+		"setAccessible", "trySetAccessible", "getDeclaredMethod", "getDeclaredMethods",
+		"getDeclaredField", "getDeclaredFields", "getDeclaredConstructor", "getDeclaredConstructors",
+		"getMetaClass", "setMetaClass", "getMetaClassRegistry", "invokeMethod", "invokeStaticMethod",
+		"invokeConstructor", "getMethod", "getMethods", "getField", "getFields", "getConstructor",
+		"getConstructors", "newInstance", "getProtectionDomain", "getModule", "getLookup",
+		"getProperty", "setProperty", "mixin", "addShutdownHook", "dump"
+	);
+	private static final Set<String> FILE_METHODS = Set.of(
+		"toString", "getPath", "getName", "getParent", "getParentFile", "getAbsolutePath",
+		"getAbsoluteFile", "toPath", "isAbsolute", "equals", "hashCode", "compareTo", "<init>"
+	);
+	private static final Set<String> PATH_METHODS = Set.of(
+		"toString", "toFile", "getFileName", "getParent", "getNameCount", "getName", "subpath",
+		"isAbsolute", "normalize", "toAbsolutePath", "resolve", "resolveSibling", "startsWith",
+		"endsWith", "equals", "hashCode", "compareTo", "iterator", "of", "relativize"
+	);
+
+	/// Denied as packages (with subpackages) and as exact class names.
+	private static final List<String> SANDBOX_PACKAGES = List.of(
+		"java.net", "javax.net", "java.rmi", "javax.naming", "java.sql", "javax.sql", "javax.script", "javax.management",
+		"java.lang.management", "java.security", "java.beans", "sun", "com.sun", "jdk.internal", "java.lang.reflect",
+		"java.lang.invoke", "java.lang.foreign", "java.lang.module", "javax.tools", "java.util.spi.ToolProvider",
+		"io.netty", "ai.djl", "org.jsoup", "de.keksuccino", "org.apache.logging.log4j.core",
+		"com.electronwill.nightconfig", "crash_assistant_relocated_libs", "dev.kostromdan.mods.crash_assistant",
+		"dev.latvian.apps.tinyserver", "com.mojang.realmsclient", "org.lwjgl", "org.apache.commons.io",
+		"org.apache.commons.exec", "org.apache.http", "okhttp3", "com.google.common.io", "org.objectweb.asm",
+		"org.spongepowered.asm", "scala.sys", "scala.io", "dev.langchain4j", "opennlp.tools", "me.lucko.spark",
+		"com.typesafe", "com.moandjiezana", "ai.onnxruntime", "com.euphoriapatches.shadow.com.google.gson", "groovy.ui",
+		"groovy.grape", "groovy.sql", "groovy.text", "groovy.ant", "groovy.util.AntBuilder", "groovy.util.ConfigSlurper",
+		"groovy.util.FileTreeBuilder", "org.codehaus.groovy.control", "org.codehaus.groovy.ast",
+		"org.codehaus.groovy.classgen", "org.codehaus.groovy.transform", "org.codehaus.groovy.vmplugin",
+		"org.codehaus.groovy.reflection", "org.codehaus.groovy.runtime.callsite",
+		"org.codehaus.groovy.runtime.metaclass", "org.codehaus.groovy.runtime.InvokerHelper",
+		"org.codehaus.groovy.runtime.ScriptBytecodeAdapter", "org.codehaus.groovy.runtime.ReflectionMethodInvoker",
+		"javax.xml", "org.xml.sax", "java.util.logging", "org.codehaus.groovy.tools", "groovy.util.Eval",
+		"groovy.lang.GroovyShell", "groovy.lang.GroovyClassLoader", "org.codehaus.groovy.runtime.ResourceGroovyMethods",
+		"org.codehaus.groovy.runtime.SocketGroovyMethods", "org.codehaus.groovy.runtime.ProcessGroovyMethods",
+		"org.apache.groovy.nio.extensions.NioExtensions"
+	);
+	private static final Set<String> SANDBOX_CLASSES = Set.of(
+		"java.lang.System", "java.lang.Runtime", "java.lang.Process", "java.lang.ProcessBuilder",
+		"java.lang.ProcessHandle", "java.lang.ProcessHandle$Info", "java.lang.ClassLoader", "java.lang.Thread",
+		"java.lang.Thread$Builder", "java.lang.Thread$Builder$OfPlatform", "java.lang.Thread$Builder$OfVirtual",
+		"java.lang.Thread$State", "java.lang.Thread$UncaughtExceptionHandler", "java.lang.ThreadGroup",
+		"java.nio.file.Files", "java.nio.file.FileSystems", "java.nio.file.FileSystem", "java.util.Formatter",
+		"java.util.ServiceLoader", "java.util.Timer", "java.util.prefs.Preferences", "groovy.util.GroovyScriptEngine",
+		// Thread and executor plumbing; runtime Executor/Thread values are also covered by sandboxType.
+		"java.util.concurrent.AbstractExecutorService", "java.util.concurrent.Executor",
+		"java.util.concurrent.ExecutorCompletionService", "java.util.concurrent.ExecutorService",
+		"java.util.concurrent.Executors", "java.util.concurrent.ForkJoinPool",
+		"java.util.concurrent.ForkJoinPool$ForkJoinWorkerThreadFactory", "java.util.concurrent.ForkJoinPool$ManagedBlocker",
+		"java.util.concurrent.ForkJoinTask", "java.util.concurrent.ForkJoinWorkerThread",
+		"java.util.concurrent.ScheduledExecutorService", "java.util.concurrent.ScheduledThreadPoolExecutor",
+		"java.util.concurrent.ThreadFactory", "java.util.concurrent.ThreadLocalRandom",
+		"java.util.concurrent.ThreadPoolExecutor", "java.util.concurrent.ThreadPoolExecutor$AbortPolicy",
+		"java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy", "java.util.concurrent.ThreadPoolExecutor$DiscardOldestPolicy",
+		"java.util.concurrent.ThreadPoolExecutor$DiscardPolicy"
+	);
+	private static final Set<String> ALLOWED_IO_CLASSES = Set.of(
+		"java.io.File", "java.io.Serializable", "java.io.Closeable", "java.io.IOException"
+	);
+	private static final Set<String> CLASS_METHODS = Set.of(
+		"getName", "getSimpleName", "getCanonicalName", "isInstance", "isAssignableFrom", "toString", "equals",
+		"hashCode"
+	);
+
+	/// Sandbox baseline, installed by KubeGroovyPlugins.createClassFilter before any plugin registers.
+	/// These are ordinary rules; plugins are trusted not to reopen these classes and packages.
+	public static void registerSandboxClasses(ClassFilter filter) {
+		for (var name : SANDBOX_PACKAGES) {
+			filter.deny(name);
+			filter.denyPackage(name);
+		}
+		for (var name : DESKTOP_PACKAGES) {
+			filter.deny(name);
+			filter.denyPackage(name);
+		}
+		SANDBOX_CLASSES.forEach(filter::deny);
+		filter.denyPackage("java.io");
+		ALLOWED_IO_CLASSES.forEach(filter::allow);
+		filter.denyPackage("java.nio.channels");
+		filter.denyPackage("java.nio.file.spi");
+		filter.allow(URI.class); // An address value; toURL remains blocked by its return type.
+		filter.denyTypes(BuiltinKubeGroovyPlugin::sandboxType);
+		filter.denyMethodNames(DANGEROUS_NAMES::contains);
+		filter.denyMemberNames((receiver, name) -> !memberNameAllowed(receiver, name));
+	}
+	private static boolean sandboxType(Class<?> type) {
+		return desktopType(type) || ClassLoader.class.isAssignableFrom(type)
+			|| Thread.class.isAssignableFrom(type) || Process.class.isAssignableFrom(type)
+			|| InputStream.class.isAssignableFrom(type) || OutputStream.class.isAssignableFrom(type)
+			|| Reader.class.isAssignableFrom(type) || Writer.class.isAssignableFrom(type)
+			|| Channel.class.isAssignableFrom(type)
+			|| Executor.class.isAssignableFrom(type) && !type.getName().startsWith("net.minecraft.")
+			|| MetaClass.class.isAssignableFrom(type)
+			|| MetaClassRegistry.class.isAssignableFrom(type) || FileSystem.class.isAssignableFrom(type)
+			|| Socket.class.isAssignableFrom(type) || URLConnection.class.isAssignableFrom(type)
+			|| ScriptEngine.class.isAssignableFrom(type) || javax.naming.Context.class.isAssignableFrom(type)
+			|| Connection.class.isAssignableFrom(type) || Statement.class.isAssignableFrom(type);
+	}
+	private static boolean memberNameAllowed(Class<?> receiver, String name) {
+		if (name.equals("use") && receiver.getName().startsWith("org.codehaus.groovy.runtime.")) return false;
+		if (CompletableFuture.class.isAssignableFrom(receiver) && (name.endsWith("Async") || name.equals("delayedExecutor"))) return false;
+		if (receiver == Class.class) return CLASS_METHODS.contains(name);
+		if (File.class.isAssignableFrom(receiver)) return FILE_METHODS.contains(name);
+		if (Path.class.isAssignableFrom(receiver)) return PATH_METHODS.contains(name);
+		return true;
+	}
+	private static boolean inPackage(String name, String pkg) { return name.startsWith(pkg + "."); }
+	private static boolean desktopClass(String name) {
+		return DESKTOP_PACKAGES.stream().anyMatch(p -> name.equals(p) || inPackage(name, p));
+	}
+	/// Desktop APIs can perform file/network I/O from strings, so subclasses are denied too.
+	private static boolean desktopType(Class<?> type) {
+		if (desktopClass(type.getName())) return true;
+		if (Arrays.stream(type.getInterfaces()).anyMatch(BuiltinKubeGroovyPlugin::desktopType)) return true;
+		return type.getSuperclass() != null && desktopType(type.getSuperclass());
+	}
+
+	@Override
+	public void registerClasses(ClassFilter filter) {
+		filter.denyPackage("java.lang");
+		filter.allow("java.lang.Number");
+		filter.allow("java.lang.String");
+		filter.allow("java.lang.Character");
+		filter.allow("java.lang.Byte");
+		filter.allow("java.lang.Short");
+		filter.allow("java.lang.Integer");
+		filter.allow("java.lang.Long");
+		filter.allow("java.lang.Float");
+		filter.allow("java.lang.Double");
+		filter.allow("java.lang.Boolean");
+		filter.allow("java.lang.Runnable");
+		filter.allow("java.lang.Iterable");
+		filter.allow("java.lang.Comparable");
+		filter.allow("java.lang.CharSequence");
+		filter.allow("java.lang.Void");
+		filter.allow("java.lang.Package");
+		filter.allow("java.lang.Appendable");
+		filter.allow("java.lang.AutoCloseable");
+		filter.allow("java.lang.Comparable");
+		filter.allow("java.lang.Iterable");
+		filter.allow("java.lang.Object");
+		filter.allow("java.lang.Runnable");
+		filter.allow("java.lang.StringBuilder");
+		filter.allow("java.lang.Override");
+		filter.allow("java.math.BigInteger");
+		filter.allow("java.math.BigDecimal");
+		filter.denyPackage("java.nio");
+		filter.allow("java.nio.file.Path");
+		filter.allow("java.nio.ByteOrder");
+		filter.denyPackage("java.util.jar");
+		filter.denyPackage("java.util.zip");
+		filter.denyPackage("dev.uncandango.kubegroovy.script.groovy");
+		filter.deny("dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin");
+		filter.deny("dev.uncandango.kubegroovy.plugin.ClassFilter");
+		filter.deny("dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins");
+		filter.deny("dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyClientPlugin");
+		filter.deny("dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyPlugin");
+		filter.deny("dev.uncandango.kubegroovy.script.ScriptManager");
+		filter.deny("dev.uncandango.kubegroovy.script.ScriptFile");
+		filter.denyPackage("dev.uncandango.kubegroovy.core");
+		filter.deny("net.minecraft.Util");
+		filter.allow("com.mojang.authlib.GameProfile");
+		filter.allow("com.mojang.util.UUIDTypeAdapter");
+		filter.denyPackage("org.openjdk.nashorn");
+		filter.denyPackage("jdk.nashorn");
+		filter.denyPackage("org.lwjgl.system");
+		filter.denyPackage("net.neoforged.fml");
+		filter.allow("net.neoforged.fml.ModList");
+		filter.denyPackage("net.neoforged.accesstransformer");
+		filter.denyPackage("net.neoforged.coremod");
+		filter.denyPackage("cpw.mods.modlauncher");
+		filter.denyPackage("cpw.mods.gross");
+		filter.allow(Math.class);
+		filter.allow(Class.class);
+		filter.allow(Throwable.class);
+		filter.allow(Exception.class);
+		filter.allow(RuntimeException.class);
+		filter.allow(AssertionError.class);
+		filter.allow(IllegalArgumentException.class);
+		filter.allow(IllegalStateException.class);
+		filter.allow(SecurityException.class);
+		filter.allow(PlayerSelector.class);
+		// Annotated interfaces are the public injected script API, including inherited accessors.
+		for (var scan : ModList.get().getAllScanData()) {
+			for (var annotation : scan.getAnnotations()) {
+				if (annotation.annotationType().getClassName().equals(RemapPrefixForGY.class.getName())) {
+					filter.allow(annotation.clazz().getClassName());
+				}
+			}
+		}
+	}
+
 	@Override
 	public void registerBindings(BindingRegistry bindings) {
 		bindings.add("global", bindings.type().isStartup() ? GLOBAL : new GlobalUnmodifiableMap<>(GLOBAL));
@@ -500,7 +720,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 
 	@Override
 	public void registerTypeWrappers(TypeWrapperRegistry registry) {
-		registry.register(RegistryPredicate.class, (dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory) RegistryPredicate::of, true);
+		registry.register(RegistryPredicate.class, (TypeWrapperFactory) RegistryPredicate::of, true);
 
 		// Java / Minecraft //
 		// registry.register(String.class, String::valueOf);
@@ -517,7 +737,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(Duration.class, TimeGY::wrapDuration, true);
 		registry.register(TickDuration.class, TickDuration::wrap, true);
 
-		registry.register(HolderSet.class, (dev.uncandango.kubegroovy.script.bridge.TypeWrapperFactory) (from, target) -> {
+		registry.register(HolderSet.class, (TypeWrapperFactory) (from, target) -> {
 			var cx = Context.getCurrent();
 			return HolderWrapper.wrapSet((KubeGroovyContext) cx, from, target.param(0));
 		}, false);

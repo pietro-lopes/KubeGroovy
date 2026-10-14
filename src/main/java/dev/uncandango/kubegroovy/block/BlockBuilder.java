@@ -29,7 +29,6 @@ import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.ID;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -468,7 +467,6 @@ public abstract class BlockBuilder extends ModelledBuilderBase<Block> {
 		return this;
 	}
 
-	@HideFromGY
 	protected ItemBuilder getOrCreateItemBuilder() {
 		return itemBuilder == null ? (itemBuilder = new BlockItemBuilder(this, id)) : itemBuilder;
 	}
@@ -753,97 +751,78 @@ public abstract class BlockBuilder extends ModelledBuilderBase<Block> {
 		return this;
 	}
 
-	@HideFromGY
 	public final @Nullable BlockEntityInfo kgy$getBlockEntityInfo() {
 		return blockEntityInfo;
 	}
 
-	@HideFromGY
 	public final @Nullable BlockTintFunction kgy$getTint() {
 		return tint;
 	}
 
-	@HideFromGY
 	public final @Nullable ItemBuilder kgy$getItemBuilder() {
 		return itemBuilder;
 	}
 
-	@HideFromGY
 	public final Set<Property<?>> kgy$getBlockStateProperties() {
 		return blockStateProperties;
 	}
 
-	@HideFromGY
 	public final List<AABB> kgy$getCustomShape() {
 		return customShape;
 	}
 
-	@HideFromGY
 	public final void kgy$setBlockStateProperties(Set<Property<?>> properties) {
 		blockStateProperties = properties;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockStateModifyCallback> kgy$getDefaultStateModification() {
 		return defaultStateModification;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockStateModifyPlacementCallback> kgy$getPlacementStateModification() {
 		return placementStateModification;
 	}
 
-	@HideFromGY
 	public final @Nullable Predicate<CanBeReplacedCallback> kgy$getCanBeReplacedFunction() {
 		return canBeReplacedFunction;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<RandomTickCallback> kgy$getRandomTickCallback() {
 		return randomTickCallback;
 	}
 
-	@HideFromGY
 	public final boolean kgy$isTransparent() {
 		return transparent;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<EntityBlockCallback> kgy$getInsideCallback() {
 		return insideCallback;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<EntityBlockCallback> kgy$getStepOnCallback() {
 		return stepOnCallback;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<EntityFallenOnBlockCallback> kgy$getFallOnCallback() {
 		return fallOnCallback;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<AfterEntityFallenOnBlockCallback> kgy$getAfterFallenOnCallback() {
 		return afterFallenOnCallback;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockExplodedCallback> kgy$getExplodedCallback() {
 		return explodedCallback;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockStateRotateCallback> kgy$getRotateStateModification() {
 		return rotateStateModification;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockStateMirrorCallback> kgy$getMirrorStateModification() {
 		return mirrorStateModification;
 	}
 
-	@HideFromGY
 	public final @Nullable Consumer<BlockRightClickedKubeEvent> kgy$getRightClick() {
 		return rightClick;
 	}

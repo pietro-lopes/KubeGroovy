@@ -133,7 +133,7 @@ public class ItemIconExportTests {
 			Identifier.parse("minecraft:flowing_water"),
 			Identifier.parse("minecraft:flowing_lava"));
 		assertThat(minecraftFluids).allMatch(entry -> !entry.fluid().isEmpty());
-		assertThat(minecraftIds).doesNotContain(BuiltInRegistries.FLUID.getKey(net.minecraft.world.level.material.Fluids.EMPTY));
+		assertThat(minecraftIds).doesNotContain(BuiltInRegistries.FLUID.getKey(Fluids.EMPTY));
 
 		var kubeGroovyFluids = ItemIconExporter.collectFluidEntries("kubegroovy");
 		var kubeGroovyIds = kubeGroovyFluids.stream().map(ItemIconExportScreen.FluidEntry::id).toList();
@@ -259,7 +259,7 @@ public class ItemIconExportTests {
 				// including chroma-keyed transparency, regardless of their grid cell.
 				try (var reference = NativeImage.read(readQuietly(ItemIconExporter.resolve(dir, IDS.get(kind))));
 					 var actual = NativeImage.read(readQuietly(file))) {
-					assertThat(actual.getPixelsABGR()).as("batch cell %d", i).containsExactly(reference.getPixelsABGR());
+					assertThat(actual.getPixelsABGR()).as("batch cell %d", i).isEqualTo(reference.getPixelsABGR());
 				} catch (Exception ex) {
 					throw new AssertionError("Failed comparing batch cell " + i, ex);
 				}

@@ -14,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.testframework.DynamicTest;
@@ -267,11 +268,11 @@ public class BlockEventTests {
 		});
 	}
 
-	private static net.minecraft.world.level.block.state.BlockState detector() {
+	private static BlockState detector() {
 		return block("kubegroovy:test_detector");
 	}
 
-	private static net.minecraft.world.level.block.state.BlockState block(String id) {
+	private static BlockState block(String id) {
 		return BuiltInRegistries.BLOCK.getValue(Identifier.parse(id)).defaultBlockState();
 	}
 }

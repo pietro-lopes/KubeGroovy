@@ -3,6 +3,7 @@ package dev.uncandango.kubegroovy.recipetest;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.MapCodec;
 import dev.uncandango.kubegroovy.recipe.component.RecipeComponentWithCodec;
@@ -113,7 +114,7 @@ class RecipeComponentWithCodecTests {
 		assertTrue(wrapper.codecReference().isEmpty());
 	}
 
-	private static com.mojang.serialization.DataResult<RecipeComponentWithCodec<String>> resolve(Class<?> owner) {
+	private static DataResult<RecipeComponentWithCodec<String>> resolve(Class<?> owner) {
 		return RecipeComponentWithCodec.resolve(StringComponent.STRING,
 			new RecipeComponentWithCodec.CodecReference(owner.getName()));
 	}

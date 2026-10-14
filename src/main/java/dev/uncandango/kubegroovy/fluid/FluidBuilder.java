@@ -10,6 +10,7 @@ import dev.uncandango.kubegroovy.color.SimpleColor;
 import dev.uncandango.kubegroovy.generator.KubeAssetGenerator;
 import dev.uncandango.kubegroovy.registry.AdditionalObjectRegistry;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.util.ID;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.core.registries.Registries;
@@ -175,17 +176,17 @@ public class FluidBuilder extends BuilderBase<FlowingFluid> {
 		return this;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final FluidTypeBuilder kgy$getFluidType() {
 		return fluidType;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final FlowingFluidBuilder kgy$getFlowingFluid() {
 		return flowingFluid;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final @Nullable KubeColor kgy$getBucketColor() {
 		return bucketColor;
 	}

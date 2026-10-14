@@ -1,8 +1,8 @@
 package dev.uncandango.kubegroovy.core.mixin;
 
 import dev.uncandango.kubegroovy.core.component.DataComponentAccessor;
-import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
+import dev.uncandango.kubegroovy.util.Cast;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;

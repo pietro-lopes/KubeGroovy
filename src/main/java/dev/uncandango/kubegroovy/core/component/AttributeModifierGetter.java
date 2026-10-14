@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import org.jspecify.annotations.Nullable;
 
@@ -39,7 +40,7 @@ public interface AttributeModifierGetter {
 		var sum = base;
 
 		for (var entry : kgy$getAttributeModifiers().modifiers()) {
-			if (entry.matches(Attributes.ATTACK_DAMAGE, net.minecraft.world.item.Item.BASE_ATTACK_DAMAGE_ID)) {
+			if (entry.matches(Attributes.ATTACK_DAMAGE, Item.BASE_ATTACK_DAMAGE_ID)) {
 				continue;
 			}
 
@@ -60,7 +61,7 @@ public interface AttributeModifierGetter {
 		var sum = base;
 
 		for (var entry : kgy$getAttributeModifiers().modifiers()) {
-			if (entry.matches(Attributes.ATTACK_SPEED, net.minecraft.world.item.Item.BASE_ATTACK_SPEED_ID)) {
+			if (entry.matches(Attributes.ATTACK_SPEED, Item.BASE_ATTACK_SPEED_ID)) {
 				continue;
 			}
 
@@ -78,7 +79,7 @@ public interface AttributeModifierGetter {
 
 	default double kgy$getBaseAttackDamage() {
 		for (var modifier : kgy$getAttributeModifiers().modifiers()) {
-			if (modifier.matches(Attributes.ATTACK_DAMAGE, net.minecraft.world.item.Item.BASE_ATTACK_DAMAGE_ID)) {
+			if (modifier.matches(Attributes.ATTACK_DAMAGE, Item.BASE_ATTACK_DAMAGE_ID)) {
 				return modifier.modifier().amount();
 			}
 		}
@@ -87,7 +88,7 @@ public interface AttributeModifierGetter {
 
 	default double kgy$getBaseAttackSpeed() {
 		for (var modifier : kgy$getAttributeModifiers().modifiers()) {
-			if (modifier.matches(Attributes.ATTACK_SPEED, net.minecraft.world.item.Item.BASE_ATTACK_SPEED_ID)) {
+			if (modifier.matches(Attributes.ATTACK_SPEED, Item.BASE_ATTACK_SPEED_ID)) {
 				return modifier.modifier().amount();
 			}
 		}

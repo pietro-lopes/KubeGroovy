@@ -45,6 +45,7 @@ import dev.uncandango.kubegroovy.misc.PotionBuilder;
 import dev.uncandango.kubegroovy.misc.SoundEventBuilder;
 import dev.uncandango.kubegroovy.misc.VillagerProfessionBuilder;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
+import dev.uncandango.kubegroovy.registry.BuilderFactory;
 import dev.uncandango.kubegroovy.registry.BuilderTypeRegistry;
 import dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyPlugin;
 import net.minecraft.core.Registry;
@@ -100,12 +101,12 @@ class BuilderFieldVisibilityTests {
 			public <T> void of(ResourceKey<? extends Registry<T>> registryKey, Consumer<Callback<T>> callback) {
 				callback.accept(new Callback<>() {
 					@Override
-					public void addDefault(Class<? extends BuilderBase<? extends T>> builderType, dev.uncandango.kubegroovy.registry.BuilderFactory factory) {
+					public void addDefault(Class<? extends BuilderBase<? extends T>> builderType, BuilderFactory factory) {
 						classes.add(builderType);
 					}
 
 					@Override
-					public void add(Identifier type, Class<? extends BuilderBase<? extends T>> builderType, dev.uncandango.kubegroovy.registry.BuilderFactory factory) {
+					public void add(Identifier type, Class<? extends BuilderBase<? extends T>> builderType, BuilderFactory factory) {
 						classes.add(builderType);
 					}
 				});

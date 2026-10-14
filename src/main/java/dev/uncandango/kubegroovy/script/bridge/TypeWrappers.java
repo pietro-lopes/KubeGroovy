@@ -9,12 +9,21 @@ import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 
+import java.lang.reflect.Array;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -184,40 +193,40 @@ public class TypeWrappers {
 
 	public Object coerceCollection(Object from, TypeInfo target){
 		var cx = Context.getCurrent();
-		if (from instanceof Object[] arr && java.util.Collection.class.isAssignableFrom(target.asClass())) {
-			return toCollection(java.util.Arrays.asList(arr), target.asClass());
+		if (from instanceof Object[] arr && Collection.class.isAssignableFrom(target.asClass())) {
+			return toCollection(Arrays.asList(arr), target.asClass());
 		}
-		if (from instanceof Iterable<?> it && java.util.Collection.class.isAssignableFrom(target.asClass())) {
-			var out = new java.util.ArrayList<>();
+		if (from instanceof Iterable<?> it && Collection.class.isAssignableFrom(target.asClass())) {
+			var out = new ArrayList<>();
 			for (var e : it) {
 				out.add(e);
 			}
 			return toCollection(out, target.asClass());
 		}
-		if (target.asClass().isArray() && from instanceof java.util.Collection<?> coll) {
+		if (target.asClass().isArray() && from instanceof Collection<?> coll) {
 			var comp = target.componentType().asClass();
-			var arr = java.lang.reflect.Array.newInstance(comp, coll.size());
+			var arr = Array.newInstance(comp, coll.size());
 			int i = 0;
 			for (var e : coll) {
-				java.lang.reflect.Array.set(arr, i++, coerce(e, target.componentType()));
+				Array.set(arr, i++, coerce(e, target.componentType()));
 			}
 			return arr;
 		}
 		return from;
 	}
 
-	private static Object toCollection(java.util.List<?> list, Class<?> target) {
+	private static Object toCollection(List<?> list, Class<?> target) {
 		if (target.isInstance(list)) {
 			return list;
 		}
-		if (target == java.util.Set.class || target == java.util.HashSet.class) {
-			return new java.util.HashSet<>(list);
+		if (target == Set.class || target == HashSet.class) {
+			return new HashSet<>(list);
 		}
-		if (target == java.util.SortedSet.class || target == java.util.TreeSet.class) {
-			return new java.util.TreeSet<>((java.util.Collection) list);
+		if (target == SortedSet.class || target == TreeSet.class) {
+			return new TreeSet<>((Collection) list);
 		}
-		if (target == java.util.Queue.class || target == java.util.Deque.class || target == java.util.ArrayDeque.class) {
-			return new java.util.ArrayDeque<>(list);
+		if (target == Queue.class || target == Deque.class || target == ArrayDeque.class) {
+			return new ArrayDeque<>(list);
 		}
 		return list;
 	}

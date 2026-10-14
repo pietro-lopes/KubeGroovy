@@ -20,9 +20,11 @@ import groovy.lang.MissingPropertyException;
 import net.neoforged.fml.loading.FMLLoader;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.groovy.util.BeanUtils;
+import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.runtime.metaclass.MissingMethodExceptionNoStack;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -30,11 +32,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 // TODO: evaluate if it is possible to create custom methods with GeneratedMetaMethod
 // should be useful for type wrappers someMethod(Idenfifier) -> someMethod(Object) that internally calls the gyToJava, renames, etc.
@@ -271,7 +275,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 		}
 
 		@Override
-		public org.codehaus.groovy.reflection.CachedClass getDeclaringClass() {
+		public CachedClass getDeclaringClass() {
 			return delegate.getDeclaringClass();
 		}
 
@@ -590,7 +594,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 	 */
 	private static List<Method> methodsOf(Class<?> type) {
 		var methods = new ArrayList<Method>();
-		var seen = new java.util.HashSet<String>();
+		var seen = new HashSet<String>();
 		for (Method method : type.getMethods()) {
 			if (seen.add(method.toGenericString())) {
 				methods.add(method);
@@ -600,7 +604,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 		return methods;
 	}
 
-	private static void collectInterfaceMethods(Class<?> type, List<Method> methods, java.util.Set<String> seen) {
+	private static void collectInterfaceMethods(Class<?> type, List<Method> methods, Set<String> seen) {
 		for (Class<?> iface : type.getInterfaces()) {
 			for (Method method : iface.getDeclaredMethods()) {
 				if (seen.add(method.toGenericString())) {
@@ -734,7 +738,7 @@ final class KubeGroovyMetaClass extends MetaClassImpl {
 		return null;
 	}
 
-	private static boolean hidden(java.lang.reflect.AnnotatedElement member) {
+	private static boolean hidden(AnnotatedElement member) {
 		if (member.isAnnotationPresent(HideFromGY.class)) {
 			return true;
 		}

@@ -17,6 +17,7 @@ import net.minecraft.resources.ResourceKey;
 import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 
 public class DumpCommands {
@@ -110,7 +111,7 @@ public class DumpCommands {
 					}
 
 					builder.append("| ").append(field.getName()).append(" | ").append(field.getType().getSimpleName()).append(" | ");
-					builder.append(java.lang.reflect.Modifier.isStatic(field.getModifiers()) ? UNICODE_TICK : UNICODE_CROSS).append(" |\n");
+					builder.append(Modifier.isStatic(field.getModifiers()) ? UNICODE_TICK : UNICODE_CROSS).append(" |\n");
 
 					var info = field.getAnnotation(Info.class);
 					if (info != null) {
@@ -145,13 +146,13 @@ public class DumpCommands {
 					builder.append(String.join(", ", paramTypes)).append(" | ");
 
 					builder.append(" | ").append(method.getReturnType().getSimpleName()).append(" | ");
-					builder.append(java.lang.reflect.Modifier.isStatic(method.getModifiers()) ? UNICODE_TICK : UNICODE_CROSS).append(" |\n");
+					builder.append(Modifier.isStatic(method.getModifiers()) ? UNICODE_TICK : UNICODE_CROSS).append(" |\n");
 
 					var info = method.getAnnotation(Info.class);
 					if (info != null) {
 						hasDocumentedMembers = true;
 						documentedMembers.append("- ").append('`');
-						if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+						if (Modifier.isStatic(method.getModifiers())) {
 							documentedMembers.append("static ");
 						}
 						documentedMembers.append(method.getReturnType().getSimpleName()).append(' ').append(method.getName()).append('(');

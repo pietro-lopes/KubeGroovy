@@ -14,6 +14,7 @@ import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.util.StringRepresentable;
+import org.codehaus.groovy.runtime.typehandling.GroovyCastException;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Locale;
@@ -47,7 +48,7 @@ public class TypeWrapperRegistry {
 	public static Object coerce(Object value, TypeInfo target) {
 		var cx = Context.getCurrent();
 		if (!(cx instanceof KubeGroovyContext kgy)) {
-			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target.asClass());
+			throw new GroovyCastException(value, target.asClass());
 		}
 		Object result = kgy.kgyFactory.getTypeWrappers().coerce(value, target);
 		// A wrapper may return a vanilla value whose script-facing methods are
@@ -64,7 +65,7 @@ public class TypeWrapperRegistry {
 	public static Object coerce(Object value, Class<?> target) {
 		var cx = Context.getCurrent();
 		if (!(cx instanceof KubeGroovyContext kgy)) {
-			throw new org.codehaus.groovy.runtime.typehandling.GroovyCastException(value, target);
+			throw new GroovyCastException(value, target);
 		}
 		Object result = kgy.kgyFactory.getTypeWrappers().coerce(value, target);
 		// A wrapper may return a vanilla value whose script-facing methods are

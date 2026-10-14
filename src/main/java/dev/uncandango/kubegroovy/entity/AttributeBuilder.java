@@ -3,7 +3,6 @@ package dev.uncandango.kubegroovy.entity;
 import com.google.common.base.Predicates;
 import com.mojang.datafixers.util.Either;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
@@ -83,7 +82,6 @@ public class AttributeBuilder extends BuilderBase<Attribute> {
 		return this;
 	}
 
-	@HideFromGY
 	public List<Predicate<EntityType<?>>> getPredicateList() {
 		return Collections.unmodifiableList(predicateList);
 	}

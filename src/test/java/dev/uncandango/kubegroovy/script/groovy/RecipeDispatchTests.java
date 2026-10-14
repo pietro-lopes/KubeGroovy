@@ -28,6 +28,7 @@ import net.minecraft.resources.ResourceKey;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,7 +56,7 @@ class RecipeDispatchTests {
 	private static GroovyShell shell(KubeRecipe recipe) {
 		var configuration = new CompilerConfiguration();
 		KubeGroovySandbox.customizers(null, new TypeWrappers()).forEach(configuration::addCompilationCustomizers);
-		return new GroovyShell(new Binding(new java.util.HashMap<>(Map.of("recipe", recipe))), configuration);
+		return new GroovyShell(new Binding(new HashMap<>(Map.of("recipe", recipe))), configuration);
 	}
 
 	@Test

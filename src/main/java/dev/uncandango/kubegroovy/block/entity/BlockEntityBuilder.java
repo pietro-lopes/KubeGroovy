@@ -1,7 +1,6 @@
 package dev.uncandango.kubegroovy.block.entity;
 
 import dev.uncandango.kubegroovy.registry.BuilderBase;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
@@ -13,7 +12,6 @@ public class BlockEntityBuilder extends BuilderBase<BlockEntityType<?>> {
 		this.info = info;
 	}
 
-	@HideFromGY
 	public final BlockEntityInfo kgy$getInfo() {
 		return info;
 	}

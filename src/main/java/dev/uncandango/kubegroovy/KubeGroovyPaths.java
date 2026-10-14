@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy;
 
+import dev.uncandango.kubegroovy.script.groovy.SandboxPaths;
 import net.minecraft.server.packs.PackType;
 import net.neoforged.fml.loading.FMLPaths;
 import org.apache.commons.lang3.mutable.MutableBoolean;
@@ -61,10 +62,6 @@ public interface KubeGroovyPaths {
 	}
 
 	static Path verifyFilePath(Path path) throws IOException {
-		if (!path.normalize().toAbsolutePath().startsWith(GAMEDIR)) {
-			throw new IOException("You can't access files outside Minecraft directory!");
-		}
-
-		return path;
+		return SandboxPaths.verify(path, GAMEDIR);
 	}
 }

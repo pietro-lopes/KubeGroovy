@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.typingtest;
 
+import dev.uncandango.kubegroovy.recipe.KubeRecipe;
 import dev.uncandango.kubegroovy.typing.RecipeTypingGenerator;
 
 import dev.uncandango.kubegroovy.recipe.RecipeFunctionLookup;
@@ -67,7 +68,7 @@ class RecipeTypingGeneratorTests {
 			throw new AssertionError("Default supplier was evaluated");
 		});
 		var schema = new RecipeSchema(result, input, time, hidden, dynamic);
-		schema.factory(new KubeRecipeFactory(Identifier.parse("test:factory"), TypeInfo.of(dev.uncandango.kubegroovy.recipe.KubeRecipe.class), () -> {
+		schema.factory(new KubeRecipeFactory(Identifier.parse("test:factory"), TypeInfo.of(KubeRecipe.class), () -> {
 			calls.incrementAndGet();
 			throw new AssertionError("Factory was evaluated");
 		}));

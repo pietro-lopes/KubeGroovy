@@ -165,6 +165,7 @@ public final class TypeWrapperGeneratedConstructor extends GeneratedMetaMethod {
 		if (context == null) {
 			throw new MissingContextException();
 		}
-		return context.gyToJava(value, type);
+		var converted = context.gyToJava(value, type);
+		return SandboxRuntime.inScript() ? SandboxRuntime.checkValue(converted) : converted;
 	}
 }

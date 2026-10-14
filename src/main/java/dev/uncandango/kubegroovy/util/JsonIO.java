@@ -6,6 +6,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.MiscWrappers;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
@@ -55,6 +56,7 @@ public class JsonIO {
 
 	@Nullable
 	public static JsonElement readJson(Path path) throws IOException {
+		path = KubeGroovyPaths.verifyFilePath(path);
 		if (Files.notExists(path) || !Files.isRegularFile(path)) {
 			return null;
 		}
@@ -88,12 +90,14 @@ public class JsonIO {
 	}
 
 	public static void write(Path path, @Nullable JsonElement json) throws IOException {
+		path = KubeGroovyPaths.verifyFilePath(path);
 		if (json == null || json instanceof JsonNull) {
 			Files.deleteIfExists(path);
 		} else {
 			if (Files.notExists(path.getParent())) {
 				Files.createDirectories(path.getParent());
 			}
+			path = KubeGroovyPaths.verifyFilePath(path);
 			Files.writeString(path, JsonUtils.toPrettyString(json));
 		}
 	}

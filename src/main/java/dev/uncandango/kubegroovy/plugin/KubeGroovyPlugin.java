@@ -84,8 +84,8 @@ public interface KubeGroovyPlugin {
 	default void registerEvents(EventGroupRegistry registry) {
 	}
 
-	/// Add allow/deny rules to the [ClassFilter] for this script type.
-	/// Called once per [ScriptType] via [KubeGroovyPlugins#createClassFilter(ScriptType)].
+	/// Register global class and member rules, once after plugin discovery.
+	/// The policy is frozen before scripts load and reused across all script types and reloads.
 	default void registerClasses(ClassFilter filter) {
 	}
 

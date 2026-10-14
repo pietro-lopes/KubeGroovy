@@ -2,8 +2,6 @@ package dev.uncandango.kubegroovy.script;
 
 import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.event.EventGroups;
-import dev.uncandango.kubegroovy.plugin.ClassFilter;
-import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.NativeEventWrapper;
 import dev.uncandango.kubegroovy.util.Lazy;
 import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
@@ -27,7 +25,7 @@ import java.util.concurrent.Executors;
 ///   - [#SERVER] can be reloaded via `/reload`; used for recipes, loot tables, and server-side events.
 ///   - [#CLIENT] can be reloaded via F3+T (resource pack reload); used for tooltips, rendering, and client-side events.
 ///
-/// Each type also has its own [ConsoleGY] instance for logging, as well as a [ClassFilter].
+/// Each type has its own [ConsoleGY]; all types share ScriptManager's class policy.
 public enum ScriptType implements ScriptTypePredicate, ScriptTypeHolder {
 	STARTUP("startup", "KubeGroovy Startup", KubeGroovyPaths.STARTUP_SCRIPTS),
 	SERVER("server", "KubeGroovy Server", KubeGroovyPaths.SERVER_SCRIPTS),
@@ -46,7 +44,6 @@ public enum ScriptType implements ScriptTypePredicate, ScriptTypeHolder {
 	public final Path path;
 	public final String nameStrip;
 	public final ExecutorService executor;
-	public final Lazy<ClassFilter> classFilter;
 	public final Map<NativeEventWrapper.Listeners.Key<?>, NativeEventWrapper.Listeners<?>> nativeEventListeners;
 	public @Nullable KubeGroovyFileWatcherThread fileWatcherThread;
 
@@ -56,7 +53,6 @@ public enum ScriptType implements ScriptTypePredicate, ScriptTypeHolder {
 		this.path = path;
 		this.nameStrip = name + "_scripts:";
 		this.executor = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("KubeGroovy-" + n + "-bg-").factory());
-		this.classFilter = Lazy.of(() -> KubeGroovyPlugins.createClassFilter(this));
 		this.nativeEventListeners = new HashMap<>(0);
 	}
 

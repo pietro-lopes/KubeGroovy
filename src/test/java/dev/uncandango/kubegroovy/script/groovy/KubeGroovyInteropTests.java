@@ -32,9 +32,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -65,7 +70,7 @@ class KubeGroovyInteropTests {
 	void scriptRuntimeErrorsPreserveRuntimeIdentityAndCheckedCauses() {
 		var runtime = new IllegalArgumentException("runtime failure");
 		assertSame(runtime, Context.throwAsScriptRuntimeEx(runtime, cx));
-		var checked = new java.io.IOException("checked failure");
+		var checked = new IOException("checked failure");
 		var wrapped = Context.throwAsScriptRuntimeEx(checked, cx);
 		assertTrue(wrapped instanceof KubeRuntimeException);
 		assertSame(checked, wrapped.getCause());
@@ -89,7 +94,7 @@ class KubeGroovyInteropTests {
 			assertTrue(wrappers.hasAnyWrapper(nested));
 			assertEquals(Map.of(new WrappedValue("key"), List.of(List.of(new WrappedValue("value")))), context.gyToJava(source, nested));
 			assertEquals(Map.of("key", List.of(List.of("value"))), source);
-			assertEquals(java.util.Set.of(new WrappedValue("value")), context.gyToJava(java.util.Set.of("value"), TypeInfo.RAW_SET.withParams(element)));
+			assertEquals(Set.of(new WrappedValue("value")), context.gyToJava(Set.of("value"), TypeInfo.RAW_SET.withParams(element)));
 			assertEquals(List.of(), context.gyToJava(List.of(), list));
 			assertSame(source, context.gyToJava(source, TypeInfo.RAW_MAP));
 			var existing = new WrappedValue("existing");
@@ -182,10 +187,10 @@ class KubeGroovyInteropTests {
 		var seenSupply = new AtomicReference<Context>();
 		ScopedValue.where(KubeGroovyContext.CURRENT, context).run(() -> {
 			var captured = Context.getCurrent();
-			var runFuture = java.util.concurrent.CompletableFuture.runAsync(
+			var runFuture = CompletableFuture.runAsync(
 				() -> ScopedValue.where(Context.CURRENT, captured).run(() -> seenRun.set(Context.getCurrent())));
 			runFuture.join();
-			var supplyFuture = java.util.concurrent.CompletableFuture.supplyAsync(
+			var supplyFuture = CompletableFuture.supplyAsync(
 				() -> ScopedValue.where(Context.CURRENT, captured).call(Context::getCurrent));
 			supplyFuture.join();
 			seenSupply.set((Context) supplyFuture.join());
@@ -201,9 +206,9 @@ class KubeGroovyInteropTests {
 		var timeout = new ScheduledEvents.TimeoutFunction(scheduled, false, false);
 		var interval = new ScheduledEvents.TimeoutFunction(scheduled, false, true);
 		var clear = new ScheduledEvents.TimeoutFunction(scheduled, true, false);
-		var seen = new java.util.ArrayList<Context>();
+		var seen = new ArrayList<Context>();
 		ScopedValue.where(Context.CURRENT, origin).run(() -> {
-			var binding = new Binding(new java.util.HashMap<>(Map.of("setTimeout", timeout, "setInterval", interval, "clearTimeout", clear, "clearInterval", clear, "delay", Duration.ZERO)));
+			var binding = new Binding(new HashMap<>(Map.of("setTimeout", timeout, "setInterval", interval, "clearTimeout", clear, "clearInterval", clear, "delay", Duration.ZERO)));
 			binding.setVariable("callback", new Closure<Object>(this) {
 				public Object doCall(Object event) {
 					seen.add(Context.getCurrent());

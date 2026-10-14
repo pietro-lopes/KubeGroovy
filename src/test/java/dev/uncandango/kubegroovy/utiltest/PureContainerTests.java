@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -154,6 +155,6 @@ class PureContainerTests {
 		var map = new GlobalUnmodifiableMap<String, String>(Map.of());
 		assertTrue(map.isEmpty());
 		assertEquals(0, map.size());
-		assertEquals(Map.of(), map.entrySet().stream().collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+		assertEquals(Map.of(), map.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 	}
 }

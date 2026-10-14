@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.plugin.ClassFilter;
 import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugin;
 import dev.uncandango.kubegroovy.plugin.TypeSuggestionRegistry;
 import dev.uncandango.kubegroovy.script.BindingRegistry;
+import dev.uncandango.kubegroovy.testmod.security.SandboxGameTests;
 import dev.uncandango.kubegroovy.testmod.web.TestControlWeb;
 import dev.uncandango.kubegroovy.web.LocalWebServerAPIRegistry;
 import dev.uncandango.kubegroovy.web.LocalWebServerRegistry;
@@ -30,14 +31,19 @@ public class TestRuntimePlugin implements KubeGroovyPlugin {
 
 	/// Test-only class-filter allowances so script fixtures can reference
 	/// wrapper targets the production deny-list otherwise blocks. The
-	/// production `kubegroovy.classfilter.txt` is untouched; exact allows
-	/// take precedence over prefix denies, scoped to test runs.
+	/// production plugin policy is untouched; exact allows
+	/// take precedence over package denies, scoped to test runs.
 	/// `java.lang.Throwable` is needed because any try/catch in script
 	/// bytecode makes the JVM verifier load it via the script classloader,
 	/// and `java.lang.AssertionError` because native `assert` compiles to a
 	/// direct throw of it.
 	@Override
 	public void registerClasses(ClassFilter filter) {
+		var probe = SandboxGameTests.Probe.class;
+		filter.denyMethods(probe, "forbidden");
+		filter.denyMethods(probe, "secret");
+		filter.denyField(probe, "denied");
+		filter.denyConstructor(probe, String.class);
 		filter.allow("java.io.File");
 		filter.allow("java.nio.file.Path");
 		filter.allow("java.lang.Throwable");

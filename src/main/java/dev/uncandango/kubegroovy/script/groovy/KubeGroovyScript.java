@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.script.groovy;
 
+import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.WithScriptContext;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import groovy.lang.Script;
@@ -18,7 +19,7 @@ public abstract class KubeGroovyScript extends Script implements WithScriptConte
 		var binding = getBinding();
 		if (binding != null && binding.hasVariable("console")) {
 			var console = binding.getVariable("console");
-			if (console instanceof dev.uncandango.kubegroovy.script.ConsoleGY gy) {
+			if (console instanceof ConsoleGY gy) {
 				gy.info(o);
 				return;
 			}

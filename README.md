@@ -6,6 +6,9 @@ KubeGroovy is a fork of [KubeJS](https://github.com/KubeJS-Mods/KubeJS) that run
 
 ## Introduction
 
+The shared [script security policy](docs/script-security.md) describes allowed
+file access and migration from per-side filters and classfilter text files.
+
 KubeGroovy is a Minecraft mod which lets you create scripts in the Groovy programming language to manage your server using events, change recipes, add loot tables, customise your world generation, add new blocks and items, or use custom integration with other mods for even more advanced features!
 
 Scripts live in the `kubegroovy/` game directory:
@@ -109,13 +112,19 @@ Similarly to adding custom recipe types, you may also add **custom bindings** to
 
 ### Setting class filters
 
-KubeGroovy offers native Java/Groovy type access in script files. While builtin filters exist to prevent users from accessing any internal or potentially harmful packages added by Minecraft or its libraries directly, you may still want to explicitly deny access to certain classes or packages in your mod (or explicitly allow certain classes *within* a generally blacklisted package). To do this, you may either provide a class filter using a KubeGroovy plugin *or* you can avoid adding KubeGroovy as a dependency entirely by providing a simple `kubegroovy.classfilter.txt` file in your mod's `resources` with the following format (Note that comments aren't allowed in the actual file):
+Register rules through `KubeGroovyPlugin.registerClasses`. One frozen policy applies to startup, server, and client scripts; the hook runs once after plugin discovery. Bindings do not automatically allow their classes.
 
-```diff
-+mymod.api // This will *explicitly allow* anything from the mymod.api package to be used in KubeGroovy
--mymod.api.MyModAPIImpl // This will deny access to the MyModAPIImpl class, while keeping the rest of the package accessible
--mymod.internal.HttpUtil // This will *explicitly deny* your class from being used in KubeGroovy
+```java
+@Override
+public void registerClasses(ClassFilter filter) {
+	filter.denyPackage("mymod.internal");
+	filter.allow(MyModAPI.class);
+	filter.denyMethods(MyModAPI.class, "unsafeOperation");
+	filter.denyMethod(MyModAPI.class, "overloaded", String.class);
+}
 ```
+
+The sided constructor, `ScriptType.classFilter`, and `kubegroovy.classfilter.txt` configuration have been removed. See [script security and addon migration](docs/script-security.md) for precedence, additional member rules, path confinement, and the trusted-addon boundary.
 
 ### Recipe Schemas
 

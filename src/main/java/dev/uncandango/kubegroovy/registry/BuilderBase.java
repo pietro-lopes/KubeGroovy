@@ -7,7 +7,6 @@ import dev.uncandango.kubegroovy.generator.KubeDataGenerator;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.StringUtilsWrapper;
 import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.typings.Info;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
@@ -52,50 +51,39 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		return id;
 	}
 
-	@HideFromGY
 	public final @Nullable Component kgy$getDisplayName() {
 		return displayName;
 	}
 
-	@HideFromGY
 	public final boolean kgy$isFormattedDisplayName() {
 		return formattedDisplayName;
 	}
 
-	@HideFromGY
 	public final SourceLine kgy$getSourceLine() {
 		return sourceLine;
 	}
 
-	@HideFromGY
 	public final void kgy$setSourceLine(SourceLine sourceLine) {
 		this.sourceLine = sourceLine;
 	}
 
-	@HideFromGY
 	public final ResourceKey<Registry<T>> kgy$getRegistryKey() {
 		return registryKey;
 	}
 
-	@HideFromGY
 	public final void kgy$setRegistryKey(ResourceKey<Registry<T>> registryKey) {
 		this.registryKey = registryKey;
 	}
 
-	@HideFromGY
 	public final boolean kgy$isDummyBuilder() {
 		return dummyBuilder;
 	}
 
-	@HideFromGY
 	public final Set<Identifier> kgy$getDefaultTags() {
 		return defaultTags;
 	}
 
-	@HideFromGY
 	public abstract T createObject();
-
-	@HideFromGY
 	public T transformObject(T obj) {
 		return obj;
 	}
@@ -114,7 +102,6 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		}
 	}
 
-	@HideFromGY
 	public void createAdditionalObjects(AdditionalObjectRegistry registry) {
 	}
 
@@ -167,7 +154,6 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		return this;
 	}
 
-	@HideFromGY
 	public Identifier newID(String pre, String post) {
 		if (pre.isEmpty() && post.isEmpty()) {
 			return id;
@@ -176,11 +162,9 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		return id.withPath(pre + id.getPath() + post);
 	}
 
-	@HideFromGY
 	public void generateData(KubeDataGenerator generator) {
 	}
 
-	@HideFromGY
 	public void generateAssets(KubeAssetGenerator generator) {
 	}
 
@@ -192,7 +176,7 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		return translationKey;
 	}
 
-	@HideFromGY
+	/// Language-generation hook available to script-defined builder subclasses.
 	public void generateLang(LangKubeEvent lang) {
 		if (displayName != null) {
 			lang.add(id.getNamespace(), getBuilderTranslationKey(), displayName.getString());
@@ -201,7 +185,6 @@ public abstract class BuilderBase<T> implements Supplier<T> {
 		}
 	}
 
-	@HideFromGY
 	public T createTransformedObject() {
 		if (object == null) {
 			object = transformObject(createObject());

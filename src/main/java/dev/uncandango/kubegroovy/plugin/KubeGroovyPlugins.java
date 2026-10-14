@@ -2,8 +2,8 @@ package dev.uncandango.kubegroovy.plugin;
 
 import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyPlugin;
 import dev.uncandango.kubegroovy.script.BindingRegistry;
-import dev.uncandango.kubegroovy.script.ScriptType;
 import dev.uncandango.kubegroovy.util.ModResourceBindings;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforgespi.locating.IModFile;
@@ -21,10 +21,9 @@ import java.util.stream.Stream;
 /// Use [#forEachPlugin] to iterate over all loaded plugins.
 public class KubeGroovyPlugins {
 	private static final List<KubeGroovyPlugin> LIST = new ArrayList<>();
-	private static final List<String> GLOBAL_CLASS_FILTER = new ArrayList<>();
 	private static final ModResourceBindings BINDINGS = new ModResourceBindings();
 
-	/// Scans all mod JARs for plugin, [ClassFilter] and bindings definitions, and loads them if present.
+	/// Scans all mod JARs for plugin and binding definitions.
 	///
 	/// @see #loadMod(String, IModFile, boolean)
 	public static void load(List<IModFile> modFiles, boolean loadClientPlugins) {
@@ -39,23 +38,17 @@ public class KubeGroovyPlugins {
 		}
 	}
 
-	/// Given a mod file, checks if it has a file defining KubeGroovy plugins, class filter rules, or bindings,
+	/// Given a mod file, checks if it has a file defining KubeGroovy plugins or bindings,
 	/// and tries to load them if they exist.
 	///
 	/// For plugin syntax, see [#loadFromFile(java.util.stream.Stream, java.lang.String, boolean)],
-	/// and for bindings, see [ModResourceBindings]. Class filter syntax simply consists have lines
-	/// starting with either a '+' (allow) or '-' (deny) followed by a class or package name.
+	/// and for bindings, see [ModResourceBindings]. Class rules are registered through plugins.
 	private static void loadMod(String modId, IModFile mod, boolean loadClientPlugins) throws IOException {
 		var contents = mod.getContents();
 
 		var pluginData = contents.readFile("kubegroovy.plugins.txt");
 		if (pluginData != null) {
 			loadFromFile(new String(pluginData, StandardCharsets.UTF_8).lines(), modId, loadClientPlugins);
-		}
-
-		var filterData = contents.readFile("kubegroovy.classfilter.txt");
-		if (filterData != null) {
-			GLOBAL_CLASS_FILTER.addAll(new String(filterData, StandardCharsets.UTF_8).lines().toList());
 		}
 
 		BINDINGS.readBindings(modId, mod);
@@ -112,20 +105,11 @@ public class KubeGroovyPlugins {
 			});
 	}
 
-	public static ClassFilter createClassFilter(ScriptType type) {
-		var filter = new ClassFilter(type);
+	public static ClassFilter createClassFilter() {
+		var filter = new ClassFilter();
+		BuiltinKubeGroovyPlugin.registerSandboxClasses(filter);
 		forEachPlugin(filter, KubeGroovyPlugin::registerClasses);
-
-		for (var s : GLOBAL_CLASS_FILTER) {
-			if (s.length() >= 2) {
-				if (s.startsWith("+")) {
-					filter.allow(s.substring(1).trim());
-				} else if (s.startsWith("-")) {
-					filter.deny(s.substring(1).trim());
-				}
-			}
-		}
-
+		filter.freeze();
 		return filter;
 	}
 

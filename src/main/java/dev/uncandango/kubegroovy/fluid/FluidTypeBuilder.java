@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.block.BlockRenderType;
 import dev.uncandango.kubegroovy.block.BlockTintFunction;
 import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.registry.BuilderBase;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.Identifier;
@@ -208,27 +209,27 @@ public class FluidTypeBuilder extends BuilderBase<FluidType> {
 		return this;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final Identifier kgy$getActualStillTexture() {
 		return actualStillTexture;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final Identifier kgy$getActualFlowingTexture() {
 		return actualFlowingTexture;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final @Nullable Identifier kgy$getBlockOverlayTexture() {
 		return blockOverlayTexture;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final @Nullable Identifier kgy$getScreenOverlayTexture() {
 		return screenOverlayTexture;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final @Nullable BlockTintFunction kgy$getTint() {
 		return tint;
 	}

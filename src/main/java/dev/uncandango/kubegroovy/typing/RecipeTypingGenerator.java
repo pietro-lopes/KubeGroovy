@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.typing;
 
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import dev.uncandango.kubegroovy.recipe.RecipeFunctionLookup;
 import dev.uncandango.kubegroovy.recipe.RecipeKey;
 import dev.uncandango.kubegroovy.recipe.schema.RecipeOptional;
@@ -19,8 +20,10 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 
 /** Copies schema metadata only: no recipe creation, codecs, or default suppliers are executed. */
@@ -74,7 +77,7 @@ public final class RecipeTypingGenerator {
 	}
 
 	private static <T> Map<String, T> immutableSorted(Map<String, T> values) {
-		return java.util.Collections.unmodifiableMap(new TreeMap<>(values));
+		return Collections.unmodifiableMap(new TreeMap<>(values));
 	}
 
 	public static Snapshot snapshot(RecipeSchemaStorage storage, boolean serverOnly) {
@@ -88,7 +91,7 @@ public final class RecipeTypingGenerator {
 			return new Target("namespace", name);
 		});
 		// Absent built-in shortcuts may be null in deliberately minimal test storages.
-		lookups.values().removeIf(java.util.Objects::isNull);
+		lookups.values().removeIf(Objects::isNull);
 		var namespaces = new TreeMap<String, Map<String, String>>();
 		namespaceTargets.forEach((name, targets) -> {
 			var members = new TreeMap<String, String>();
@@ -116,7 +119,7 @@ public final class RecipeTypingGenerator {
 		// Runtime JSON construction is a fallback only when no one-argument constructor exists.
 		if (!schema.constructors().containsKey(1)) {
 			constructors.add(new Method("call", List.of(new Parameter("json", input(TypeInfo.RAW_MAP), "Recipe JSON", ""))));
-			constructors.add(new Method("call", List.of(new Parameter("json", input(TypeInfo.of(com.google.gson.JsonObject.class)), "Recipe JSON", ""))));
+			constructors.add(new Method("call", List.of(new Parameter("json", input(TypeInfo.of(JsonObject.class)), "Recipe JSON", ""))));
 		}
 		var methods = new TreeMap<String, Method>();
 		// The runtime scans all keys and uses the last matching setter.

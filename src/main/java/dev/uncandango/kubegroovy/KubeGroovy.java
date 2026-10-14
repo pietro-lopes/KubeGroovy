@@ -128,6 +128,7 @@ public class KubeGroovy {
 		allMods.remove(thisModFile);
 		allMods.addFirst(thisModFile);
 		KubeGroovyPlugins.load(allMods, dist == Dist.CLIENT);
+		ScriptManager.initializeClassFilter();
 		LOGGER.info("Done in {}", pluginTimer.stop());
 
 		startupScriptManager = new StartupScriptManager();

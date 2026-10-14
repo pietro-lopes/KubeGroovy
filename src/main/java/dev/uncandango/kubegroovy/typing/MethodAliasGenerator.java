@@ -24,13 +24,16 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 /**
  * Collects runtime-backed method renames derived from {@link RemapForGY} and
@@ -248,11 +251,11 @@ public final class MethodAliasGenerator {
 	/** Java declarations for renamed and injected methods missing from the editor's classpath. */
 	public static Map<MethodAlias, List<String>> methodAliasSignatures(Collection<ModData> mods) {
 		var seen = new TreeSet<String>();
-		Map<MethodAlias, List<String>> out = new java.util.LinkedHashMap<>();
+		Map<MethodAlias, List<String>> out = new LinkedHashMap<>();
 		for (var mod : mods.stream().sorted(Comparator.comparing(ModData::modId)).toList()) {
 			var injectedInterfaces = mod.receiverBridges().stream()
 				.flatMap(bridge -> bridge.interfaces().stream())
-				.collect(java.util.stream.Collectors.toSet());
+				.collect(Collectors.toSet());
 			for (var type : mod.classes()) {
 				if (type.isAnnotation() || type.isInterface() && injectedInterfaces.contains(type)
 					|| isMixinType(type, mod.receiverBridges())) continue;
@@ -285,7 +288,7 @@ public final class MethodAliasGenerator {
 			}
 		}
 		out.replaceAll((alias, signatures) -> List.copyOf(signatures));
-		return java.util.Collections.unmodifiableMap(out);
+		return Collections.unmodifiableMap(out);
 	}
 
 	private static void addMethodAlias(Set<String> seen, Map<MethodAlias, List<String>> out, String receiverName, Method method) {

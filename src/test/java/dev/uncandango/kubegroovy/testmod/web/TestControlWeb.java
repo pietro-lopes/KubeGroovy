@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.testmod.web;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.latvian.apps.tinyserver.http.response.HTTPResponse;
@@ -17,6 +18,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /// Test-only HTTP control plane for driving client (and server) game tests from the
@@ -97,7 +99,7 @@ public class TestControlWeb {
 				failures.addProperty(entry.getKey(), entry.getValue());
 			}
 			json.add("failures", failures);
-			var startup = new com.google.gson.JsonArray();
+			var startup = new JsonArray();
 			for (var id : TestRuntime.snapshotStartup()) {
 				startup.add(id);
 			}
@@ -148,8 +150,8 @@ public class TestControlWeb {
 		}
 		json.addProperty("present", true);
 		json.addProperty("framework", framework.id().toString());
-		var tests = new com.google.gson.JsonArray();
-		var failed = new com.google.gson.JsonArray();
+		var tests = new JsonArray();
+		var failed = new JsonArray();
 		int passed = 0;
 		int failedCount = 0;
 		int pending = 0;
@@ -165,7 +167,7 @@ public class TestControlWeb {
 					entry.addProperty("id", id);
 					entry.addProperty("result", result);
 					try {
-						var groups = new com.google.gson.JsonArray();
+						var groups = new JsonArray();
 						for (var group : test.groups()) {
 							groups.add(group);
 						}
@@ -265,7 +267,7 @@ public class TestControlWeb {
 		TestRuntime.clear(ids.toArray(new String[0]));
 		return HTTPResponse.ok().content(JsonContent.object(json -> {
 			json.addProperty("ok", true);
-			var cleared = new com.google.gson.JsonArray();
+			var cleared = new JsonArray();
 			for (var id : ids) {
 				cleared.add(id);
 			}
@@ -315,7 +317,7 @@ public class TestControlWeb {
 		return HTTPResponse.ok().content(JsonContent.object(json -> {
 			json.addProperty("ok", true);
 			json.addProperty("mode", mode.name());
-			var names = new com.google.gson.JsonArray();
+			var names = new JsonArray();
 			for (var name : updated) {
 				names.add(name);
 			}
@@ -372,7 +374,7 @@ public class TestControlWeb {
 		if (raw == null) {
 			return null;
 		}
-		switch (raw.trim().toLowerCase(java.util.Locale.ROOT)) {
+		switch (raw.trim().toLowerCase(Locale.ROOT)) {
 			case "survival", "0" -> {
 				return GameType.SURVIVAL;
 			}

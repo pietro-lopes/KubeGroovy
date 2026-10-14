@@ -1,7 +1,10 @@
 package dev.uncandango.kubegroovy.core.component;
 
+import com.mojang.authlib.GameProfile;
 import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.component.CustomModelDataType;
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
+import dev.uncandango.kubegroovy.script.SourceLine;
 import dev.uncandango.kubegroovy.util.Cast;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.annotations.RemapPrefixForGY;
@@ -13,6 +16,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.LockCode;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Rarity;
@@ -140,7 +144,7 @@ public interface DataComponentAccessor extends DataComponentGetter, DataComponen
 		kgy$override(DataComponents.ENTITY_DATA, TypedEntityData.of(type, tag));
 	}
 
-	default void kgy$setProfile(com.mojang.authlib.GameProfile profile) {
+	default void kgy$setProfile(GameProfile profile) {
 		kgy$override(DataComponents.PROFILE, ResolvableProfile.createResolved(profile));
 	}
 
@@ -166,7 +170,7 @@ public interface DataComponentAccessor extends DataComponentGetter, DataComponen
 	}
 
 	default void kgy$setLockCode(ItemPredicate lock) {
-		kgy$override(DataComponents.LOCK, new net.minecraft.world.LockCode(lock));
+		kgy$override(DataComponents.LOCK, new LockCode(lock));
 	}
 
 	default void kgy$setContainerLootTable(ResourceKey<LootTable> lootTable) {
@@ -181,8 +185,8 @@ public interface DataComponentAccessor extends DataComponentGetter, DataComponen
 		var cx = Context.getCurrent();
 		var wrapped = tryWrapComponent(component, value)
 			.getOrThrow(msg ->
-				new dev.uncandango.kubegroovy.error.KubeRuntimeException("Failed to wrap data component %s from '%s': %s".formatted(component, value, msg))
-					.source(dev.uncandango.kubegroovy.script.SourceLine.of())
+				new KubeRuntimeException("Failed to wrap data component %s from '%s': %s".formatted(component, value, msg))
+					.source(SourceLine.of())
 			);
 
 		if (wrapped.isPresent()) {

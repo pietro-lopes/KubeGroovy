@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.script;
 
 import dev.uncandango.kubegroovy.event.EventGroupWrapper;
+import dev.uncandango.kubegroovy.script.groovy.SandboxRuntime;
 import groovy.lang.Binding;
 import net.minecraft.util.StringUtil;
 
@@ -20,9 +21,9 @@ public record BindingRegistry(KubeGroovyContext context, Binding binding, Map<St
 	/// Adds a value to the script scope when it is not null.
 	public void add(String name, Object value) {
 		if (value != null) {
+			SandboxRuntime.checkValue(value);
 //			try {
 			if (value instanceof Class<?> clazz) {
-				context.kgyFactory.manager.getClassFilter().allow(clazz);
 				autoimports.put("$" + name, clazz);
 			}	else if (value instanceof EventGroupWrapper) {
 					binding.setVariable("$" + name, value);

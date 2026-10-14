@@ -59,7 +59,7 @@ public final class KubeGroovyMetaClassCreationHandle extends MetaClassRegistry.M
 		// Plugins may have caused a Groovy MetaClass to be created before the
 		// script context is initialized.  Evict those application classes so the
 		// new creation handle is used for the first script call.
-		var stale = new java.util.ArrayList<Class<?>>();
+		var stale = new ArrayList<Class<?>>();
 		var iterator = registry.iterator();
 		while (iterator.hasNext()) {
 			Object value = iterator.next();

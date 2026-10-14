@@ -1,6 +1,9 @@
 package dev.uncandango.kubegroovy.typingtest;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import dev.uncandango.kubegroovy.core.AdvancementNodeKGY;
+import dev.uncandango.kubegroovy.core.IngredientKGY;
 import dev.uncandango.kubegroovy.event.EventGroup;
 import dev.uncandango.kubegroovy.event.EventTargetType;
 import dev.uncandango.kubegroovy.event.KubeEvent;
@@ -20,11 +23,20 @@ import dev.uncandango.kubegroovy.typing.TypingBinding;
 import dev.uncandango.kubegroovy.plugin.TypeSuggestionCatalog;
 import groovy.lang.GroovyShell;
 import net.minecraft.advancements.AdvancementNode;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.Block;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.imageio.ImageIO;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.stream.StreamSupport;
 import javax.tools.ToolProvider;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -50,7 +62,7 @@ class KubeGroovyTypingGeneratorTests {
 			List.of(new TypeSuggestionCatalog.Delegate("example.Wrapper", "example.Type", "#")),
 			Map.of("example.Optional", 0));
 		var text = KubeGroovyTypingGenerator.renderTypeSuggestionsJson(catalog);
-		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var parsed = JsonParser.parseString(text).getAsJsonObject();
 		assertEquals(1, parsed.get("schemaVersion").getAsInt());
 		var values = parsed.getAsJsonObject("values").getAsJsonArray("example.Type");
 		assertEquals(3, values.size());
@@ -239,9 +251,9 @@ class KubeGroovyTypingGeneratorTests {
 	void gdslEscapesBindingDataAndUsesScriptContexts() {
 		ScopedValue.where(Context.CURRENT, new Context(new ContextFactory())).run(() -> {
 			var hostile = new TypingBinding("addon'\\name", "addon.Type", false, false,
-				dev.uncandango.kubegroovy.script.ScriptType.SERVER);
+				ScriptType.SERVER);
 			var text = KubeGroovyTypingGenerator.renderGdsl(temp, Map.of(
-				dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.of(hostile)));
+				ScriptType.SERVER, List.of(hostile)));
 			assertTrue(text.contains("addon\\'\\\\name"));
 			assertTrue(text.contains("def startupRegexp = [pathRegexp: \".*/startup_scripts/.*\"]"));
 			assertTrue(text.contains("def serverRegexp = [pathRegexp: \".*/server_scripts/.*\"]"));
@@ -298,7 +310,7 @@ class KubeGroovyTypingGeneratorTests {
 	@Test
 	void bindingDescriptorsDistinguishClassValues() {
 		var descriptor = TypingBinding.describe("StringType", String.class,
-			dev.uncandango.kubegroovy.script.ScriptType.STARTUP);
+			ScriptType.STARTUP);
 		assertTrue(descriptor.classValue());
 		assertEquals(String.class.getName(), descriptor.typeName());
 	}
@@ -338,7 +350,7 @@ class KubeGroovyTypingGeneratorTests {
 	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void generationWritesOutputsAndLeavesGdslUntouched() throws Exception {
 		var game = temp.resolve("game");
-		var bindings = Map.of(dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.<TypingBinding>of());
+		var bindings = Map.of(ScriptType.SERVER, List.<TypingBinding>of());
 		var first = KubeGroovyTypingGenerator.generate(game, bindings);
 		assertTrue(Files.isRegularFile(first.module()));
 		assertTrue(Files.isRegularFile(first.modules()));
@@ -383,7 +395,7 @@ class KubeGroovyTypingGeneratorTests {
 		var module = game.resolve(".idea/kubegroovy.iml");
 		Files.createDirectories(module.getParent());
 		Files.writeString(module, "manual IntelliJ module");
-		var bindings = Map.of(dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.<TypingBinding>of());
+		var bindings = Map.of(ScriptType.SERVER, List.<TypingBinding>of());
 
 		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
 		assertEquals("manual IntelliJ module", Files.readString(module));
@@ -402,8 +414,8 @@ class KubeGroovyTypingGeneratorTests {
 	@Test
 	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void generatedLivePluginContainsEscapedRuntimeBindingsPerScriptType() throws Exception {
-		var startup = dev.uncandango.kubegroovy.script.ScriptType.STARTUP;
-		var server = dev.uncandango.kubegroovy.script.ScriptType.SERVER;
+		var startup = ScriptType.STARTUP;
+		var server = ScriptType.SERVER;
 		var bindings = Map.of(
 			startup, List.of(
 				new TypingBinding("$StartupEvents", "dev.uncandango.kubegroovy.event.EventGroupWrapper", false, true, startup),
@@ -475,15 +487,15 @@ class KubeGroovyTypingGeneratorTests {
 	@Test
 	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
 	void livePluginRegistrySuggestionsUseRuntimeKeysAndFullyQualifiedGenericTypes() throws Exception {
-		var listOfItems = TypeInfo.of(List.class).withParams(TypeInfo.of(net.minecraft.world.item.Item.class));
+		var listOfItems = TypeInfo.of(List.class).withParams(TypeInfo.of(Item.class));
 		var nestedType = TypeInfo.of(Map.class).withParams(TypeInfo.of(String.class), listOfItems);
 		assertEquals("java.util.Map<java.lang.String, java.util.List<net.minecraft.world.item.Item>>", nestedType.toStringFQN());
 
-		var targets = new java.util.ArrayList<>(List.of(
+		var targets = new ArrayList<>(List.of(
 			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("minecraft:item",
-				TypeInfo.of(net.minecraft.world.item.Item.class).toStringFQN()),
+				TypeInfo.of(Item.class).toStringFQN()),
 			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("minecraft:block",
-				TypeInfo.of(net.minecraft.world.level.block.Block.class).toStringFQN()),
+				TypeInfo.of(Block.class).toStringFQN()),
 			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("example:combined", nestedType.toStringFQN())
 		));
 		for (int index = 0; index < 15; index++) {
@@ -584,7 +596,7 @@ class KubeGroovyTypingGeneratorTests {
 		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(new MethodAliasGenerator.ModData("kubegroovy", List.of(), List.of(bridge))));
 		var alias = new MethodAliasGenerator.MethodAlias(receiver, "kgy$getId", "getId");
 		assertTrue(signatures.get(alias).stream().anyMatch(signature -> signature.contains(" kgy$getId(")));
-		var json = com.google.gson.JsonParser.parseString(KubeGroovyTypingGenerator.renderMethodAliasesJson(List.of(alias), signatures)).getAsJsonObject();
+		var json = JsonParser.parseString(KubeGroovyTypingGenerator.renderMethodAliasesJson(List.of(alias), signatures)).getAsJsonObject();
 		assertEquals(signatures.get(alias).getFirst(), json.getAsJsonArray("aliases").get(0).getAsJsonObject()
 			.getAsJsonArray("signatures").get(0).getAsString());
 	}
@@ -595,7 +607,7 @@ class KubeGroovyTypingGeneratorTests {
 		var text = KubeGroovyTypingGenerator.renderMethodAliasesJson(List.of(
 			new MethodAliasGenerator.MethodAlias(type, "originalName", "friendlyName"),
 			new MethodAliasGenerator.MethodAlias("a.Class", "kgy$thing", "thing")));
-		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var parsed = JsonParser.parseString(text).getAsJsonObject();
 		assertFalse(parsed.get("hideOriginal").getAsBoolean());
 		var entries = parsed.getAsJsonArray("aliases");
 		assertEquals(2, entries.size());
@@ -609,12 +621,12 @@ class KubeGroovyTypingGeneratorTests {
 
 	@Test
 	void injectedMethodsIncludeTransitiveInterfacesAndConcreteGenericTypes() {
-		var bridge = new MethodAliasGenerator.ReceiverBridge(net.minecraft.world.item.crafting.Ingredient.class,
-			List.of(dev.uncandango.kubegroovy.core.IngredientKGY.class), List.of());
+		var bridge = new MethodAliasGenerator.ReceiverBridge(Ingredient.class,
+			List.of(IngredientKGY.class), List.of());
 		var genericBridge = new MethodAliasGenerator.ReceiverBridge(GeneratorFixture.class, List.of(InjectedParent.class, InjectedChild.class), List.of());
 		var mod = new MethodAliasGenerator.ModData("injected", List.of(), List.of(bridge, genericBridge));
 		var signatures = MethodAliasGenerator.methodAliasSignatures(List.of(mod, mod));
-		var ingredient = net.minecraft.world.item.crafting.Ingredient.class.getCanonicalName();
+		var ingredient = Ingredient.class.getCanonicalName();
 		assertEquals(List.of("public net.minecraft.nbt.Tag toNBT();"),
 			signatures.get(new MethodAliasGenerator.MethodAlias(ingredient, "toNBT", "toNBT")));
 		assertEquals(List.of("public com.google.gson.JsonElement toJson();"),
@@ -658,14 +670,14 @@ class KubeGroovyTypingGeneratorTests {
 		public String kgy$value() { return "value"; }
 		public int kgy$value(int count) { return count; }
 		public static <T extends Number & Comparable<T>> T kgy$identity(T input) { return input; }
-		public void kgy$many(String... values) throws java.io.IOException {}
+		public void kgy$many(String... values) throws IOException {}
 	}
 
 	@Test
 	void objectOverloadsJsonFollowsLivePluginTemplate() {
 		var text = KubeGroovyTypingGenerator.renderObjectOverloadsJson(
 			List.of("net.minecraft.world.item.ItemStack", "a.Class"));
-		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var parsed = JsonParser.parseString(text).getAsJsonObject();
 		var targets = parsed.getAsJsonArray("targets");
 		assertEquals(2, targets.size());
 		assertEquals("a.Class", targets.get(0).getAsString());
@@ -692,7 +704,7 @@ class KubeGroovyTypingGeneratorTests {
 
 	@Test
 	void generatedObjectOverloadsIncludeRegistryTypesWithoutExplicitWrappers() throws Exception {
-		var blockType = TypeInfo.of(net.minecraft.world.level.block.Block.class).toStringFQN();
+		var blockType = TypeInfo.of(Block.class).toStringFQN();
 		var registryTargets = List.of(
 			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("minecraft:block", blockType),
 			new KubeGroovyTypingGenerator.LivePluginRegistryTarget("addon:block", blockType),
@@ -705,26 +717,26 @@ class KubeGroovyTypingGeneratorTests {
 		var game = temp.resolve("registry-overloads-game");
 		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("live-plugins"),
 			registryTargets, List.of(), catalog);
-		var generated = com.google.gson.JsonParser.parseString(Files.readString(
+		var generated = JsonParser.parseString(Files.readString(
 			game.resolve("local/kubegroovy/live-plugin/object-overload/overloads.json"))).getAsJsonObject();
 		assertEquals(List.of("example.Generic", "example.Outer.Entry", "example.Wrapper", blockType),
-			java.util.stream.StreamSupport.stream(generated.getAsJsonArray("targets").spliterator(), false)
-				.map(com.google.gson.JsonElement::getAsString).toList());
+			StreamSupport.stream(generated.getAsJsonArray("targets").spliterator(), false)
+				.map(JsonElement::getAsString).toList());
 	}
 
 	@Test
 	void bindingsJsonGroupsVariablesByScriptSide() {
 		var bindings = Map.of(
-			dev.uncandango.kubegroovy.script.ScriptType.STARTUP, List.of(
+			ScriptType.STARTUP, List.of(
 				new TypingBinding("$Item", "example.ItemWrapper", true, false,
-					dev.uncandango.kubegroovy.script.ScriptType.STARTUP),
+					ScriptType.STARTUP),
 				new TypingBinding("SECOND", "java.lang.Long", false, false,
-					dev.uncandango.kubegroovy.script.ScriptType.STARTUP)),
-			dev.uncandango.kubegroovy.script.ScriptType.SERVER, List.of(
+					ScriptType.STARTUP)),
+			ScriptType.SERVER, List.of(
 				new TypingBinding("$ServerEvents", "dev.uncandango.kubegroovy.event.EventGroupWrapper", false, true,
-					dev.uncandango.kubegroovy.script.ScriptType.SERVER)));
+					ScriptType.SERVER)));
 		var text = KubeGroovyTypingGenerator.renderBindingsJson(bindings);
-		var parsed = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var parsed = JsonParser.parseString(text).getAsJsonObject();
 		var startup = parsed.getAsJsonArray("startup");
 		assertEquals(2, startup.size());
 		assertEquals("$Item", startup.get(0).getAsJsonObject().get("name").getAsString());
@@ -764,7 +776,7 @@ class KubeGroovyTypingGeneratorTests {
 		assertEquals(1, result.recipeCount());
 		var file = game.resolve("local/kubegroovy/live-plugin/recipes/recipes.json");
 		var text = Files.readString(file);
-		var json = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+		var json = JsonParser.parseString(text).getAsJsonObject();
 		assertEquals(1, json.get("schemaVersion").getAsInt());
 		assertEquals("example.Recipe", json.getAsJsonObject("recipes").getAsJsonObject("addon:recipe").get("factoryType").getAsString());
 		var modified = Files.getLastModifiedTime(file);
@@ -785,8 +797,8 @@ class KubeGroovyTypingGeneratorTests {
 			KubeGroovyTypingGenerator.readBundledBindingsLogo(),
 			KubeGroovyTypingGenerator.readBundledBindingsLogoDark() }) {
 			assertNotNull(png);
-			try (var in = new java.io.ByteArrayInputStream(png)) {
-				var image = javax.imageio.ImageIO.read(in);
+			try (var in = new ByteArrayInputStream(png)) {
+				var image = ImageIO.read(in);
 				assertNotNull(image);
 				assertEquals(32, image.getWidth());
 				assertEquals(32, image.getHeight());
@@ -849,7 +861,7 @@ class KubeGroovyTypingGeneratorTests {
 		assertNotNull(compiler);
 		assertEquals(0, compiler.run(null, null, null, "-classpath", System.getProperty("java.class.path"),
 			"-d", classes.toString(), sourceFile.toString()));
-		try (var classLoader = new URLClassLoader(new java.net.URL[]{classes.toUri().toURL()}, getClass().getClassLoader())) {
+		try (var classLoader = new URLClassLoader(new URL[]{classes.toUri().toURL()}, getClass().getClassLoader())) {
 			var fixture = Class.forName("generated.LargeTypingFixture", false, classLoader);
 			var mod = new MethodAliasGenerator.ModData("largefixture", List.of(fixture), List.of());
 			var aliases = MethodAliasGenerator.methodAliases(List.of(mod));

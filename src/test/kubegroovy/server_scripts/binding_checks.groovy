@@ -144,7 +144,7 @@ $ServerEvents.tick { event ->
 		//$TestRuntime.assertThat(outerCx).as("outer context").isNotNull()
 		def tasks = [
 				$Utils.runAsync({-> $TestRuntime.assertThat(BindingTests.checkContext()).as("context via Utils.runAsync propagation").isNotNull() }),
-				CompletableFuture.runAsync({-> $TestRuntime.assertThat(BindingTests.checkContext()).as("context passed explicitly").isNotNull() }, CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS))
+				$Utils.runAsync({-> $TestRuntime.assertThat(BindingTests.checkContext()).as("context via approved async helper").isNotNull() })
 		].toArray(CompletableFuture[]::new)
 		CompletableFuture.allOf(tasks).join();
 	}

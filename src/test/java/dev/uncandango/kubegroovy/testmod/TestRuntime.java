@@ -3,6 +3,7 @@ package dev.uncandango.kubegroovy.testmod;
 import dev.uncandango.kubegroovy.color.KubeColor;
 import dev.uncandango.kubegroovy.entity.KubeEntityEvent;
 import dev.uncandango.kubegroovy.level.LevelBlock;
+import dev.uncandango.kubegroovy.script.annotations.RemapForGY;
 import dev.uncandango.kubegroovy.testmod.assertion.KubeEntityEventAssert;
 import dev.uncandango.kubegroovy.testmod.assertion.LevelBlockAssert;
 import dev.uncandango.kubegroovy.util.Tristate;
@@ -231,7 +232,7 @@ public class TestRuntime {
 		return values.getFirst().getFirst().getString();
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.RemapForGY("wrappedComponentMapText")
+	@RemapForGY("wrappedComponentMapText")
 	public static String componentMapText(Map<Component, List<Component>> values) {
 		var entry = values.entrySet().iterator().next();
 		return entry.getKey().getString() + ":" + entry.getValue().getFirst().getString();

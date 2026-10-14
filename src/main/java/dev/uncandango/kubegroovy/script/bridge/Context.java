@@ -180,7 +180,7 @@ public class Context {
 			return mapOf(from, target.param(0), target.param(1));
 		} else if (target instanceof ArrayTypeInfo) {
 			return arrayOf(from, target.componentType());
-		} else if (List.class.isAssignableFrom(target.asClass()) || target.asClass() == java.util.Collection.class) {
+		} else if (List.class.isAssignableFrom(target.asClass()) || target.asClass() == Collection.class) {
 			return listOf(from, target.param(0));
 		} else if (target.is(TypeInfo.CLASS)) {
 			return classOf(from);
@@ -365,7 +365,7 @@ public class Context {
 			return (List<T>) List.of(arr);
 		}
 		if (from instanceof Iterable<?> it) {
-			var out = new java.util.ArrayList<T>();
+			var out = new ArrayList<T>();
 			for (var e : it) {
 				out.add((T) gyToJava(e, element.componentType()));
 			}

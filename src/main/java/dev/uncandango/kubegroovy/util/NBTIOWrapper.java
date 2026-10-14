@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.util;
 
+import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.MiscWrappers;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.NBTWrapper;
 import dev.uncandango.kubegroovy.script.bridge.Context;
@@ -16,11 +17,14 @@ import java.nio.file.Path;
 public interface NBTIOWrapper {
 	@Nullable
 	static CompoundTag read(Path path) throws IOException {
+		path = KubeGroovyPaths.verifyFilePath(path);
 		if (!Files.isRegularFile(path)) {
 			return null;
 		}
 
-		return NbtIo.readCompressed(Files.newInputStream(path), NbtAccounter.unlimitedHeap());
+		try (var input = Files.newInputStream(path)) {
+			return NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+		}
 	}
 
 	/** Script-safe overload: accepts a game-relative string and validates it. */
@@ -30,12 +34,15 @@ public interface NBTIOWrapper {
 	}
 
 	static void write(Path path, CompoundTag nbt) throws IOException {
+		path = KubeGroovyPaths.verifyFilePath(path);
 		if (nbt == null) {
 			Files.deleteIfExists(path);
 			return;
 		}
 
-		NbtIo.writeCompressed(nbt, Files.newOutputStream(path));
+		try (var output = Files.newOutputStream(path)) {
+			NbtIo.writeCompressed(nbt, output);
+		}
 	}
 
 	/** Script-safe overload: converts Groovy maps and validates the path. */

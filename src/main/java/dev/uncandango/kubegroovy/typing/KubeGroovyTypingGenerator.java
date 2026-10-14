@@ -4,6 +4,7 @@ import com.google.common.collect.Streams;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import dev.uncandango.kubegroovy.CommonProperties;
 import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.block.BlockTintFunction;
 import dev.uncandango.kubegroovy.block.SoundTypeWrapper;
@@ -37,6 +38,7 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -66,6 +68,9 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
+import java.security.NoSuchAlgorithmException;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
@@ -195,13 +200,13 @@ public final class KubeGroovyTypingGenerator {
 			return true;
 		}
 		if (!RUNNING.compareAndSet(false, true)) {
-			source.sendFailure(net.minecraft.network.chat.Component.literal("KubeGroovy typings are already being generated."));
+			source.sendFailure(Component.literal("KubeGroovy typings are already being generated."));
 			return false;
 		}
 
 		var progressMessage = "Generating KubeGroovy IntelliJ typings and installing the LivePlugin script..."
 			+ (forceModuleReplacement ? " Force mode will replace .idea/kubegroovy.iml." : "");
-		source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(progressMessage), false);
+		source.sendSuccess(() -> Component.literal(progressMessage), false);
 		LivePluginValueCatalog valueCatalog;
 		RecipeTypingGenerator.Snapshot recipeCatalog;
 		try {
@@ -210,18 +215,18 @@ public final class KubeGroovyTypingGenerator {
 			valueCatalog = snapshotLivePluginValueCatalog(source);
 			var manager = source.getServer().getServerResources().managers().kgy$getServerScriptManager();
 			if (manager == null) throw new IllegalStateException("Load server scripts before generating recipe typings");
-			recipeCatalog = RecipeTypingGenerator.snapshot(manager.recipeSchemaStorage, dev.uncandango.kubegroovy.CommonProperties.get().serverOnly);
+			recipeCatalog = RecipeTypingGenerator.snapshot(manager.recipeSchemaStorage, CommonProperties.get().serverOnly);
 		} catch (Throwable error) {
 			KubeGroovy.LOGGER.error("Failed to snapshot KubeGroovy LivePlugin value catalog", error);
 			RUNNING.set(false);
-			source.sendFailure(net.minecraft.network.chat.Component.literal("Failed to generate KubeGroovy typings: " + concise(error)));
+			source.sendFailure(Component.literal("Failed to generate KubeGroovy typings: " + concise(error)));
 			return false;
 		}
 		var catalogSnapshot = valueCatalog;
 		CompletableFuture.runAsync(() -> {
 			try {
 				var result = generate(source, catalogSnapshot, recipeCatalog, forceModuleReplacement);
-				postToServer(source, () -> source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+				postToServer(source, () -> source.sendSuccess(() -> Component.literal(
 					"Generated KubeGroovy typings: " + result.bindingCount() + " bindings, " + result.eventCount()
 							+ " events, " + result.recipeCount() + " recipe types, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
 							+ " classpath roots. Files: " + result.module()
@@ -230,7 +235,7 @@ public final class KubeGroovyTypingGenerator {
 							+ livePluginInstallSummary(result.livePluginInstall())), false));
 			} catch (Throwable error) {
 				KubeGroovy.LOGGER.error("Failed to generate KubeGroovy IntelliJ typings", error);
-				postToServer(source, () -> source.sendFailure(net.minecraft.network.chat.Component.literal(
+				postToServer(source, () -> source.sendFailure(Component.literal(
 						"Failed to generate KubeGroovy typings: " + concise(error))));
 			} finally {
 				RUNNING.set(false);
@@ -1248,7 +1253,7 @@ public final class KubeGroovyTypingGenerator {
 		return combined.wrappers.entrySet().stream()
 			.filter(entry -> entry.getValue().explicitCoercions().stream().anyMatch(type -> type.asClass() == CharSequence.class))
 			.map(entry -> entry.getKey().getName().replace('$', '.'))
-			.collect(java.util.stream.Collectors.toCollection(TreeSet::new));
+			.collect(Collectors.toCollection(TreeSet::new));
 	}
 
 	private static LivePluginRegistryValues snapshotLivePluginRegistryValues(ResourceKey<?> key, Registry<?> registry) {
@@ -1477,7 +1482,7 @@ public final class KubeGroovyTypingGenerator {
 
 	private static void pruneStaleModGdsl(Path modsDirectory, Collection<Path> liveTargets) throws IOException {
 		if (!Files.isDirectory(modsDirectory)) return;
-		var keep = liveTargets.stream().map(path -> path.toAbsolutePath().normalize()).collect(java.util.stream.Collectors.toSet());
+		var keep = liveTargets.stream().map(path -> path.toAbsolutePath().normalize()).collect(Collectors.toSet());
 		try (var files = Files.list(modsDirectory)) {
 			for (var file : files.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gdsl")).toList()) {
 				if (keep.contains(file.toAbsolutePath().normalize()) || Files.isSymbolicLink(file) || !Files.isRegularFile(file)) continue;
@@ -1623,7 +1628,7 @@ public final class KubeGroovyTypingGenerator {
 
 	private static void collectPathProperty(Collection<Path> out, String property) {
 		var value = System.getProperty(property, "");
-		for (var item : value.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+		for (var item : value.split(Pattern.quote(File.pathSeparator))) {
 			if (!item.isBlank()) collectPathValues(item, out);
 		}
 	}
@@ -1898,7 +1903,7 @@ public final class KubeGroovyTypingGenerator {
 		if (existing == null) return renderMisc();
 		parseMiscXml(existing);
 		var replacement = "  " + projectRootManager();
-		var matcher = java.util.regex.Pattern.compile("(?s)<component\\b(?=[^>]*\\bname\\s*=\\s*(['\"])ProjectRootManager\\1)[^>]*(?:/>|>.*?</component\\s*>)")
+		var matcher = Pattern.compile("(?s)<component\\b(?=[^>]*\\bname\\s*=\\s*(['\"])ProjectRootManager\\1)[^>]*(?:/>|>.*?</component\\s*>)")
 			.matcher(existing);
 		if (matcher.find()) return existing.substring(0, matcher.start()) + replacement + existing.substring(matcher.end());
 		int close = existing.lastIndexOf("</project>");
@@ -1931,7 +1936,7 @@ public final class KubeGroovyTypingGenerator {
 		parseCodeInsightXml(existing);
 		String newline = existing.contains("\r\n") ? "\r\n" : "\n";
 		var normalized = existing.replace("\r\n", "\n");
-		var componentMatcher = java.util.regex.Pattern.compile(
+		var componentMatcher = Pattern.compile(
 			"<component\\b(?=[^>]*\\bname\\s*=\\s*(['\"])JavaProjectCodeInsightSettings\\1)[^>]*>").matcher(normalized);
 		if (!componentMatcher.find()) {
 			int close = normalized.indexOf("</project>");
@@ -1943,7 +1948,7 @@ public final class KubeGroovyTypingGenerator {
 		}
 		int bodyEnd = normalized.indexOf("</component", componentMatcher.end());
 		if (bodyEnd < 0) throw new IOException("codeInsightSettings.xml has no </component> element");
-		var excludedMatcher = java.util.regex.Pattern.compile("<excluded-names\\b[^>]*>").matcher(normalized);
+		var excludedMatcher = Pattern.compile("<excluded-names\\b[^>]*>").matcher(normalized);
 		excludedMatcher.region(componentMatcher.end(), bodyEnd);
 		String result;
 		if (!excludedMatcher.find()) {
@@ -2153,7 +2158,7 @@ public final class KubeGroovyTypingGenerator {
 		MessageDigest digest;
 		try {
 			digest = MessageDigest.getInstance("SHA-256");
-		} catch (java.security.NoSuchAlgorithmException error) {
+		} catch (NoSuchAlgorithmException error) {
 			throw new IOException("SHA-256 is unavailable", error);
 		}
 		for (var entry : sorted.entrySet()) {
@@ -2191,7 +2196,7 @@ public final class KubeGroovyTypingGenerator {
 	/** Deletes only stale jars carrying the generator marker. */
 	public static void pruneFallbackCache(Path cacheDirectory, Collection<Path> live) throws IOException {
 		if (!Files.isDirectory(cacheDirectory)) return;
-		var keep = live.stream().map(path -> path.toAbsolutePath().normalize()).collect(java.util.stream.Collectors.toSet());
+		var keep = live.stream().map(path -> path.toAbsolutePath().normalize()).collect(Collectors.toSet());
 		try (var files = Files.list(cacheDirectory)) {
 			for (var file : files.filter(path -> path.toString().toLowerCase(Locale.ROOT).endsWith(".jar")).toList()) {
 				if (keep.contains(file.toAbsolutePath().normalize()) || !isGeneratorJar(file)) continue;

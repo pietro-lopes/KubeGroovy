@@ -1,8 +1,8 @@
 package dev.uncandango.kubegroovy.item;
 
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.typings.Param;
-import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Util;

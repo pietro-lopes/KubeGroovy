@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.utiltest;
 
 import com.google.gson.JsonPrimitive;
+import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.bridge.ContextFactory;
 import dev.uncandango.kubegroovy.util.TickDuration;
@@ -82,11 +83,11 @@ class TimeTests {
 			assertEquals(TickDuration.of(10L), TimeGY.wrapTemporalAmount("10t"));
 			assertEquals(Duration.ofMillis(1500L), TimeGY.wrapDuration("1.5s"));
 
-			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+			assertThrows(KubeRuntimeException.class,
 				() -> TimeGY.wrapTemporalAmount(null));
-			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+			assertThrows(KubeRuntimeException.class,
 				() -> TimeGY.wrapTemporalAmount("not a time"));
-			assertThrows(dev.uncandango.kubegroovy.error.KubeRuntimeException.class,
+			assertThrows(KubeRuntimeException.class,
 				() -> TimeGY.wrapTemporalAmount(new Object()));
 		});
 	}

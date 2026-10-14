@@ -4,6 +4,7 @@ import dev.uncandango.kubegroovy.util.CountingMap;
 import dev.uncandango.kubegroovy.util.Object2LongEntry;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +60,7 @@ class CountingMapTests {
 		assertTrue(map.getKeys().containsAll(List.of("a", "b")));
 		assertTrue(map.getValues().containsAll(List.of(1L, 2L)));
 
-		var seen = new java.util.ArrayList<String>();
+		var seen = new ArrayList<String>();
 		map.forEach(entry -> seen.add(String.valueOf(entry.key)));
 		assertTrue(seen.containsAll(List.of("a", "b")));
 	}

@@ -43,7 +43,12 @@ public class ScriptManager {
 	public static final List<String> SUPPORTED_EXTENSIONS = List.of(".groovy", ".gy", ".gvy");
 	public final ScriptType scriptType;
 	public final Map<String, ScriptPack> packs;
-	private final ClassFilter classFilter;
+	private static volatile ClassFilter classFilter;
+
+	public static synchronized void initializeClassFilter() {
+		if (classFilter != null) throw new IllegalStateException("Class filter already initialized");
+		classFilter = KubeGroovyPlugins.createClassFilter();
+	}
 	public KubeGroovyContextFactory contextFactory;
 	public volatile KubeGroovyContext context;
 	public boolean canListenEvents;
@@ -52,7 +57,6 @@ public class ScriptManager {
 	public ScriptManager(ScriptType t) {
 		scriptType = t;
 		packs = new LinkedHashMap<>();
-		classFilter = KubeGroovyPlugins.createClassFilter(scriptType);
 	}
 
 	/** Immutable descriptors captured during normal binding initialization. */
@@ -181,10 +185,16 @@ public class ScriptManager {
 	}
 
 	public boolean isClassAllowed(String name) {
-		return classFilter.isAllowed(name);
+		return getClassFilter().isAllowed(name);
 	}
 
-	public ClassFilter getClassFilter() {
+	public static ClassFilter getClassFilter() {
+		var filter = classFilter;
+		if (filter == null) throw new IllegalStateException("Class filter has not been initialized");
+		return filter;
+	}
+
+	public static ClassFilter getClassFilterIfInitialized() {
 		return classFilter;
 	}
 

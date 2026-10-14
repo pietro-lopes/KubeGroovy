@@ -12,6 +12,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -148,12 +150,12 @@ public record RecipeCodecConversion(String className, Map<String, Property> prop
 				names = explicit.get();
 			} else if (owner.isRecord()) {
 				var components = owner.getRecordComponents();
-				if (!Arrays.equals(constructor.getParameterTypes(), Arrays.stream(components).map(java.lang.reflect.RecordComponent::getType).toArray(Class<?>[]::new))) {
+				if (!Arrays.equals(constructor.getParameterTypes(), Arrays.stream(components).map(RecordComponent::getType).toArray(Class<?>[]::new))) {
 					continue;
 				}
 				names = Arrays.stream(components).map(component -> aliases.getOrDefault(component.getName(), component.getName())).toList();
 			} else {
-				if (!Arrays.stream(constructor.getParameters()).allMatch(java.lang.reflect.Parameter::isNamePresent)) {
+				if (!Arrays.stream(constructor.getParameters()).allMatch(Parameter::isNamePresent)) {
 					continue;
 				}
 				names = Arrays.stream(constructor.getParameters()).map(parameter -> aliases.getOrDefault(parameter.getName(), parameter.getName())).toList();

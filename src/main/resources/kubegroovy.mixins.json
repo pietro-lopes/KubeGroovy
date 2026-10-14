@@ -74,7 +74,9 @@
 		"WorldLoaderPackConfigMixin",
 		"groovy.ClosureMixin",
 		"groovy.ConvertedClosureMixin",
-		"groovy.MetaClassImplMixin"
+		"groovy.MetaClassImplMixin",
+		"groovy.MetaClassMOPIterMixin",
+		"groovy.CachedFieldMixin"
 	],
 	"client": [
 		"AbstractClientPlayerMixin",

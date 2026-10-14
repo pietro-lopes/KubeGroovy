@@ -4,12 +4,30 @@ import dev.uncandango.kubegroovy.KubeGroovy;
 import dev.uncandango.kubegroovy.script.KubeGroovyContext;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyMetaClassCreationHandle;
 import groovy.lang.Closure;
+import groovy.lang.GString;
+import groovy.lang.GroovyCallable;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.function.Function;
 
 /** Minimal Groovy coercion helpers used by bridge Context and new engine. */
 public final class GroovyConversions {
@@ -34,7 +52,7 @@ public final class GroovyConversions {
 		}
 
 		// Groovy interpolated strings are GString, normalize to String early
-		if (from instanceof groovy.lang.GString gs) {
+		if (from instanceof GString gs) {
 			from = gs.toString();
 		}
 		if (target.isInstance(from)) {
@@ -66,11 +84,11 @@ public final class GroovyConversions {
 			if (target == Byte.class || target == byte.class) {
 				return (byte) toInt(from);
 			}
-			if (target == java.math.BigInteger.class && from instanceof Number n) {
-				return java.math.BigInteger.valueOf(n.longValue());
+			if (target == BigInteger.class && from instanceof Number n) {
+				return BigInteger.valueOf(n.longValue());
 			}
-			if (target == java.math.BigDecimal.class && from instanceof Number n) {
-				return java.math.BigDecimal.valueOf(n.doubleValue());
+			if (target == BigDecimal.class && from instanceof Number n) {
+				return BigDecimal.valueOf(n.doubleValue());
 			}
 			if (target == Boolean.class || target == boolean.class) {
 				return toBoolean(from);
@@ -81,22 +99,22 @@ public final class GroovyConversions {
 			if ((target == Character.class || target == char.class) && from instanceof Number n) {
 				return (char) n.intValue();
 			}
-			if (from instanceof Object[] arr && java.util.Collection.class.isAssignableFrom(target)) {
-				return toCollection(java.util.Arrays.asList(arr), target);
+			if (from instanceof Object[] arr && Collection.class.isAssignableFrom(target)) {
+				return toCollection(Arrays.asList(arr), target);
 			}
-			if (from instanceof Iterable<?> it && java.util.Collection.class.isAssignableFrom(target)) {
-				var out = new java.util.ArrayList<>();
+			if (from instanceof Iterable<?> it && Collection.class.isAssignableFrom(target)) {
+				var out = new ArrayList<>();
 				for (var e : it) {
 					out.add(e);
 				}
 				return toCollection(out, target);
 			}
-			if (target.isArray() && from instanceof java.util.Collection<?> coll) {
+			if (target.isArray() && from instanceof Collection<?> coll) {
 				var comp = target.getComponentType();
-				var arr = java.lang.reflect.Array.newInstance(comp, coll.size());
+				var arr = Array.newInstance(comp, coll.size());
 				int i = 0;
 				for (var e : coll) {
-					java.lang.reflect.Array.set(arr, i++, toJava(e, comp));
+					Array.set(arr, i++, toJava(e, comp));
 				}
 				return arr;
 			}
@@ -107,7 +125,7 @@ public final class GroovyConversions {
 						return constant;
 					}
 				}
-				return Enum.valueOf((Class<Enum>) target, name.toUpperCase(java.util.Locale.ROOT));
+				return Enum.valueOf((Class<Enum>) target, name.toUpperCase(Locale.ROOT));
 			}
 			// Functional interfaces from closures
 			if (target.isInterface() && from instanceof Closure<?> c) {
@@ -122,18 +140,18 @@ public final class GroovyConversions {
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static Object toCollection(java.util.List<?> list, Class<?> target) {
+	private static Object toCollection(List<?> list, Class<?> target) {
 		if (target.isInstance(list)) {
 			return list;
 		}
-		if (target == java.util.Set.class || target == java.util.HashSet.class) {
-			return new java.util.HashSet<>(list);
+		if (target == Set.class || target == HashSet.class) {
+			return new HashSet<>(list);
 		}
-		if (target == java.util.SortedSet.class || target == java.util.TreeSet.class) {
-			return new java.util.TreeSet<>((java.util.Collection) list);
+		if (target == SortedSet.class || target == TreeSet.class) {
+			return new TreeSet<>((Collection) list);
 		}
-		if (target == java.util.Queue.class || target == java.util.Deque.class || target == java.util.ArrayDeque.class) {
-			return new java.util.ArrayDeque<>(list);
+		if (target == Queue.class || target == Deque.class || target == ArrayDeque.class) {
+			return new ArrayDeque<>(list);
 		}
 		return list;
 	}
@@ -208,12 +226,12 @@ public final class GroovyConversions {
 					}
 					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> c.call(args));
 				}
-				if (target instanceof java.util.function.Function<?, ?> f) {
+				if (target instanceof Function<?, ?> f) {
 					@SuppressWarnings("rawtypes")
-					var func = (java.util.function.Function) f;
+					var func = (Function) f;
 					return ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(() -> func.apply(args == null || args.length == 0 ? null : args[0]));
 				}
-				if (target instanceof groovy.lang.GroovyCallable<?> gc) {
+				if (target instanceof GroovyCallable<?> gc) {
 					try {
 						ScopedValue.where(KubeGroovyContext.CURRENT, cx).call(gc::call);
 					} catch (Exception e) {

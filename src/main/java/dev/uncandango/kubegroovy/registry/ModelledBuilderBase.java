@@ -1,6 +1,7 @@
 package dev.uncandango.kubegroovy.registry;
 
 import dev.uncandango.kubegroovy.client.ModelGenerator;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.typings.Info;
 import dev.uncandango.kubegroovy.script.annotations.ReturnsSelf;
 import net.minecraft.resources.Identifier;
@@ -58,7 +59,7 @@ public abstract class ModelledBuilderBase<T> extends BuilderBase<T> {
 		return this;
 	}
 
-	@dev.uncandango.kubegroovy.script.annotations.HideFromGY
+	@HideFromGY
 	public final String kgy$getBaseTexture() {
 		return baseTexture;
 	}

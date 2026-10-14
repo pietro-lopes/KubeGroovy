@@ -8,6 +8,7 @@ import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,9 +54,9 @@ class ItemIconExporterTest {
 
 	@Test
 	void tagExportLayout() {
-		var itemTag = new TagEntry(Identifier.parse("c:dyes/cyan"), TagType.ITEM, java.util.List.of(Identifier.parse("minecraft:cyan_dye")));
-		var fluidTag = new TagEntry(Identifier.parse("c:water/overworld"), TagType.FLUID, java.util.List.of(Identifier.parse("minecraft:water")));
-		var blockTag = new TagEntry(Identifier.parse("c:ores_in_ground/deepslate"), TagType.BLOCK, java.util.List.of(Identifier.parse("minecraft:deepslate_coal_ore")));
+		var itemTag = new TagEntry(Identifier.parse("c:dyes/cyan"), TagType.ITEM, List.of(Identifier.parse("minecraft:cyan_dye")));
+		var fluidTag = new TagEntry(Identifier.parse("c:water/overworld"), TagType.FLUID, List.of(Identifier.parse("minecraft:water")));
+		var blockTag = new TagEntry(Identifier.parse("c:ores_in_ground/deepslate"), TagType.BLOCK, List.of(Identifier.parse("minecraft:deepslate_coal_ore")));
 
 		assertEquals(Path.of("tags", "item", "c", "dyes", "cyan.png"), ItemIconExporter.tagRelativePath(itemTag));
 		assertEquals(Path.of("tags", "fluid", "c", "water", "overworld.png"), ItemIconExporter.tagRelativePath(fluidTag));

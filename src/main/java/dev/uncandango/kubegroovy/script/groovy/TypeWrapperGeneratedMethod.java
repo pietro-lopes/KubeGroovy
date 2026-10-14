@@ -2,6 +2,7 @@ package dev.uncandango.kubegroovy.script.groovy;
 
 import dev.uncandango.kubegroovy.error.KubeRuntimeException;
 import dev.uncandango.kubegroovy.error.MissingContextException;
+import dev.uncandango.kubegroovy.script.annotations.HideFromGY;
 import dev.uncandango.kubegroovy.script.bridge.Context;
 import dev.uncandango.kubegroovy.script.type.TypeInfo;
 import dev.uncandango.kubegroovy.script.type.WithTypeInfo;
@@ -11,6 +12,7 @@ import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.reflection.GeneratedMetaMethod;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.MetaClassHelper;
+import org.codehaus.groovy.runtime.metaclass.NewMetaMethod;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -90,6 +92,13 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod {
 		return mhSupplier.get();
 	}
 
+	@HideFromGY
+	public boolean isGroovyExtension() {
+		return delegate instanceof GuardedMetaMethod guarded ? guarded.isGroovyExtension()
+			: delegate instanceof GeneratedMetaMethod || delegate instanceof NewMetaMethod;
+	}
+
+
 	private MethodHandle getMethodHandle(Class<?> clazz, Method method) {
 		try {
 			MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -155,6 +164,7 @@ public class TypeWrapperGeneratedMethod extends GeneratedMetaMethod {
 		if (context == null) {
 			throw new MissingContextException();
 		}
-		return context.gyToJava(value, type);
+		var converted = context.gyToJava(value, type);
+		return SandboxRuntime.inScript() ? SandboxRuntime.checkValue(converted) : converted;
 	}
 }

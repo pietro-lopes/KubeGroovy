@@ -39,6 +39,7 @@ import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.WallBlock;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.common.BooleanAttribute;
@@ -133,9 +134,9 @@ public class RegistryBuilderTests {
 				var crop = (CropBlock) BuiltInRegistries.BLOCK.getValue(id("wiki_crop"));
 				assertThat(crop.getMaxAge()).as("wiki_crop age").isEqualTo(3);
 				assertThat(BuiltInRegistries.ITEM.containsKey(id("wiki_crop_seeds"))).as("wiki_crop seed item").isTrue();
-				assertThat(BuiltInRegistries.BLOCK.getValue(id("wiki_cardinal")).defaultBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING))
+				assertThat(BuiltInRegistries.BLOCK.getValue(id("wiki_cardinal")).defaultBlockState().hasProperty(BlockStateProperties.HORIZONTAL_FACING))
 					.as("cardinal facing property").isTrue();
-				assertThat(BuiltInRegistries.BLOCK.getValue(id("wiki_pillar")).defaultBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.AXIS))
+				assertThat(BuiltInRegistries.BLOCK.getValue(id("wiki_pillar")).defaultBlockState().hasProperty(BlockStateProperties.AXIS))
 					.as("pillar axis property").isTrue();
 				assertThat(BuiltInRegistries.BLOCK.getValue(id("wiki_block")).defaultBlockState().is(BlockTags.MINEABLE_WITH_PICKAXE))
 					.as("base block tag").isTrue();
@@ -278,7 +279,7 @@ public class RegistryBuilderTests {
 			assertj(helper, () -> {
 				var block = BuiltInRegistries.BLOCK.getValue(id("coverage_block"));
 				assertThat(block).as("coverage block").isNotNull();
-				assertThat(block.defaultBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT))
+				assertThat(block.defaultBlockState().hasProperty(BlockStateProperties.LIT))
 					.as("custom block property").isTrue();
 				assertThat(BuiltInRegistries.BLOCK.getValue(id("coverage_crop"))).isInstanceOf(CropBlock.class);
 				assertThat(BuiltInRegistries.BLOCK.getValue(id("coverage_door"))).isInstanceOf(DoorBlock.class);
