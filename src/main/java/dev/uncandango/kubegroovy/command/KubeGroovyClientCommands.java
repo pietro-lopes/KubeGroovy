@@ -76,7 +76,7 @@ public class KubeGroovyClientCommands {
 		return 1;
 	}
 
-	private static int exportIcons(CommandSourceStack source, int scale, @Nullable String mod) {
+	public static int exportIcons(CommandSourceStack source, int scale, @Nullable String mod) {
 		var mc = Minecraft.getInstance();
 
 		if (mc.level == null || mc.player == null) {

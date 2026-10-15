@@ -390,24 +390,21 @@ class KubeGroovyTypingGeneratorTests {
 
 	@Test
 	@Disabled("Retired: LivePlugin plugin.kts generation (template absent)")
-	void forceGenerationReplacesOnlyManualKubegroovyIml() throws Exception {
-		var game = temp.resolve("force-module-game");
+	void generationAlwaysReplacesManualKubegroovyIml() throws Exception {
+		var game = temp.resolve("replace-module-game");
 		var module = game.resolve(".idea/kubegroovy.iml");
 		Files.createDirectories(module.getParent());
 		Files.writeString(module, "manual IntelliJ module");
 		var bindings = Map.of(ScriptType.SERVER, List.<TypingBinding>of());
 
-		assertThrows(Exception.class, () -> KubeGroovyTypingGenerator.generate(game, bindings));
-		assertEquals("manual IntelliJ module", Files.readString(module));
-
-		var result = KubeGroovyTypingGenerator.generate(game, bindings, true);
+		var result = KubeGroovyTypingGenerator.generate(game, bindings);
 		assertTrue(result.moduleChanged());
 		assertTrue(Files.readString(module).contains(KubeGroovyTypingGenerator.GENERATED_MARKER));
 
-		// GDSL generation is disabled: manual GDSL files are left untouched even in force mode.
+		// GDSL generation is disabled: manual GDSL files are left untouched.
 		Files.createDirectories(result.gdsl().getParent());
 		Files.writeString(result.gdsl(), "manual GDSL");
-		KubeGroovyTypingGenerator.generate(game, bindings, true);
+		KubeGroovyTypingGenerator.generate(game, bindings);
 		assertEquals("manual GDSL", Files.readString(result.gdsl()));
 	}
 
@@ -772,7 +769,7 @@ class KubeGroovyTypingGeneratorTests {
 			Map.of(), Map.of(), Map.of("addon:recipe", recipe));
 		var game = temp.resolve("recipe-catalog-game");
 		var result = KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("recipe-live-plugins"),
-			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot, false);
+			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot);
 		assertEquals(1, result.recipeCount());
 		var file = game.resolve("local/kubegroovy/live-plugin/recipes/recipes.json");
 		var text = Files.readString(file);
@@ -781,7 +778,7 @@ class KubeGroovyTypingGeneratorTests {
 		assertEquals("example.Recipe", json.getAsJsonObject("recipes").getAsJsonObject("addon:recipe").get("factoryType").getAsString());
 		var modified = Files.getLastModifiedTime(file);
 		KubeGroovyTypingGenerator.generate(game, Map.of(), List.of(), List.of(), temp.resolve("recipe-live-plugins"),
-			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot, false);
+			List.of(), List.of(), KubeGroovyTypingGenerator.LivePluginValueCatalog.empty(), snapshot);
 		assertEquals(text, Files.readString(file));
 		assertEquals(modified, Files.getLastModifiedTime(file));
 	}

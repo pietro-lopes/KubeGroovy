@@ -94,12 +94,8 @@ public class KubeGroovyClient extends KubeGroovyCommon {
 
 	@Override
 	public void generateTypings(CommandSourceStack source) {
-		generateTypings(source, false);
-	}
-
-	@Override
-	public void generateTypings(CommandSourceStack source, boolean forceModuleReplacement) {
-		KubeGroovyTypingGenerator.request(source, forceModuleReplacement);
+		var mc = Minecraft.getInstance();
+		mc.execute(() -> mc.setScreen(new GenerateTypingsScreen(source)));
 	}
 
 	@Override

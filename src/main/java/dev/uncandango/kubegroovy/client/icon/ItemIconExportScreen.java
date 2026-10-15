@@ -2,6 +2,7 @@ package dev.uncandango.kubegroovy.client.icon;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.core.GameRendererKGY;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -494,7 +495,7 @@ public class ItemIconExportScreen extends Screen {
 		int skipped = skippedTags.get();
 		KubeGroovy.LOGGER.info("Icon export completed in {} ms ({} screenshot batches, {} icons, {} failures).",
 			(System.nanoTime() - startedNanos) / 1_000_000L, captureCount, result.exported(), result.failed());
-		feedback.accept(Component.literal("Exported %d icons (%d failed, %d tag%s skipped) to %s.".formatted(result.exported(), result.failed(), skipped, skipped == 1 ? "" : "s", outDir)));
+		feedback.accept(Component.literal("Exported %d icons (%d failed, %d tag%s skipped) to %s.".formatted(result.exported(), result.failed(), skipped, skipped == 1 ? "" : "s", displayPath(outDir))));
 
 		if (onDone != null) {
 			try {
@@ -514,5 +515,11 @@ public class ItemIconExportScreen extends Screen {
 			tagBadge.close();
 			tagBadge = null;
 		}
+	}
+
+	/** Game-directory-relative path for chat, so the user's full path is not shown. */
+	private static String displayPath(Path path) {
+		var absolute = path.toAbsolutePath().normalize();
+		return absolute.startsWith(KubeGroovyPaths.GAMEDIR) ? KubeGroovyPaths.GAMEDIR.relativize(absolute).toString().replace('\\', '/') : String.valueOf(absolute.getFileName());
 	}
 }

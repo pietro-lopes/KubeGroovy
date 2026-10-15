@@ -38,7 +38,10 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Holder;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -64,6 +67,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforgespi.language.IModInfo;
 import org.codehaus.groovy.control.SourceUnit;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
@@ -190,13 +194,17 @@ public final class KubeGroovyTypingGenerator {
 
 	/** Queues one generation job. A second request while the first is running is harmless. */
 	public static boolean request(CommandSourceStack source) {
-		return request(source, false);
+		return request(source, null);
 	}
 
-	/** Queues generation, optionally allowing replacement of an unmarked kubegroovy.iml. */
-	public static boolean request(CommandSourceStack source, boolean forceModuleReplacement) {
+	/**
+	 * Queues generation and installs the LivePlugin scripts below the given
+	 * JetBrains folder, or below the auto-detected config root when null.
+	 * Existing generated files are always replaced.
+	 */
+	public static boolean request(CommandSourceStack source, @Nullable Path jetBrainsRoot) {
 		if (!source.getServer().isSameThread()) {
-			source.getServer().execute(() -> request(source, forceModuleReplacement));
+			source.getServer().execute(() -> request(source, jetBrainsRoot));
 			return true;
 		}
 		if (!RUNNING.compareAndSet(false, true)) {
@@ -204,8 +212,8 @@ public final class KubeGroovyTypingGenerator {
 			return false;
 		}
 
-		var progressMessage = "Generating KubeGroovy IntelliJ typings and installing the LivePlugin script..."
-			+ (forceModuleReplacement ? " Force mode will replace .idea/kubegroovy.iml." : "");
+		var installRoot = jetBrainsRoot == null ? defaultJetBrainsConfigRoot() : jetBrainsRoot.toAbsolutePath().normalize();
+		var progressMessage = "Generating KubeGroovy IntelliJ typings and installing the LivePlugin script...";
 		source.sendSuccess(() -> Component.literal(progressMessage), false);
 		LivePluginValueCatalog valueCatalog;
 		RecipeTypingGenerator.Snapshot recipeCatalog;
@@ -225,14 +233,13 @@ public final class KubeGroovyTypingGenerator {
 		var catalogSnapshot = valueCatalog;
 		CompletableFuture.runAsync(() -> {
 			try {
-				var result = generate(source, catalogSnapshot, recipeCatalog, forceModuleReplacement);
-				postToServer(source, () -> source.sendSuccess(() -> Component.literal(
-					"Generated KubeGroovy typings: " + result.bindingCount() + " bindings, " + result.eventCount()
-							+ " events, " + result.recipeCount() + " recipe types, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
-							+ " classpath roots. Files: " + result.module()
-							+ ". Select a Java 25 project SDK."
-							+ " plugin.kts and catalog.json are retired and no longer written."
-							+ livePluginInstallSummary(result.livePluginInstall())), false));
+				var result = generate(source, catalogSnapshot, recipeCatalog, installRoot);
+				var details = "Generated KubeGroovy typings: " + result.bindingCount() + " bindings, " + result.eventCount()
+					+ " events, " + result.recipeCount() + " recipe types, " + result.bridgeMemberCount() + " bridge members, " + result.classpathRootCount()
+					+ " classpath roots. Files: " + result.module() + "."
+					+ livePluginInstallSummary(result.livePluginInstall());
+				KubeGroovy.LOGGER.info(details);
+				postToServer(source, () -> source.sendSuccess(() -> completionMessage(FMLPaths.GAMEDIR.get().toAbsolutePath().normalize()), false));
 			} catch (Throwable error) {
 				KubeGroovy.LOGGER.error("Failed to generate KubeGroovy IntelliJ typings", error);
 				postToServer(source, () -> source.sendFailure(Component.literal(
@@ -242,6 +249,23 @@ public final class KubeGroovyTypingGenerator {
 			}
 		}, Util.backgroundExecutor());
 		return true;
+	}
+
+	/**
+	 * Tells the user to open the game directory as an IntelliJ project; the folder
+	 * link opens it in the system file browser without printing its full path.
+	 */
+	static Component completionMessage(Path gameDir) {
+		var folder = Component.literal("game directory").withStyle(style -> style
+			.withColor(ChatFormatting.AQUA)
+			.withUnderlined(true)
+			.withClickEvent(new ClickEvent.OpenFile(gameDir))
+			.withHoverEvent(new HoverEvent.ShowText(Component.literal("Click to open folder"))));
+		return Component.empty()
+			.append(Component.literal("KubeGroovy typings generated. ").withStyle(ChatFormatting.GREEN))
+			.append("Open the ")
+			.append(folder)
+			.append(" as a project in IntelliJ IDEA (Java 25 SDK) to get script completion.");
 	}
 
 	private static void postToServer(CommandSourceStack source, Runnable task) {
@@ -258,14 +282,14 @@ public final class KubeGroovyTypingGenerator {
 	}
 
 	private static GenerationResult generate(CommandSourceStack source, LivePluginValueCatalog valueCatalog,
-		RecipeTypingGenerator.Snapshot recipeCatalog, boolean forceModuleReplacement) throws IOException {
+		RecipeTypingGenerator.Snapshot recipeCatalog, Path jetBrainsRoot) throws IOException {
 		var gameDir = FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
 		var bindings = snapshotBindings(source);
 		var mods = MethodAliasGenerator.discoverLoadedMods();
 		var registryTargets = snapshotLivePluginRegistryTargets(source);
 		var builderTypes = snapshotLivePluginBuilderTypes();
-		return generate(gameDir, bindings, mods, List.of(), resolveLivePluginDirectory(), registryTargets, builderTypes,
-			valueCatalog, recipeCatalog, forceModuleReplacement);
+		return generate(gameDir, bindings, mods, List.of(), resolveConfiguredLivePluginDirectory(jetBrainsRoot), registryTargets, builderTypes,
+			valueCatalog, recipeCatalog, jetBrainsRoot);
 	}
 
 	/**
@@ -273,14 +297,8 @@ public final class KubeGroovyTypingGenerator {
 	 * its immutable binding snapshot.
 	 */
 	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings) throws IOException {
-		return generate(gameDir, bindings, false);
-	}
-
-	/** Test and tooling overload for forcing replacement of only kubegroovy.iml. */
-	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
-		boolean forceModuleReplacement) throws IOException {
 		return generate(gameDir, bindings, List.of(), List.of(), gameDir.resolve(".live-plugins"), List.of(), List.of(),
-			LivePluginValueCatalog.empty(), forceModuleReplacement);
+			LivePluginValueCatalog.empty());
 	}
 
 	/** Runtime snapshot overload; tests can provide deterministic mod and wrapper data. */
@@ -330,16 +348,7 @@ public final class KubeGroovyTypingGenerator {
 		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
 		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog) throws IOException {
 		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
-			valueCatalog, false);
-	}
-
-	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
-		Collection<MethodAliasGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
-		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
-		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
-		boolean forceModuleReplacement) throws IOException {
-		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
-			valueCatalog, RecipeTypingGenerator.Snapshot.empty(), forceModuleReplacement);
+			valueCatalog, RecipeTypingGenerator.Snapshot.empty());
 	}
 
 	/** File-generation overload accepting an immutable recipe snapshot. */
@@ -347,7 +356,20 @@ public final class KubeGroovyTypingGenerator {
 		Collection<MethodAliasGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
 		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
 		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
-		RecipeTypingGenerator.Snapshot recipeCatalog, boolean forceModuleReplacement) throws IOException {
+		RecipeTypingGenerator.Snapshot recipeCatalog) throws IOException {
+		return generate(gameDir, bindings, mods, wrapperRegistries, livePluginDirectory, registryTargets, builderTypes,
+			valueCatalog, recipeCatalog, defaultJetBrainsConfigRoot());
+	}
+
+	/**
+	 * File-generation overload that also chooses where the bundled LivePlugin
+	 * scripts are installed. Existing generated files are always replaced.
+	 */
+	public static GenerationResult generate(Path gameDir, Map<ScriptType, List<TypingBinding>> bindings,
+		Collection<MethodAliasGenerator.ModData> mods, Collection<TypeWrappers> wrapperRegistries,
+		Path livePluginDirectory, Collection<LivePluginRegistryTarget> registryTargets,
+		Collection<LivePluginBuilderType> builderTypes, LivePluginValueCatalog valueCatalog,
+		RecipeTypingGenerator.Snapshot recipeCatalog, Path jetBrainsRoot) throws IOException {
 		gameDir = gameDir.toAbsolutePath().normalize();
 		livePluginDirectory = livePluginDirectory.toAbsolutePath().normalize();
 		var idea = gameDir.resolve(".idea").normalize();
@@ -404,7 +426,7 @@ public final class KubeGroovyTypingGenerator {
 
 		// Validate every existing target before creating directories or cache files.
 		// GDSL targets are intentionally not guarded: GDSL generation is disabled and existing files are left untouched.
-		guardGeneratedTarget(module, forceModuleReplacement);
+		guardGeneratedTarget(module);
 		// Retired: plugin.kts and catalog.json are no longer written.
 		// guardGeneratedTarget(livePlugin);
 		// guardGeneratedTarget(livePluginCatalog);
@@ -458,7 +480,7 @@ public final class KubeGroovyTypingGenerator {
 		writeChanged(typeSuggestionsFile, typeSuggestionsText);
 		Files.createDirectories(recipesFile.getParent());
 		writeChanged(recipesFile, RecipeTypingGenerator.render(recipeCatalog));
-		var livePluginInstall = installLivePluginScripts();
+		var livePluginInstall = installLivePluginScripts(jetBrainsRoot);
 		boolean modulesChanged = writeChanged(modules, mergedModules);
 		writeChanged(misc, mergedMisc);
 		writeChanged(codeInsightSettings, mergedCodeInsightSettings);
@@ -470,12 +492,16 @@ public final class KubeGroovyTypingGenerator {
 			moduleChanged, modulesChanged, gdslChanged, livePluginChanged, livePluginInstall, recipeCatalog.recipes().size());
 	}
 
-	private static Path resolveLivePluginDirectory() throws IOException {
+	private static Path resolveConfiguredLivePluginDirectory(Path jetBrainsRoot) throws IOException {
 		var configured = System.getProperty("kubegroovy.livePluginDirectory");
 		if (configured != null && !configured.isBlank()) {
 			return Path.of(configured).toAbsolutePath().normalize();
 		}
-		return resolveLivePluginDirectory(jetBrainsConfigRoot());
+		var root = jetBrainsRoot.toAbsolutePath().normalize();
+		if (isLivePluginsFolder(root)) return root;
+		var name = root.getFileName();
+		if (name != null && intellijConfigVersion(name.toString()) != null) return root.resolve("live-plugins");
+		return resolveLivePluginDirectory(root);
 	}
 
 	public static Path resolveLivePluginDirectory(Path jetBrainsConfigRoot) throws IOException {
@@ -523,10 +549,15 @@ public final class KubeGroovyTypingGenerator {
 	 * (usually {@code %APPDATA%/JetBrains}). An absent root reports
 	 * {@code jetBrainsFound=false}; a present root without any
 	 * {@code live-plugins} folder means LivePlugin is not installed in IDEA.
+	 * The path may also point at a single IDE config folder or directly at its
+	 * {@code live-plugins} folder, which limits installation to that IDE.
 	 */
 	public static LivePluginInstall findLivePluginInstallRoots(Path jetBrainsRoot) throws IOException {
 		var root = jetBrainsRoot.toAbsolutePath().normalize();
 		if (!Files.isDirectory(root)) return new LivePluginInstall(List.of(), false);
+		if (isLivePluginsFolder(root)) return new LivePluginInstall(List.of(root), true);
+		var direct = root.resolve("live-plugins").normalize();
+		if (Files.isDirectory(direct) && !Files.isSymbolicLink(direct)) return new LivePluginInstall(List.of(direct), true);
 		var roots = new ArrayList<Path>();
 		try (var children = Files.list(root)) {
 			for (var child : children.filter(Files::isDirectory).sorted(PATH_ORDER).toList()) {
@@ -537,8 +568,46 @@ public final class KubeGroovyTypingGenerator {
 		return new LivePluginInstall(List.copyOf(roots), true);
 	}
 
-	private static LivePluginInstall findLivePluginInstallRoots() throws IOException {
-		return findLivePluginInstallRoots(jetBrainsConfigRoot());
+	private static boolean isLivePluginsFolder(Path path) {
+		var name = path.getFileName();
+		return name != null && "live-plugins".equals(name.toString()) && Files.isDirectory(path) && !Files.isSymbolicLink(path);
+	}
+
+	/** One JetBrains IDE config folder and whether LivePlugin appears to be installed in it. */
+	public record IdeConfig(Path dir, boolean livePluginsFolder, boolean livePluginPlugin) {
+		public String name() {
+			var name = dir.getFileName();
+			return name == null ? dir.toString() : name.toString();
+		}
+
+		public boolean livePluginInstalled() {
+			return livePluginsFolder || livePluginPlugin;
+		}
+	}
+
+	/**
+	 * Lists the IDE config folders directly below a JetBrains config root,
+	 * skipping JetBrains' own bookkeeping folders. Absent or unreadable roots
+	 * return an empty list.
+	 */
+	public static List<IdeConfig> listIdeConfigs(Path jetBrainsRoot) {
+		var root = jetBrainsRoot.toAbsolutePath().normalize();
+		if (!Files.isDirectory(root)) return List.of();
+		var configs = new ArrayList<IdeConfig>();
+		try (var children = Files.list(root)) {
+			for (var child : children.filter(Files::isDirectory).sorted(PATH_ORDER).toList()) {
+				var livePlugins = child.resolve("live-plugins");
+				boolean folder = Files.isDirectory(livePlugins) && !Files.isSymbolicLink(livePlugins);
+				boolean plugin = hasLivePlugin(child);
+				if (folder || plugin || Files.isDirectory(child.resolve("options"))) {
+					configs.add(new IdeConfig(child.normalize(), folder, plugin));
+				}
+			}
+		} catch (IOException | RuntimeException exception) {
+			KubeGroovy.LOGGER.debug("Could not list JetBrains config folders in {}", root, exception);
+			return List.of();
+		}
+		return List.copyOf(configs);
 	}
 
 	/** Reads an optional bundled LivePlugin resource, or null when absent. */
@@ -578,14 +647,14 @@ public final class KubeGroovyTypingGenerator {
 	 * Installed copies are managed
 	 * output and are overwritten; symlinks are never followed or replaced.
 	 */
-	private static LivePluginInstall installLivePluginScripts()
+	private static LivePluginInstall installLivePluginScripts(Path jetBrainsRoot)
 		throws IOException {
 		var scripts = readBundledLivePluginScripts();
 		var logo = readBundledBindingsLogo();
 		var logoDark = readBundledBindingsLogoDark();
 		var logoSvg = readBundledBindingsLogoSvg();
 		var logoDarkSvg = readBundledBindingsLogoDarkSvg();
-		var install = findLivePluginInstallRoots();
+		var install = findLivePluginInstallRoots(jetBrainsRoot);
 		if (!install.jetBrainsFound()) {
 			KubeGroovy.LOGGER.warn("JetBrains config folder was not found; LivePlugin scripts were not installed.");
 			return install;
@@ -662,13 +731,16 @@ public final class KubeGroovyTypingGenerator {
 		}
 	}
 
-	private static Path jetBrainsConfigRoot() {
+	/** The JetBrains config root for this machine, e.g. {@code %APPDATA%/JetBrains}. */
+	public static Path defaultJetBrainsConfigRoot() {
 		var appData = System.getenv("APPDATA");
-		if (appData != null && !appData.isBlank()) return Path.of(appData).resolve("JetBrains");
+		if (appData != null && !appData.isBlank()) return Path.of(appData).resolve("JetBrains").toAbsolutePath().normalize();
 		var home = Path.of(System.getProperty("user.home"));
 		var osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
 		if (osName.contains("mac")) return home.resolve("Library/Application Support/JetBrains");
 		if (osName.contains("win")) return home.resolve("AppData/Roaming/JetBrains");
+		var xdg = System.getenv("XDG_CONFIG_HOME");
+		if (xdg != null && !xdg.isBlank()) return Path.of(xdg).resolve("JetBrains").toAbsolutePath().normalize();
 		return home.resolve(".config/JetBrains");
 	}
 
@@ -2105,16 +2177,10 @@ public final class KubeGroovyTypingGenerator {
 		return null;
 	}
 
+	/** Existing regular files are always replaced; symlinks and non-files are still refused. */
 	private static void guardGeneratedTarget(Path path) throws IOException {
-		guardGeneratedTarget(path, false);
-	}
-
-	private static void guardGeneratedTarget(Path path, boolean forceReplacement) throws IOException {
 		if (Files.isSymbolicLink(path)) throw new IOException("Refusing to replace symbolic-link typing target: " + path);
 		if (Files.exists(path) && !Files.isRegularFile(path)) throw new IOException("Generated target is not a regular file: " + path);
-		if (!forceReplacement && Files.exists(path) && !Files.readString(path, StandardCharsets.UTF_8).contains(GENERATED_MARKER)) {
-			throw new IOException("Refusing to overwrite unmarked IntelliJ typing file: " + path);
-		}
 	}
 
 	private static boolean writeChanged(Path path, String content) throws IOException {
