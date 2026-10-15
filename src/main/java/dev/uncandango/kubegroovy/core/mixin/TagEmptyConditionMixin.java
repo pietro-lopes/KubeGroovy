@@ -1,5 +1,6 @@
 package dev.uncandango.kubegroovy.core.mixin;
 
+import dev.uncandango.kubegroovy.recipe.CachedItemTagLookup;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -20,8 +21,8 @@ public abstract class TagEmptyConditionMixin {
 
 	@Inject(method = "test", at = @At("HEAD"), cancellable = true, remap = false)
 	private void kgy$test(ICondition.IContext ctx, CallbackInfoReturnable<Boolean> cir) {
-		if (ctx instanceof RegistryAccessContainer c && c.cachedItemTags != null) {
-			cir.setReturnValue(c.cachedItemTags.isEmpty(tag));
+		if (ctx instanceof RegistryAccessContainer.ConditionContext c && c.container().cachedItemTags instanceof CachedItemTagLookup tags) {
+			cir.setReturnValue(tags.isEmpty(tag));
 		}
 	}
 }
