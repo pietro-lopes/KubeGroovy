@@ -21,9 +21,7 @@ unprefixed names.
 
 ```groovy
 $ServerEvents.recipes { event ->
-    event.shaped('minecraft:diamond', ['AAA', 'AAA', 'AAA']) {
-        key('A', 'minecraft:dirt')
-    }
+    event.shaped('minecraft:diamond', ['AAA', 'AAA', 'AAA'], ['A', 'minecraft:dirt'])
 }
 ```
 
