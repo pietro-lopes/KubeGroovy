@@ -11,6 +11,7 @@ import dev.uncandango.kubegroovy.plugin.KubeGroovyPlugins;
 import dev.uncandango.kubegroovy.plugin.builtin.event.StartupEvents;
 import dev.uncandango.kubegroovy.recipe.RecipesKubeEvent;
 import dev.uncandango.kubegroovy.registry.RegistryObjectStorage;
+import dev.uncandango.kubegroovy.registry.RegistryType;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.ConsoleLine;
 import dev.uncandango.kubegroovy.script.ScriptType;
@@ -75,6 +76,7 @@ public class KubeGroovyModEventHandler {
 	}
 
 	private static void loadComplete0() {
+		RegistryType.Scanner.freeze();
 		KubeGroovyPlugins.forEachPlugin(KubeGroovyPlugin::afterInit);
 		NeoForge.EVENT_BUS.post(new ScriptsLoadedEvent());
 		StartupEvents.POST_INIT.post(ScriptType.STARTUP, KubeStartupEvent.BASIC);

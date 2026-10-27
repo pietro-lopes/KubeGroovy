@@ -14,20 +14,20 @@ $KeyBindEvents.registry { event ->
 	// Default and explicitly selected main categories must register only once.
 	event.register('coverage_key_default_a')
 	event.register('coverage_key_default_b').category('kubegroovy')
-	event.register('coverage_key_a', 'key.keyboard.v').with {
+	event.register('coverage_key_a', 'KEY_V').with {
 		category('coverage')
 		inGame()
 	}
 	event.register('coverage_key_b').with {
-		defaultKey('key.keyboard.b')
+		defaultKey('KEY_B')
 		category('coverage')
 		gui()
 	}
-	event.register('coverage_key_c', 'key.mouse.left').with {
+	event.register('coverage_key_c', 'MOUSE_BUTTON_LEFT').with {
 		mouseInputType()
 		category('coverage_mouse')
 	}
-	event.register('coverage_key_d', 'key.keyboard.g').with {
+	event.register('coverage_key_d', 'KEY_G').with {
 		scanCodeInputType()
 		category('coverage_scan')
 	}
@@ -35,7 +35,7 @@ $KeyBindEvents.registry { event ->
 		inputType(InputConstants.Type.KEYSYM)
 		category('coverage_input')
 	}
-	def chained = event.register('coverage_key_f', 'key.keyboard.h')
+	def chained = event.register('coverage_key_f', 'KEY_H')
 	chained.with {
 		conflictContext(KeyConflictContext.UNIVERSAL)
 		modifier(KeyModifier.SHIFT)

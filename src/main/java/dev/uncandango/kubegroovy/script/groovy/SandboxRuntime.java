@@ -19,13 +19,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static dev.uncandango.kubegroovy.script.bridge.Context.CURRENT;
+
 /// Compiler-generated entrypoints. Script source cannot import or call this class.
 public final class SandboxRuntime {
 	private SandboxRuntime() {}
 	private static final StackWalker WALKER = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
 
 	public static boolean inScript() {
-		return WALKER.walk(frames -> frames.anyMatch(f -> scriptLoader(f.getDeclaringClass().getClassLoader())));
+		return CURRENT.isBound() || WALKER.walk(frames -> frames.anyMatch(f -> scriptLoader(f.getDeclaringClass().getClassLoader())));
 	}
 
 	private static boolean scriptLoader(@Nullable ClassLoader loader) {

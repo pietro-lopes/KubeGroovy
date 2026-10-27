@@ -50,5 +50,9 @@ versionRange = "[${batVersion},)"
 ordering = "BEFORE"
 side = "CLIENT"
 
+[[dependencies.kubegroovy]]
+modId = "kubejs"
+type = "incompatible"
+
 [[mixins]]
 config = "kubegroovy.mixins.json"

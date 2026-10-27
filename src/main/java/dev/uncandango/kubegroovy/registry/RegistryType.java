@@ -106,10 +106,16 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 		});
 
 		private static final Set<String> CLASSES_TO_SCAN = new HashSet<>();
+		private static final Set<String> SCANNED_CLASSES = new HashSet<>();
 		private static final Set<String> MODULES_TO_SKIP = Set.of("java.base", "neoforge", "fml_loader", "KubeGroovy");
 		private static final Set<String> NAMESPACES_TO_SKIP = Set.of("neoforge", "minecraft");
 
 		private static boolean frozen = false;
+
+		public static void freeze() {
+			frozen = true;
+			SCANNED_CLASSES.clear();
+		}
 
 		public static synchronized void init() {
 			processClass(Stream.of(Registries.class, NeoForgeRegistries.Keys.class));
@@ -120,9 +126,10 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 				return;
 			}
 
-			frozen = true;
+			//frozen = true;
 			var startTime = Util.getNanos();
 			processClass(CLASSES_TO_SCAN.stream().map(JavaWrapper::tryLoadClass));
+			SCANNED_CLASSES.addAll(CLASSES_TO_SCAN);
 			CLASSES_TO_SCAN.clear();
 			KubeGroovy.LOGGER.debug("Took {} ms to discover registry classes.", (int) ((Util.getNanos() - startTime) / 1_000_000));
 		}
@@ -166,7 +173,7 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 		}
 
 		private static void processKey(ResourceKey key, ParameterizedType paramType, boolean checkIfContains) {
-			if (checkIfContains && RegistryType.ofKey(key) != null) {
+			if (checkIfContains && KEY_MAP.get(key) != null) {
 				return;
 			}
 			var type = paramType.getActualTypeArguments()[0];
@@ -198,7 +205,7 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 
 				var className = stackTraceElement.getClassName();
 
-				if (CLASSES_TO_SCAN.contains(className)) {
+				if (CLASSES_TO_SCAN.contains(className) || SCANNED_CLASSES.contains(className)) {
 					continue;
 				}
 
