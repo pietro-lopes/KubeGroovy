@@ -1,3 +1,2 @@
 dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyPlugin
 dev.uncandango.kubegroovy.plugin.builtin.BuiltinKubeGroovyClientPlugin client
-dev.uncandango.kubegroovy.integration.architectury.ArchitecturyIntegration architectury
