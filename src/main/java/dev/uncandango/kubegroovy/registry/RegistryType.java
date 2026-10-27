@@ -48,31 +48,39 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 		}
 	}
 
+	// Lookups must run the scanner before taking the RegistryType monitor: scanning initializes
+	// foreign classes, and holding a lock across another thread's <clinit> can deadlock mod construction.
 	@Nullable
-	public static synchronized <T> RegistryType<T> ofKey(ResourceKey<? extends Registry<T>> key) {
+	public static <T> RegistryType<T> ofKey(ResourceKey<? extends Registry<T>> key) {
 		Scanner.startIfNotFrozen();
-		return Cast.to(KEY_MAP.get(key));
+		synchronized (RegistryType.class) {
+			return Cast.to(KEY_MAP.get(key));
+		}
 	}
 
 	@Nullable
-	public static synchronized RegistryType<?> ofType(TypeInfo typeInfo) {
+	public static RegistryType<?> ofType(TypeInfo typeInfo) {
 		Scanner.startIfNotFrozen();
-		return TYPE_MAP.get(typeInfo);
+		synchronized (RegistryType.class) {
+			return TYPE_MAP.get(typeInfo);
+		}
 	}
 
 	@Nullable
-	public static synchronized <T> RegistryType<T> ofClass(Class<T> type) {
+	public static <T> RegistryType<T> ofClass(Class<T> type) {
 		var regList = allOfClass(type);
 		return regList != null && regList.size() == 1 ? regList.getFirst() : null;
 	}
 
-	public static synchronized <T> List<RegistryType<T>> allOfClass(Class<T> type) {
+	public static <T> List<RegistryType<T>> allOfClass(Class<T> type) {
 		Scanner.startIfNotFrozen();
-		return Cast.to(CLASS_MAP.getOrDefault(type, List.of()));
+		synchronized (RegistryType.class) {
+			return Cast.to(CLASS_MAP.getOrDefault(type, List.of()));
+		}
 	}
 
 	@Nullable
-	public static synchronized RegistryType<?> lookup(TypeInfo target) {
+	public static RegistryType<?> lookup(TypeInfo target) {
 		var reg = allOfClass(target.asClass());
 
 		if (reg.size() == 1) {
@@ -110,27 +118,40 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 		private static final Set<String> MODULES_TO_SKIP = Set.of("java.base", "neoforge", "fml_loader", "KubeGroovy");
 		private static final Set<String> NAMESPACES_TO_SKIP = Set.of("neoforge", "minecraft");
 
-		private static boolean frozen = false;
+		// Guards CLASSES_TO_SCAN and SCANNED_CLASSES only. Never hold it while loading or initializing
+		// classes: scan() is reached from ResourceKey.<init>, i.e. from inside other mods' <clinit>.
+		private static final Object PENDING_LOCK = new Object();
+
+		private static volatile boolean frozen = false;
 
 		public static void freeze() {
 			frozen = true;
-			SCANNED_CLASSES.clear();
+			synchronized (PENDING_LOCK) {
+				SCANNED_CLASSES.clear();
+			}
 		}
 
-		public static synchronized void init() {
+		public static void init() {
 			processClass(Stream.of(Registries.class, NeoForgeRegistries.Keys.class));
 		}
 
-		private static synchronized void startIfNotFrozen() {
+		private static void startIfNotFrozen() {
 			if (frozen) {
 				return;
 			}
 
-			//frozen = true;
+			List<String> pending;
+			synchronized (PENDING_LOCK) {
+				if (CLASSES_TO_SCAN.isEmpty()) {
+					return;
+				}
+				pending = List.copyOf(CLASSES_TO_SCAN);
+				SCANNED_CLASSES.addAll(CLASSES_TO_SCAN);
+				CLASSES_TO_SCAN.clear();
+			}
+
 			var startTime = Util.getNanos();
-			processClass(CLASSES_TO_SCAN.stream().map(JavaWrapper::tryLoadClass));
-			SCANNED_CLASSES.addAll(CLASSES_TO_SCAN);
-			CLASSES_TO_SCAN.clear();
+			processClass(pending.stream().map(JavaWrapper::tryLoadClass));
 			KubeGroovy.LOGGER.debug("Took {} ms to discover registry classes.", (int) ((Util.getNanos() - startTime) / 1_000_000));
 		}
 
@@ -173,15 +194,17 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 		}
 
 		private static void processKey(ResourceKey key, ParameterizedType paramType, boolean checkIfContains) {
-			if (checkIfContains && KEY_MAP.get(key) != null) {
-				return;
-			}
 			var type = paramType.getActualTypeArguments()[0];
 			var typeInfo = TypeInfo.of(type);
-			register(key, typeInfo);
+			synchronized (RegistryType.class) {
+				if (checkIfContains && KEY_MAP.get(key) != null) {
+					return;
+				}
+				register(key, typeInfo);
+			}
 		}
 
-		public static synchronized void scan(Identifier registryName, Identifier location) {
+		public static void scan(Identifier registryName, Identifier location) {
 			if (frozen) {
 				return;
 			}
@@ -197,19 +220,21 @@ public record RegistryType<T>(ResourceKey<Registry<T>> key, Class<?> baseClass, 
 			var startTime = Util.getNanos();
 			var stack = Thread.currentThread().getStackTrace();
 
-			for (var stackTraceElement : stack) {
-				var moduleName = stackTraceElement.getModuleName();
-				if (moduleName != null && MODULES_TO_SKIP.contains(moduleName)) {
-					continue;
+			synchronized (PENDING_LOCK) {
+				for (var stackTraceElement : stack) {
+					var moduleName = stackTraceElement.getModuleName();
+					if (moduleName != null && MODULES_TO_SKIP.contains(moduleName)) {
+						continue;
+					}
+
+					var className = stackTraceElement.getClassName();
+
+					if (SCANNED_CLASSES.contains(className)) {
+						continue;
+					}
+
+					CLASSES_TO_SCAN.add(className);
 				}
-
-				var className = stackTraceElement.getClassName();
-
-				if (CLASSES_TO_SCAN.contains(className) || SCANNED_CLASSES.contains(className)) {
-					continue;
-				}
-
-				CLASSES_TO_SCAN.add(className);
 			}
 
 			KubeGroovy.LOGGER.debug("Took {} ms to grab stacktrace classes.", (int) ((Util.getNanos() - startTime) / 1_000_000));
