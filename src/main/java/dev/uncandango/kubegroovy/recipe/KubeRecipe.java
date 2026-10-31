@@ -476,7 +476,13 @@ public class KubeRecipe implements RecipeLikeKGY, GroovyObject {
 			var prefix = gy.id.getNamespace() + ":kgy/" + gy.id.getPath() + "/";
 
 			if (ids == null || ids.isEmpty()) {
+				// exclude the changed marker so the hash doesn't depend on the script line
+				var marker = json.remove(CHANGED_MARKER);
 				ids = StringUtilsWrapper.getUniqueId(json);
+
+				if (marker != null) {
+					json.add(CHANGED_MARKER, marker);
+				}
 			} else {
 				ids = ids.replace(':', '_');
 			}
