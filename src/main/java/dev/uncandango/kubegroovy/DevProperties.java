@@ -43,6 +43,7 @@ public class DevProperties extends BaseProperties {
 	public boolean strictTags;
 	public boolean alwaysCaptureErrors;
 	public boolean reloadOnFileSave;
+	public boolean enableGameTests;
 	public String openUriFormat;
 	public String kubedexSound;
 
@@ -71,6 +72,7 @@ public class DevProperties extends BaseProperties {
 		strictTags = get("strict_tags", false);
 		alwaysCaptureErrors = get("always_capture_errors", false);
 		reloadOnFileSave = get("reload_on_file_save", false);
+		enableGameTests = get("enable_game_tests", false);
 		kubedexSound = get("kubedex_sound", "entity.experience_orb.pickup");
 
 		var format = get("open_uri_format", "vscode");
