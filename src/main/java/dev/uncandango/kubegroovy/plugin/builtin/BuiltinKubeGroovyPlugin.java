@@ -53,6 +53,9 @@ import dev.uncandango.kubegroovy.item.ItemPredicate;
 import dev.uncandango.kubegroovy.item.ItemTintFunction;
 import dev.uncandango.kubegroovy.item.ItemToolMaterials;
 import dev.uncandango.kubegroovy.item.JukeboxSongBuilder;
+import dev.uncandango.kubegroovy.gametest.BlockBasedTestInstanceBuilder;
+import dev.uncandango.kubegroovy.gametest.FunctionTestInstanceBuilder;
+import dev.uncandango.kubegroovy.gametest.TestFunctionBuilder;
 import dev.uncandango.kubegroovy.item.creativetab.CreativeTabBuilder;
 import dev.uncandango.kubegroovy.item.custom.ArmorItemBuilder;
 import dev.uncandango.kubegroovy.item.custom.DiggerItemBuilder;
@@ -236,6 +239,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.JukeboxSong;
+import net.minecraft.gametest.framework.GameTestInstance;
+import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.component.BlockItemStateProperties;
 import net.minecraft.world.item.component.CustomData;
@@ -393,6 +398,12 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.addDefault(Registries.PAINTING_VARIANT, PaintingVariantBuilder.class, PaintingVariantBuilder::new);
 		registry.addDefault(Registries.JUKEBOX_SONG, JukeboxSongBuilder.class, JukeboxSongBuilder::new);
 		registry.addDefault(Registries.ATTRIBUTE, AttributeBuilder.class, AttributeBuilder::new);
+		registry.addDefault(Registries.TEST_FUNCTION, TestFunctionBuilder.class, TestFunctionBuilder::new);
+		registry.addDefault(Registries.TEST_INSTANCE, FunctionTestInstanceBuilder.class, FunctionTestInstanceBuilder::new);
+		registry.of(Registries.TEST_INSTANCE, reg -> {
+			reg.add(KubeGroovy.id("function"), FunctionTestInstanceBuilder.class, FunctionTestInstanceBuilder::new);
+			reg.add(KubeGroovy.id("block_based"), BlockBasedTestInstanceBuilder.class, BlockBasedTestInstanceBuilder::new);
+		});
 	}
 
 	@Override
@@ -423,6 +434,8 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		registry.register(Registries.ENCHANTMENT, Enchantment.DIRECT_CODEC, Enchantment.class);
 		registry.register(Registries.ENCHANTMENT_PROVIDER, EnchantmentProvider.DIRECT_CODEC, EnchantmentProvider.class);
 		registry.register(Registries.JUKEBOX_SONG, JukeboxSong.DIRECT_CODEC, JukeboxSong.class);
+		registry.register(Registries.TEST_INSTANCE, GameTestInstance.DIRECT_CODEC, GameTestInstance.class);
+		registry.register(Registries.TEST_ENVIRONMENT, TestEnvironmentDefinition.DIRECT_CODEC, TypeInfo.of(TestEnvironmentDefinition.class));
 	}
 
 	@Override

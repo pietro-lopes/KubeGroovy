@@ -3,11 +3,18 @@ package dev.uncandango.kubegroovy.testmod.builder;
 import dev.uncandango.kubegroovy.block.DetectorBlock;
 import dev.uncandango.kubegroovy.block.custom.CardinalBlockBuilder;
 import dev.uncandango.kubegroovy.block.custom.PillarBlockBuilder;
+import dev.uncandango.kubegroovy.gametest.ScriptTestFunction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gametest.framework.BlockBasedTestInstance;
+import net.minecraft.gametest.framework.FunctionGameTestInstance;
+import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTestException;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.gametest.framework.GameTestInstance;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.BlockTags;
@@ -26,6 +33,7 @@ import net.minecraft.world.item.ShearsItem;
 import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.component.Weapon;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ButtonBlock;
 import net.minecraft.world.level.block.CarpetBlock;
 import net.minecraft.world.level.block.CropBlock;
@@ -35,6 +43,7 @@ import net.minecraft.world.level.block.FenceBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.PressurePlateBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
@@ -57,6 +66,7 @@ import java.util.List;
 import static dev.uncandango.kubegroovy.testmod.GameAsserts.assertj;
 import static net.minecraft.world.item.CreativeModeTabs.tryRebuildTabContents;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /// Integration for the registry builder examples in `wiki_builders.groovy`. Each active builder family is
 /// exercised through the public Minecraft or NeoForge registry and representative configured values.
@@ -305,6 +315,55 @@ public class RegistryBuilderTests {
 				assertThat(registryValue(helper, Registries.PAINTING_VARIANT, id("coverage_painting"))).isNotNull();
 				assertThat(registryValue(helper, Registries.JUKEBOX_SONG, id("coverage_song"))).isNotNull();
 				assertThat(registryValue(helper, Registries.ATTRIBUTE, id("coverage_range_attribute"))).isInstanceOf(RangedAttribute.class);
+			});
+			helper.succeed();
+		});
+	}
+
+	@GameTest
+	@EmptyTemplate
+	@TestHolder(value = "script_game_tests", description = "Script test_function bodies run and test_instance builders decode with their configured TestData")
+	static void scriptGameTests(final DynamicTest test) {
+		test.onGameTest(helper -> {
+			assertj(helper, () -> {
+				var place = BuiltInRegistries.TEST_FUNCTION.getValue(id("script_test_place"));
+				assertThat(place).as("script test function").isInstanceOf(ScriptTestFunction.class);
+				place.accept(helper);
+				helper.assertBlockPresent(Blocks.STONE, 1, 1, 1);
+
+				var throwing = BuiltInRegistries.TEST_FUNCTION.getValue(id("script_test_throws"));
+				assertThatThrownBy(() -> throwing.accept(helper)).as("script error becomes a test failure")
+					.isInstanceOf(GameTestAssertException.class)
+					.satisfies(ex -> assertThat(((GameTestException) ex).getDescription().getString())
+						.contains("kubegroovy:script_test_throws").contains("script test boom"));
+
+				var generated = registryValue(helper, Registries.TEST_INSTANCE, id("script_test_place"));
+				assertThat(generated).as("generated function instance").isInstanceOf(FunctionGameTestInstance.class);
+				assertThat(generated.structure()).isEqualTo(Identifier.withDefaultNamespace("empty"));
+				assertThat(generated.maxTicks()).isEqualTo(40);
+				assertThat(generated.manualOnly()).isTrue();
+				assertThat(generated.required()).isTrue();
+
+				var rotated = registryValue(helper, Registries.TEST_INSTANCE, id("script_test_place_rotated"));
+				assertThat(rotated).as("function instance").isInstanceOf(FunctionGameTestInstance.class);
+				assertThat(rotated.maxTicks()).isEqualTo(30);
+				assertThat(rotated.setupTicks()).isEqualTo(2);
+				assertThat(rotated.rotation()).isEqualTo(Rotation.CLOCKWISE_90);
+				assertThat(rotated.required()).isFalse();
+				assertThat(rotated.manualOnly()).isTrue();
+				assertThat(rotated.maxAttempts()).isEqualTo(3);
+				assertThat(rotated.requiredSuccesses()).isEqualTo(2);
+				assertThat(rotated.skyAccess()).isTrue();
+				assertThat(rotated.padding()).isEqualTo(4);
+				assertThat(rotated.batch().unwrapKey().map(ResourceKey::identifier))
+					.as("environment").contains(Identifier.withDefaultNamespace("default"));
+				helper.setBlock(new BlockPos(1, 1, 1), Blocks.AIR);
+				rotated.run(helper);
+				helper.assertBlockPresent(Blocks.STONE, 1, 1, 1);
+
+				GameTestInstance blockBased = registryValue(helper, Registries.TEST_INSTANCE, id("script_test_block_based"));
+				assertThat(blockBased).as("block based instance").isInstanceOf(BlockBasedTestInstance.class);
+				assertThat(blockBased.maxTicks()).isEqualTo(10);
 			});
 			helper.succeed();
 		});
