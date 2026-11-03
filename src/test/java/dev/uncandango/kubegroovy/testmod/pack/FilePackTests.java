@@ -1,6 +1,8 @@
 package dev.uncandango.kubegroovy.testmod.pack;
 
 import dev.uncandango.kubegroovy.script.data.GeneratedData;
+import dev.uncandango.kubegroovy.script.data.KubeFileResourcePack;
+import dev.uncandango.kubegroovy.script.data.VirtualResourcePack;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -49,6 +51,18 @@ public class FilePackTests {
 		test.onGameTest(helper -> helper.startSequence()
 			.thenExecute(() -> assertj(helper, () -> {
 				var manager = resources(helper);
+				var packs = manager.listPacks().toList();
+				var originalPacks = packs.stream()
+					.filter(pack -> !(pack instanceof KubeFileResourcePack) && !(pack instanceof VirtualResourcePack))
+					.filter(pack -> !pack.packId().equals("kubegroovy_test.zip"))
+					.toList();
+				int afterModsIndex = KubeFileResourcePack.findAfterModsIndex(originalPacks);
+				assertThat(afterModsIndex).as("original pack boundary").isPositive();
+				int filePackIndex = java.util.stream.IntStream.range(0, packs.size())
+					.filter(i -> packs.get(i) instanceof KubeFileResourcePack)
+					.findFirst().orElseThrow();
+				assertThat(filePackIndex).as("file pack follows the original after-mods boundary")
+					.isGreaterThan(packs.indexOf(originalPacks.get(afterModsIndex - 1)));
 				assertThat(readText(manager, id("kubegroovy:coverage/data.json"))).as("data json").contains("\"coverage\"");
 				assertThat(readText(manager, id("kubegroovy:coverage/note.txt"))).as("note text").contains("file datapack note");
 				assertThat(manager.getResource(id("kubegroovy:coverage/missing_xyz.txt")).isPresent())

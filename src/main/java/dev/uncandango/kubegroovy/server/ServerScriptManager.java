@@ -68,11 +68,11 @@ public class ServerScriptManager extends ScriptManager {
 		filePacks.add(new KubeFileResourcePack(PackType.SERVER_DATA));
 
 		int beforeModsIndex = KubeFileResourcePack.findBeforeModsIndex(packs);
-		int afterModsIndex = KubeFileResourcePack.findAfterModsIndex(packs);
 
 		var manager = new ServerScriptManager(firstLoad);
 
 		packs.add(beforeModsIndex, manager.virtualPacks.get(GeneratedDataStage.BEFORE_MODS));
+		int afterModsIndex = KubeFileResourcePack.findAfterModsIndex(packs);
 		packs.add(afterModsIndex, manager.internalDataPack);
 		packs.add(afterModsIndex + 1, manager.registriesDataPack);
 		packs.add(afterModsIndex + 2, manager.virtualPacks.get(GeneratedDataStage.AFTER_MODS));
