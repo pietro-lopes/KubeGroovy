@@ -254,7 +254,7 @@ public class RecipesKubeEvent implements KubeEvent {
 	}
 
 	private void warnSkip(String s) {
-		if (DevProperties.get().logSkippedRecipes) {
+		if (DevProperties.get().logErroringRecipes || DevProperties.get().logSkippedRecipes) {
 			ConsoleGY.SERVER.warn(s);
 		} else {
 			RecipeManager.LOGGER.warn(s);
@@ -262,7 +262,7 @@ public class RecipesKubeEvent implements KubeEvent {
 	}
 
 	private void errorSkip(String s) {
-		if (DevProperties.get().logSkippedRecipes) {
+		if (DevProperties.get().logErroringRecipes || DevProperties.get().logSkippedRecipes) {
 			ConsoleGY.SERVER.error(s);
 		} else {
 			RecipeManager.LOGGER.error(s);
@@ -372,12 +372,14 @@ public class RecipesKubeEvent implements KubeEvent {
 		if (json instanceof JsonObject obj && obj.has(KubeRecipe.CHANGED_MARKER)) {
 			var sourceLine = SourceLine.fromJson(obj.remove(KubeRecipe.CHANGED_MARKER).getAsJsonObject());
 			if (DevProperties.get().logErroringRecipes) {
-				ConsoleGY.SERVER.error("Error parsing recipe %s (details below this line)".formatted(id), sourceLine, ex, null);
+				ConsoleGY.SERVER.warn("Error parsing recipe %s (details below this line)".formatted(id), sourceLine, ex, null);
 				ConsoleGY.SERVER.stopCapturingErrors();
-				ConsoleGY.SERVER.error("Recipe JSON for %s: %s".formatted(id, json), sourceLine, null, null);
+				ConsoleGY.SERVER.warn("Recipe JSON for %s: %s".formatted(id, json), sourceLine, null, null);
 				ConsoleGY.SERVER.startCapturingErrors();
 			}
 			failedCount++;
+		} else if (DevProperties.get().logErroringRecipes) {
+			ConsoleGY.SERVER.warn("Error parsing recipe " + id, ex);
 		}
 	}
 

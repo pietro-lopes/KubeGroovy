@@ -6,6 +6,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
 import dev.uncandango.kubegroovy.CommonProperties;
+import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.core.RecipeManagerKGY;
 import dev.uncandango.kubegroovy.core.ReloadableServerResourcesKGY;
 import dev.uncandango.kubegroovy.net.KubeServerData;
@@ -30,6 +31,7 @@ import net.minecraft.world.item.crafting.RecipeMap;
 import net.neoforged.neoforge.resource.ContextAwareReloadListener;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.helpers.MessageFormatter;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -45,6 +47,14 @@ import java.util.function.Consumer;
 
 @Mixin(value = RecipeManager.class, priority = 1100)
 public abstract class RecipeManagerMixin extends ContextAwareReloadListener implements RecipeManagerKGY {
+	@WrapOperation(method = "lambda$finalizeRecipeLoading$1", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;)V"))
+	private static void kgy$captureEmptyRecipe(org.slf4j.Logger logger, String message, Object id, Operation<Void> original) {
+		original.call(logger, message, id);
+		if (DevProperties.get().logEmptyRecipes) {
+			ConsoleGY.SERVER.warn(MessageFormatter.format(message, id).getMessage());
+		}
+	}
+
 	@Unique
 	private RecipeManager kgy$self() {
 		return (RecipeManager) (Object) this;

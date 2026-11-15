@@ -2,16 +2,30 @@ package dev.uncandango.kubegroovy.core.mixin;
 
 import com.google.gson.JsonElement;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import dev.uncandango.kubegroovy.DevProperties;
+import dev.uncandango.kubegroovy.script.ConsoleGY;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.serialization.DataResult;
 import dev.uncandango.kubegroovy.recipe.RecipesKubeEvent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import org.slf4j.helpers.MessageFormatter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(SimpleJsonResourceReloadListener.class)
 public class SimpleJsonResourceReloadListenerMixin {
+	@WrapOperation(method = "scanDirectoryWithModifier", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;[Ljava/lang/Object;)V"))
+	private static void kgy$captureInvalidJson(org.slf4j.Logger logger, String message, Object[] args, Operation<Void> original) {
+		original.call(logger, message, args);
+		if (RecipesKubeEvent.INSTANCE.isBound() && DevProperties.get().logErroringRecipes) {
+			var formatted = MessageFormatter.arrayFormat(message, args);
+			ConsoleGY.SERVER.warn(formatted.getMessage(), formatted.getThrowable());
+		}
+	}
+
 	@ModifyExpressionValue(method = "scanDirectoryWithModifier", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/DataResult;ifError(Ljava/util/function/Consumer;)Lcom/mojang/serialization/DataResult;"))
 	private static <T> DataResult<T> onScanDirectoryWithModifier(DataResult<T> result, @Local(name = "id") Identifier id, @Local(name = "json") JsonElement json) {
 		if (result instanceof DataResult.Error<T> error && RecipesKubeEvent.INSTANCE.isBound()) {

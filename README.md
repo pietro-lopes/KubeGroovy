@@ -38,6 +38,14 @@ KubeGroovy is distributed under the GNU Lesser General Public License v3.0, or L
 
 ## Creating addons (WIP)
 
+Recipe and tag diagnostics can be captured in KubeGroovy's server console through `dev.json`:
+
+- `log_empty_recipes` captures warnings for recipes whose ingredients resolve to empty.
+- `log_erroring_recipes` captures malformed recipe warnings, including missing or unknown recipe types and JSON/codec failures.
+- `log_erroring_tags` captures tag errors, including malformed files and missing required references.
+
+`log_empty_recipes` and `log_erroring_tags` default to `false`; `log_erroring_recipes` defaults to `true`. Minecraft's original log messages are preserved when capture is disabled.
+
 ## Contributing to KubeGroovy
 
 ### Getting Started

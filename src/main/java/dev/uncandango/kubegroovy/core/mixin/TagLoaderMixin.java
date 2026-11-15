@@ -1,6 +1,10 @@
 package dev.uncandango.kubegroovy.core.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import dev.uncandango.kubegroovy.DevProperties;
+import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.core.ScriptManagerHolderKGY;
 import dev.uncandango.kubegroovy.core.TagLoaderKGY;
 import dev.uncandango.kubegroovy.plugin.builtin.event.ServerEvents;
@@ -12,6 +16,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.TagLoader;
 import net.minecraft.tags.TagLoader.EntryWithSource;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.helpers.MessageFormatter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,6 +28,23 @@ import java.util.Map;
 
 @Mixin(TagLoader.class)
 public abstract class TagLoaderMixin<T> implements TagLoaderKGY<T> {
+	@WrapOperation(method = "load", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;[Ljava/lang/Object;)V"))
+	private void kgy$captureReadError(org.slf4j.Logger logger, String message, Object[] args, Operation<Void> original) {
+		original.call(logger, message, args);
+		if (ConsoleGY.SERVER != null && DevProperties.get().logErroringTags) {
+			var formatted = MessageFormatter.arrayFormat(message, args);
+			ConsoleGY.SERVER.error(formatted.getMessage(), formatted.getThrowable());
+		}
+	}
+
+	@WrapOperation(method = "lambda$build$2", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
+	private static void kgy$captureBuildError(org.slf4j.Logger logger, String message, Object id, Object missing, Operation<Void> original) {
+		original.call(logger, message, id, missing);
+		if (ConsoleGY.SERVER != null && DevProperties.get().logErroringTags) {
+			ConsoleGY.SERVER.error(MessageFormatter.format(message, id, missing).getMessage());
+		}
+	}
+
 	@Unique
 	private @Nullable ServerScriptManager kgy$serverScriptManager;
 
