@@ -102,6 +102,31 @@ class SandboxSecurityTests {
 		assertEquals("helper", run("class Helper { @groovy.transform.PackageScope static String value() { 'helper' }; private static String hidden() { value() }; static String callHelper() { hidden() } }; Helper.callHelper()", Map.of()));
 	}
 
+	@Test void commonsReflectionAndSerializationHelpersAreRejected() throws Exception {
+		for (var text : List.of(
+			"org.apache.commons.lang3.reflect.FieldUtils.readField(values, 'field', true)",
+			"org.apache.commons.lang3.reflect.FieldUtils.writeField(values, 'field', 'changed', true)",
+			"org.apache.commons.lang3.reflect.FieldUtils.readStaticField(valuesType, 'DANGER', true)",
+			"org.apache.commons.lang3.reflect.FieldUtils.writeStaticField(valuesType, 'DANGER', 'changed', true)",
+			"org.apache.commons.lang3.reflect.MethodUtils.invokeExactMethod(new File('.'), 'exists', [] as Object[], [] as Class[])",
+			"org.apache.commons.lang3.reflect.ConstructorUtils.invokeExactConstructor(org.apache.commons.lang3.mutable.MutableInt, [5] as Object[], [int] as Class[])",
+			"import org.apache.commons.lang3.reflect.FieldUtils as Fields; Fields.readField(values, 'field', true)",
+			"import org.apache.commons.lang3.reflect.*; FieldUtils.readField(values, 'field', true)",
+			"import static org.apache.commons.lang3.reflect.FieldUtils.readField; readField(values, 'field', true)",
+			"org.apache.commons.lang3.SerializationUtils.serialize('hello')",
+			"org.apache.commons.lang3.SerializationUtils.deserialize(bytes)",
+			"org.apache.commons.lang3.SerializationUtils.clone('hello')",
+			"import org.apache.commons.lang3.SerializationUtils as Serialization; Serialization.deserialize(bytes)")) {
+			denied(text, Map.of("values", new Values(), "valuesType", Values.class, "bytes", new byte[0]));
+		}
+		denied("def name = 'readField'; helper.\"$name\"(values, 'field', true)",
+			Map.of("helper", org.apache.commons.lang3.reflect.FieldUtils.class, "values", new Values()));
+		denied("def name = 'deserialize'; helper.\"$name\"(bytes)",
+			Map.of("helper", org.apache.commons.lang3.SerializationUtils.class, "bytes", new byte[0]));
+		assertEquals("safe", run("org.apache.commons.lang3.StringUtils.trim(' safe ')", Map.of()));
+		assertEquals(5, run("new org.apache.commons.lang3.mutable.MutableInt(5).intValue()", Map.of()));
+	}
+
 	@Test void compileTimeEscapeRoutesAreRejected() {
 		for (var text : List.of(
 			"import java.net.Socket; new Socket('127.0.0.1', 9)",

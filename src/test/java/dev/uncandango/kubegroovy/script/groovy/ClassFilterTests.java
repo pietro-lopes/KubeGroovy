@@ -116,7 +116,8 @@ class ClassFilterTests {
 		for (var pkg : List.of("ai.djl", "org.jsoup", "de.keksuccino", "org.apache.logging.log4j.core",
 			"com.electronwill.nightconfig", "crash_assistant_relocated_libs", "dev.kostromdan.mods.crash_assistant",
 			"scala.io", "scala.sys", "com.mojang.realmsclient", "groovy.ui", "dev.langchain4j", "opennlp.tools",
-			"me.lucko.spark", "com.typesafe", "com.moandjiezana", "ai.onnxruntime", "com.euphoriapatches.shadow.com.google.gson")) {
+			"me.lucko.spark", "com.typesafe", "com.moandjiezana", "ai.onnxruntime", "com.euphoriapatches.shadow.com.google.gson",
+			"org.apache.commons.lang3.reflect")) {
 			for (var name : List.of(pkg, pkg + ".Blocked", pkg + ".nested.Blocked", pkg + ".nested.Blocked$Inner")) {
 				assertFalse(filter.isAllowed(name), name);
 			}
@@ -126,6 +127,19 @@ class ClassFilterTests {
 		assertTrue(filter.isAllowed("com.google.gson.Gson"));
 		assertTrue(filter.isAllowed("scala.collection.immutable.List"));
 		assertTrue(filter.isAllowed("com.mojang.serialization.Codec"));
+	}
+
+	@Test void commonsReflectionAndSerializationTypesAreDenied() {
+		var filter = sandbox();
+		for (var type : List.of(org.apache.commons.lang3.reflect.FieldUtils.class,
+			org.apache.commons.lang3.reflect.MethodUtils.class, org.apache.commons.lang3.reflect.ConstructorUtils.class,
+			org.apache.commons.lang3.SerializationUtils.class)) {
+			assertFalse(filter.isAllowed(type.getName()));
+			assertFalse(filter.isAllowed(type));
+			assertFalse(filter.isAllowed(type.arrayType()));
+		}
+		assertTrue(filter.isAllowed(org.apache.commons.lang3.StringUtils.class));
+		assertTrue(filter.isAllowed(org.apache.commons.lang3.mutable.MutableObject.class));
 	}
 
 	@Test void sandboxPackagesAreOrdinaryRules() {

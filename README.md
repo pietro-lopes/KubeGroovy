@@ -14,6 +14,8 @@ Scripts live in the `kubegroovy/` game directory:
 - `server_scripts/` - reloaded with `/reload`
 - `client_scripts/` - reloaded with `F3+T`
 
+Scripts cannot access Apache Commons Lang reflection helpers (`org.apache.commons.lang3.reflect`) or Java serialization helpers (`org.apache.commons.lang3.SerializationUtils`). Other Commons Lang utilities, such as `StringUtils` and mutable value types, remain available under the sandbox policy.
+
 Events are posted to Groovy closures, e.g.:
 
 KubeGroovy script bindings use a `$` prefix, so imported classes keep their

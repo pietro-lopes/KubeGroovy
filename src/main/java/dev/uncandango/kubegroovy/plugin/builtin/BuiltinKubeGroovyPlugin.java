@@ -480,7 +480,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		"io.netty", "ai.djl", "org.jsoup", "de.keksuccino", "org.apache.logging.log4j.core",
 		"com.electronwill.nightconfig", "crash_assistant_relocated_libs", "dev.kostromdan.mods.crash_assistant",
 		"dev.latvian.apps.tinyserver", "com.mojang.realmsclient", "org.lwjgl", "org.apache.commons.io",
-		"org.apache.commons.exec", "org.apache.http", "okhttp3", "com.google.common.io", "org.objectweb.asm",
+		"org.apache.commons.exec", "org.apache.commons.lang3.reflect", "org.apache.http", "okhttp3", "com.google.common.io", "org.objectweb.asm",
 		"org.spongepowered.asm", "scala.sys", "scala.io", "dev.langchain4j", "opennlp.tools", "me.lucko.spark",
 		"com.typesafe", "com.moandjiezana", "ai.onnxruntime", "com.euphoriapatches.shadow.com.google.gson", "groovy.ui",
 		"groovy.grape", "groovy.sql", "groovy.text", "groovy.ant", "groovy.util.AntBuilder", "groovy.util.ConfigSlurper",
@@ -495,6 +495,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		"org.apache.groovy.nio.extensions.NioExtensions"
 	);
 	private static final Set<String> SANDBOX_CLASSES = Set.of(
+		"org.apache.commons.lang3.SerializationUtils",
 		"java.lang.System", "java.lang.Runtime", "java.lang.Process", "java.lang.ProcessBuilder",
 		"java.lang.ProcessHandle", "java.lang.ProcessHandle$Info", "java.lang.ClassLoader", "java.lang.Thread",
 		"java.lang.Thread$Builder", "java.lang.Thread$Builder$OfPlatform", "java.lang.Thread$Builder$OfVirtual",
