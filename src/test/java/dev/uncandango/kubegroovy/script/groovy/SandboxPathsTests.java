@@ -63,6 +63,17 @@ class SandboxPathsTests {
 		assertThrows(IOException.class, () -> SandboxPaths.verify(link, root));
 		assertThrows(IOException.class, () -> SandboxPaths.verify(link.resolve("new/file"), root));
 	}
+	@Test void exportDestinationsCannotEscapeThroughLinksOrSiblingPrefixes() throws Exception {
+		var root = Files.createDirectory(directory.resolve("export"));
+		var outside = Files.createDirectory(directory.resolve("export-other"));
+		assertThrows(IOException.class, () -> SandboxPaths.verifyWithinRoot(outside.resolve("file.txt"), root));
+		var link = root.resolve("link");
+		createDirectoryLink(link, outside);
+		assertThrows(IOException.class, () -> SandboxPaths.verifyWithinRoot(link.resolve("nested/file.txt"), root));
+		var target = Files.writeString(outside.resolve("existing.txt"), "original");
+		assertThrows(IOException.class, () -> SandboxPaths.verifyWithinRoot(link.resolve("existing.txt"), root));
+		assertEquals("original", Files.readString(target));
+	}
 	private static void createDirectoryLink(Path link, Path target) throws Exception {
 		try { Files.createSymbolicLink(link, target); }
 		catch (IOException | UnsupportedOperationException e) {

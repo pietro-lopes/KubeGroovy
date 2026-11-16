@@ -25,6 +25,17 @@ public final class SandboxPaths {
 		return absolute;
 	}
 
+	/// Confine a destination even when the root or destination has not been created yet.
+	public static Path verifyWithinRoot(Path path, Path root) throws IOException {
+		var absoluteRoot = root.toAbsolutePath().normalize();
+		var absolute = (path.isAbsolute() ? path : absoluteRoot.resolve(path)).normalize();
+		if (!absolute.startsWith(absoluteRoot)) throw new IOException("Path is outside root directory: " + path);
+		if (!resolveRealPath(absolute).startsWith(resolveRealPath(absoluteRoot))) {
+			throw new IOException("Path escapes root directory through a link: " + path);
+		}
+		return absolute;
+	}
+
 	private static Path resolveRealPath(Path absolute) throws IOException {
 		var ancestor = absolute;
 		while (!Files.exists(ancestor, LinkOption.NOFOLLOW_LINKS)) {

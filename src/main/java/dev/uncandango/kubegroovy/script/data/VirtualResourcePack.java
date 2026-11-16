@@ -2,9 +2,12 @@ package dev.uncandango.kubegroovy.script.data;
 
 import dev.uncandango.kubegroovy.DevProperties;
 import dev.uncandango.kubegroovy.KubeGroovy;
+import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.generator.KubeResourceGenerator;
 import dev.uncandango.kubegroovy.plugin.builtin.wrapper.TextIcons;
 import dev.uncandango.kubegroovy.script.ScriptType;
+import dev.uncandango.kubegroovy.script.groovy.SandboxPaths;
+import dev.uncandango.kubegroovy.script.groovy.SandboxRuntime;
 import dev.uncandango.kubegroovy.util.RegistryAccessContainer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -149,8 +152,12 @@ public class VirtualResourcePack extends AbstractPackResources implements KubeRe
 
 	@Override
 	public void export(Path root) throws IOException {
+		var exportRoot = root.toAbsolutePath().normalize();
 		for (var file : pathToData.entrySet()) {
-			var path = root.resolve(file.getKey());
+			var path = SandboxPaths.verifyWithinRoot(exportRoot.resolve(file.getKey()), exportRoot);
+			if (SandboxRuntime.inScript()) {
+				path = KubeGroovyPaths.verifyFilePath(path);
+			}
 			var parent = path.getParent();
 
 			if (Files.notExists(parent)) {

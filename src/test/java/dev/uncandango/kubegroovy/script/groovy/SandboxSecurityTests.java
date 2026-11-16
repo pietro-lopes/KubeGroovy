@@ -1,13 +1,19 @@
 package dev.uncandango.kubegroovy.groovytest;
 
+import dev.uncandango.kubegroovy.KubeGroovyPaths;
 import dev.uncandango.kubegroovy.script.ScriptManager;
 import dev.uncandango.kubegroovy.script.ScriptType;
+import dev.uncandango.kubegroovy.script.data.GeneratedData;
+import dev.uncandango.kubegroovy.script.data.GeneratedDataStage;
+import dev.uncandango.kubegroovy.script.data.VirtualResourcePack;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovyClassLoader;
 import dev.uncandango.kubegroovy.script.groovy.KubeGroovySandbox;
 import dev.uncandango.kubegroovy.script.groovy.SandboxRuntime;
 import groovy.lang.Binding;
 import groovy.lang.Closure;
 import groovy.lang.Script;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
 import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -16,6 +22,7 @@ import org.codehaus.groovy.control.customizers.CompilationCustomizer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
@@ -97,6 +104,16 @@ class SandboxSecurityTests {
 			"import net.minecraft.util.*; Util.getPlatform()",
 			"import static net.minecraft.util.Util.getPlatform; getPlatform()")) denied(text, Map.of());
 		denied("def name = 'getPlatform'; helper.\"$name\"()", Map.of("helper", net.minecraft.util.Util.class));
+	}
+
+	@Test void virtualPackExportChecksTheResolvedScriptDestination() {
+		var pack = new VirtualResourcePack(ScriptType.SERVER, PackType.SERVER_DATA, GeneratedDataStage.LAST, () -> null);
+		pack.add(new GeneratedData(
+			Identifier.fromNamespaceAndPath("a", "../../mods/export-marker.txt"),
+			() -> { throw new AssertionError("Blocked export content was evaluated"); }));
+		var error = assertThrows(IOException.class, () -> run("pack.export(root)",
+			Map.of("pack", pack, "root", KubeGroovyPaths.GAMEDIR)));
+		assertTrue(error.getMessage().contains("mods directory"), error.getMessage());
 	}
 
 	@Test void packagePrivateStaticJavaCallsAreRejected() throws Exception {
