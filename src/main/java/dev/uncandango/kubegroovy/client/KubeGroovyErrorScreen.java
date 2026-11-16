@@ -1,8 +1,6 @@
 package dev.uncandango.kubegroovy.client;
 
-import dev.latvian.mods.betteradvancedtooltips.BATIcons;
 import dev.uncandango.kubegroovy.CommonProperties;
-import dev.uncandango.kubegroovy.plugin.builtin.wrapper.TextIcons;
 import dev.uncandango.kubegroovy.script.ConsoleGY;
 import dev.uncandango.kubegroovy.script.ConsoleLine;
 import dev.uncandango.kubegroovy.script.ScriptType;
@@ -346,17 +344,7 @@ public class KubeGroovyErrorScreen extends Screen {
 					}
 
 					if (ln > 0) {
-						var comp = Component.empty();
-						comp.append("Double-click to open file");
-
-						if (EditorExt.isKnownVSCode()) {
-							comp.append(" in ");
-							comp.append(TextIcons.VSCODE);
-							comp.append(BATIcons.SMALL_SPACE);
-							comp.append(Component.literal("VSCode").withColor(0x22A7F2));
-						}
-
-						lines.addAll(minecraft.font.split(comp, 1000));
+						lines.addAll(minecraft.font.split(Component.literal("Double-click to open file"), 1000));
 					}
 
 					for (var sl : line.sourceLines) {
@@ -421,16 +409,7 @@ public class KubeGroovyErrorScreen extends Screen {
 						path = path.getParent();
 					}
 
-					int ln = 1;
-
-					for (var line : line.sourceLines) {
-						if (line.line() > 0 && isScriptSource(line.source())) {
-							ln = line.line();
-							break;
-						}
-					}
-
-					EditorExt.openFile(path, ln, 0);
+					Util.getPlatform().openPath(path);
 				}
 			}
 		}

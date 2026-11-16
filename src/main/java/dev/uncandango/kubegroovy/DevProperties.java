@@ -4,10 +4,6 @@ import dev.uncandango.kubegroovy.util.BaseProperties;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Locale;
-
-import static dev.uncandango.kubegroovy.client.EditorExt.*;
-
 @NullUnmarked
 public class DevProperties extends BaseProperties {
 	private static @Nullable DevProperties instance;
@@ -46,7 +42,6 @@ public class DevProperties extends BaseProperties {
 	public boolean alwaysCaptureErrors;
 	public boolean reloadOnFileSave;
 	public boolean enableGameTests;
-	public String openUriFormat;
 	public String kubedexSound;
 
 	private DevProperties() {
@@ -78,13 +73,5 @@ public class DevProperties extends BaseProperties {
 		reloadOnFileSave = get("reload_on_file_save", false);
 		enableGameTests = get("enable_game_tests", false);
 		kubedexSound = get("kubedex_sound", "entity.experience_orb.pickup");
-
-		var format = get("open_uri_format", "vscode");
-		openUriFormat = switch (format.toLowerCase(Locale.ROOT)) {
-			case "vscode" -> VSCODE;
-			case "vscodium" -> VSCODIUM;
-			case "vscode-oss" -> VSCODE_OSS;
-			default -> format;
-		};
 	}
 }

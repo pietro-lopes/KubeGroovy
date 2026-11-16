@@ -2,7 +2,6 @@ import dev.uncandango.kubegroovy.block.BlockTintFunction
 import dev.uncandango.kubegroovy.client.AtlasSpriteRegistryKubeEvent
 import dev.uncandango.kubegroovy.client.BlockTintFunctionWrapper
 import dev.uncandango.kubegroovy.client.ClientProperties
-import dev.uncandango.kubegroovy.client.EditorExt
 import dev.uncandango.kubegroovy.client.FluidTintFunctionWrapper
 import dev.uncandango.kubegroovy.client.icon.AtlasSpriteKubeIcon
 import dev.uncandango.kubegroovy.client.icon.ItemKubeIcon
@@ -294,7 +293,6 @@ $TestRuntime.check('client.wrapper.clientProps') {
 	$TestRuntime.assertThat(props.windowTitle != null).isTrue()
 	$TestRuntime.assertThat(props.disableRecipeBook == true || props.disableRecipeBook == false).isTrue()
 	$TestRuntime.assertThat(props.exportAtlases == true || props.exportAtlases == false).isTrue()
-	$TestRuntime.assertThat(EditorExt.isKnownVSCode() == true || EditorExt.isKnownVSCode() == false).isTrue()
 }
 
 $TestRuntime.check('client.wrapper.keybinds') {
