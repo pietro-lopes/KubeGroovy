@@ -495,6 +495,7 @@ public class BuiltinKubeGroovyPlugin implements KubeGroovyPlugin {
 		"org.apache.groovy.nio.extensions.NioExtensions"
 	);
 	private static final Set<String> SANDBOX_CLASSES = Set.of(
+		"net.minecraft.util.Util",
 		"org.apache.commons.lang3.SerializationUtils",
 		"java.lang.System", "java.lang.Runtime", "java.lang.Process", "java.lang.ProcessBuilder",
 		"java.lang.ProcessHandle", "java.lang.ProcessHandle$Info", "java.lang.ClassLoader", "java.lang.Thread",

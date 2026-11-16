@@ -129,6 +129,18 @@ class ClassFilterTests {
 		assertTrue(filter.isAllowed("com.mojang.serialization.Codec"));
 	}
 
+	@Test void minecraftUtilIsDenied() throws Exception {
+		var filter = sandbox();
+		var type = net.minecraft.util.Util.class;
+		assertFalse(filter.isAllowed(type.getName()));
+		assertFalse(filter.isAllowed(type));
+		assertFalse(filter.isAllowed(type.arrayType()));
+		assertFalse(filter.isMethodAllowed(type, type.getMethod("getPlatform")));
+		filter.allow(type);
+		assertFalse(filter.isAllowed(type), "exact class denies still win");
+		assertTrue(filter.isAllowed("net.minecraft.util.Utilish"));
+	}
+
 	@Test void commonsReflectionAndSerializationTypesAreDenied() {
 		var filter = sandbox();
 		for (var type : List.of(org.apache.commons.lang3.reflect.FieldUtils.class,

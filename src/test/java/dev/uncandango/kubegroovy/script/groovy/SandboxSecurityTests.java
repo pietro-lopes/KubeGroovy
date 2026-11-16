@@ -90,6 +90,15 @@ class SandboxSecurityTests {
 		denied("pane.text", Map.of("pane", editor));
 	}
 
+	@Test void minecraftUtilCallsAreRejected() {
+		for (var text : List.of(
+			"net.minecraft.util.Util.getPlatform()",
+			"import net.minecraft.util.Util as Utils; Utils.getPlatform()",
+			"import net.minecraft.util.*; Util.getPlatform()",
+			"import static net.minecraft.util.Util.getPlatform; getPlatform()")) denied(text, Map.of());
+		denied("def name = 'getPlatform'; helper.\"$name\"()", Map.of("helper", net.minecraft.util.Util.class));
+	}
+
 	@Test void packagePrivateStaticJavaCallsAreRejected() throws Exception {
 		Visibility.calls = 0;
 		var prefix = "import dev.uncandango.kubegroovy.groovytest.SandboxSecurityTests.Visibility; ";
